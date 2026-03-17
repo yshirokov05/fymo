@@ -246,8 +246,9 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 # Helper to strip rewards-related strings and mask
                 def clean_debt_name(s, m):
                     if not s: return ""
-                    # Strip rewards keywords
-                    keywords = ['ultimate rewards', 'ultimate', 'rewards', 'points', 'cash back', 'preferred']
+                    # Strip rewards keywords - be careful not to strip product names
+                    # 'preferred' and 'reserve' are product tiers, keep them.
+                    keywords = ['ultimate rewards', 'ultimate', 'rewards', 'points', 'cash back']
                     for kw in keywords:
                         s = re.sub(rf'\b{kw}\b', '', s, flags=re.IGNORECASE)
                     # Strip mask if present
@@ -259,17 +260,33 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                     s = re.sub(r'\s+', ' ', s).strip(' -')
                     return s
 
-                display_name = clean_debt_name(display_name, mask)
-                official_name = clean_debt_name(official_name, mask)
+                c_display = clean_debt_name(display_name, mask)
+                c_official = clean_debt_name(official_name, mask)
                 
-                # If name is point-focused or now empty, try official name
-                if not display_name or any(kw in display_name.lower() for kw in ['rewards', 'points']):
-                    if official_name and any(kw in official_name.lower() for kw in ['card', 'visa', 'mastercard', 'amex', 'chase', 'gold', 'sapphire']):
-                        display_name = official_name
+                # Check for specific product identifiers in any field
+                product_keywords = ['sapphire', 'reserve', 'preferred', 'gold', 'platinum', 'business', 'ink', 'freedom']
                 
-                # Final fallback for generic names - use the clean name or just 'Credit Card'
-                if not display_name or len(display_name) < 3:
-                    display_name = "Credit Card" # Better default than raw Plaid name
+                # If official name has the brand/product but display doesn't, use official
+                found_product = next((kw for kw in product_keywords if kw in official_name.lower()), None)
+                if found_product and found_product not in c_display.lower():
+                    # Check if official name has "Chase" or "American Express" etc.
+                    display_name = c_official
+                else:
+                    display_name = c_display
+
+                # Final refinement: if it's just "Credit Card" but we know it's Chase (from institution or name)
+                if len(display_name) < 12 and 'chase' not in display_name.lower():
+                    if 'chase' in official_name.lower() or 'chase' in acc.get('name', '').lower():
+                        display_name = f"Chase {display_name}" if display_name.lower() != 'credit card' else "Chase Credit Card"
+                
+                # Ensure it's not JUST "Chase" or JUST "Credit Card" if better info exists
+                if display_name.lower() in ['chase', 'credit card'] and c_official:
+                    display_name = c_official
+                
+                # Special Case: user's specific examples
+                for product in ['Sapphire', 'Reserve', 'Preferred']:
+                    if product.lower() in official_name.lower() and product.lower() not in display_name.lower():
+                        display_name = f"{display_name} {product}".replace("  ", " ").strip()
 
                 new_debts.append(Debt(
                     name=display_name,

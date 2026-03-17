@@ -596,12 +596,18 @@ def plaid_sync():
                 # we only preserve it if the old name DOESN'T look like a generated one.
                 import re
                 if prev_debt.name != nd.name:
-                    is_old_name_generated = any(kw in prev_debt.name.lower() for kw in ['rewards', 'points', 'cash back']) or re.search(r'-\d{4}', prev_debt.name)
+                    # Treat generic or reward-heavy names as generated
+                    generic_names = ['credit card', 'chase credit card', 'chase']
+                    is_old_name_generated = (
+                        any(kw in prev_debt.name.lower() for kw in ['rewards', 'points', 'cash back']) or 
+                        re.search(r'-\d{4}', prev_debt.name) or
+                        prev_debt.name.lower() in generic_names
+                    )
                     if not is_old_name_generated:
                         logging.info(f"Preserving manual name override: {prev_debt.name} (synced as: {nd.name})")
                         nd.name = prev_debt.name
                     else:
-                        logging.info(f"Overwriting generated name '{prev_debt.name}' with clean synced name '{nd.name}'")
+                        logging.info(f"Overwriting generated/generic name '{prev_debt.name}' with specific synced name '{nd.name}'")
         
         # Keep only manual/offline debts
         debts = [d for d in debts if not d.plaid_account_id]
