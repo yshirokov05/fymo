@@ -1,0 +1,28 @@
+node_modules/
+dist/
+build/
+*.log
+*_log.txt
+.env
+.env.local
+
+# User Data & Sensitive Files
+users.json
+2FA Confirmation.png
+Financial_HQ_*_Policy.pdf
+wipe_user_transactions.py
+
+# Firebase
+.firebase/
+
+firebase-debug.log
+firebase-debug.*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.swp
+.DS_Store

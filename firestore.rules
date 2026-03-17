@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Standard User Data Isolation
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // 2. Whitelist Protection
+    match /whitelist/{docId} {
+      // Only the Owner (you) can see the full whitelist
+      // Users can only read their own whitelist status to check if they are premium
+      allow read: if request.auth != null && (request.auth.uid == docId || request.auth.token.email == 'yshirokov05@gmail.com');
+      allow write: if request.auth != null && request.auth.token.email == 'yshirokov05@gmail.com';
+    }
+
+    // 3. Global Deny (Default Security)
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
