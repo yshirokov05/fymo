@@ -11,7 +11,7 @@ from plaid.model.transactions_get_request_options import TransactionsGetRequestO
 from plaid.model.liabilities_get_request import LiabilitiesGetRequest
 from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
-from models import Asset, AssetType, RetirementAccount, AccountType, Transaction, TaxTreatment, DebtType
+from models import Asset, AssetType, RetirementAccount, AccountType, Transaction, Debt, Paystub, TaxTreatment, DebtType
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
@@ -49,7 +49,7 @@ def create_link_token(user_id):
     try:
         args = {
             "products": [Products('transactions')],
-            "optional_products": [Products('investments'), Products('liabilities')],
+            "optional_products": [Products('investments'), Products('liabilities'), Products('auth'), Products('identity')],
             "client_name": "Financial HQ",
             "country_codes": [CountryCode('US')],
             "language": 'en',
@@ -74,7 +74,7 @@ def create_update_token(user_id, access_token):
     try:
         request = LinkTokenCreateRequest(
             products=[Products('transactions')],
-            optional_products=[Products('investments'), Products('liabilities')],
+            optional_products=[Products('investments'), Products('liabilities'), Products('auth'), Products('identity')],
             client_name="Financial HQ",
             country_codes=[CountryCode('US')],
             language='en',
@@ -94,8 +94,7 @@ def exchange_public_token(public_token):
     response = client.item_public_token_exchange(request)
     return response.to_dict() # includes access_token and item_id
 
-from models import Asset, AssetType, RetirementAccount, AccountType, Transaction, Debt, Paystub, TaxTreatment, DebtType
-from datetime import datetime, timedelta
+
 
 def categorize_transaction(name, plaid_categories, custom_rules=None):
     """

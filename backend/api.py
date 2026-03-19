@@ -12,6 +12,7 @@ import advisor_service
 import os
 from datetime import datetime, timedelta
 import logging
+import firestore_db
 
 app = Flask(__name__)
 # SEC-4: Restrict CORS
@@ -278,8 +279,9 @@ def get_net_worth():
     return jsonify(net_worth_data)
 
 @app.route('/api/initialize_sample_data', methods=['POST'])
-@auth_required
+@token_required
 def initialize_sample_data():
+    uid = "demo_user" if request.uid == "guest" else request.uid
     """Initializes a user's account with realistic sample data for evaluation."""
     # ARCH-4: Rate limit this to avoid abuse
     if not check_rate_limit(request.uid, 'initialize_sample_data', limit_per_hour=5):
@@ -338,9 +340,9 @@ def initialize_sample_data():
 
     # 4. Create Sample Budgets
     sample_budgets = [
-        Budget(id=str(uuid.uuid4()), user_id=request.uid, category='Grocery', limit_amount=800, period='MONTHLY'),
-        Budget(id=str(uuid.uuid4()), user_id=request.uid, category='Dining', limit_amount=500, period='MONTHLY'),
-        Budget(id=str(uuid.uuid4()), user_id=request.uid, category='Travel', limit_amount=300, period='MONTHLY')
+        Budget(id=str(uuid.uuid4()), user_id=uid, category='Grocery', limit_amount=800, period='MONTHLY'),
+        Budget(id=str(uuid.uuid4()), user_id=uid, category='Dining', limit_amount=500, period='MONTHLY'),
+        Budget(id=str(uuid.uuid4()), user_id=uid, category='Travel', limit_amount=300, period='MONTHLY')
     ]
 
     # 5. Create Sample Transactions
@@ -360,7 +362,7 @@ def initialize_sample_data():
         m_name, m_cat, m_amt = random.choice(merchants)
         sample_transactions.append(Transaction(
             id=str(uuid.uuid4()),
-            user_id=request.uid,
+            user_id=uid,
             amount=m_amt + (random.random() * 5),
             date=(datetime.now() - timedelta(days=random.randint(0, 30))).strftime('%Y-%m-%d'),
             name=m_name,
@@ -368,8 +370,8 @@ def initialize_sample_data():
         ))
 
     # Save everything
-    user, _, _, _, _, _, plaid_items, _, _, _, custom_rules = get_user_data(user_id=request.uid)
-    save_user_data(user, [sample_income], sample_assets, sample_debts, [], [], plaid_items=plaid_items, budgets=sample_budgets, transactions=sample_transactions, user_id=request.uid)
+    user, _, _, _, _, _, plaid_items, _, _, _, custom_rules = get_user_data(user_id=uid)
+    save_user_data(user, [sample_income], sample_assets, sample_debts, [], [], plaid_items=plaid_items, budgets=sample_budgets, transactions=sample_transactions, user_id=uid)
 
     # Return the new state
     tickers = [a.ticker for a in sample_assets]
@@ -379,17 +381,16 @@ def initialize_sample_data():
     net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in sample_assets]
     net_worth_data['incomes'] = [income_to_dict(sample_income)]
     net_worth_data['debts'] = [debt_to_dict(d) for d in sample_debts]
-    net_worth_data['budgets'] = [budget_to_dict(b) for b in sample_budgets]
-    net_worth_data['transactions'] = [transaction_to_dict(t) for t in sample_transactions]
-    net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
+    net_worth_data['is_authorized'] = is_user_authorized(uid, getattr(request, 'email', None))
     
     return jsonify(net_worth_data)
 
 @app.route('/api/portfolio', methods=['PUT'])
-@auth_required
+@token_required
 def update_portfolio():
     data = request.get_json()
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories = get_user_data(user_id=request.uid)
+    uid = "demo_user" if request.uid == "guest" else request.uid
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories = get_user_data(user_id=uid)
 
     if 'retirement_accounts' in data:
         retirement_accounts = [RetirementAccount(id=ra_data.get('id') or str(uuid.uuid4()), name=ra_data['name'], account_type=safe_enum(AccountType, ra_data['account_type'], AccountType.TRADITIONAL_IRA), contributions_2025=float(ra_data.get('contributions_2025', 0)), contributions_2026=float(ra_data.get('contributions_2026', 0))) for ra_data in data['retirement_accounts']]
@@ -473,17 +474,19 @@ def update_portfolio():
         ) for debt_data in data['debts']]
 
     if 'budgets' in data:
-        budgets = [Budget(id=b.get('id', str(uuid.uuid4())), user_id=request.uid, category=b['category'], limit_amount=float(b['limit_amount']), period=b.get('period', 'MONTHLY')) for b in data['budgets']]
+        uid_for_ids = "demo_user" if request.uid == "guest" else request.uid
+        budgets = [Budget(id=b.get('id', str(uuid.uuid4())), user_id=uid_for_ids, category=b['category'], limit_amount=float(b['limit_amount']), period=b.get('period', 'MONTHLY')) for b in data['budgets']]
 
     if 'paystubs' in data:
-        paystubs = [Paystub(id=p.get('id', str(uuid.uuid4())), user_id=request.uid, date=p['date'], gross_amount=float(p['gross_amount']), net_amount=float(p.get('net_amount', 0)), tax_withheld=float(p.get('tax_withheld', 0)), employer=p.get('employer')) for p in data['paystubs']]
+        uid_for_ids = "demo_user" if request.uid == "guest" else request.uid
+        paystubs = [Paystub(id=p.get('id', str(uuid.uuid4())), user_id=uid_for_ids, date=p['date'], gross_amount=float(p['gross_amount']), net_amount=float(p.get('net_amount', 0)), tax_withheld=float(p.get('tax_withheld', 0)), employer=p.get('employer')) for p in data['paystubs']]
 
     if data.get('clear_all_transactions'):
         transactions = []
         
     if data.get('clear_all_data'):
         incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs = [], [], [], [], [], [], [], [], []
-        wipe_user_subcollections(request.uid)
+        wipe_user_subcollections(uid)
 
     if data.get('clear_orphaned_plaid'):
         # Keep only data that belongs to a CURRENTLY active Plaid Item
@@ -501,7 +504,7 @@ def update_portfolio():
         # Actually, let's just keep the active institution's transactions if we can.
         # This is complex, so let's stick to Assets and Debts which are the main "ghost" issues.
 
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, user_id=request.uid)
+    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, user_id=uid)
 
     price_map = get_multiple_prices([a.ticker for a in assets])
     
@@ -515,7 +518,7 @@ def update_portfolio():
     net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
     net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
     net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
-    net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
+    net_worth_data['is_authorized'] = is_user_authorized(uid, getattr(request, 'email', None))
     return jsonify(net_worth_data)
 
 @app.route('/api/plaid_sync', methods=['POST'])
@@ -551,7 +554,12 @@ def plaid_sync():
         new_asset_plaid_ids = {a.plaid_account_id for a in all_new_assets if a.plaid_account_id}
         new_debt_plaid_ids = {d.plaid_account_id for d in all_new_debts if d.plaid_account_id}
         
-        assets = [a for a in assets if not a.plaid_account_id or (a.plaid_account_id not in new_asset_plaid_ids and a.plaid_account_id not in new_debt_plaid_ids)]
+        # Filter out existing Plaid assets that are about to be replaced by new assets OR new debts
+        # Debt IDs are typically 'account_id', Asset IDs are 'account_id_security_id'
+        assets = [a for a in assets if not a.plaid_account_id or (
+            a.plaid_account_id not in new_asset_plaid_ids and 
+            not any(a.plaid_account_id.startswith(debt_id) for debt_id in new_debt_plaid_ids)
+        )]
         
         # Combine existing manual/other assets with newly synced assets
         # Combine by (ticker, retirement_account_id) for consistency
@@ -652,24 +660,24 @@ def plaid_sync():
         return jsonify({'error': f"Synchronization error: {str(e)}"}), 500
 
 @app.route('/api/user/onboarding_complete', methods=['PUT'])
-@auth_required
+@token_required
 def onboarding_complete():
-    if not is_user_authorized(request.uid, getattr(request, 'email', None)):
-        return jsonify({'error': "Access restricted."}), 403
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, custom_categories = get_user_data(user_id=request.uid)
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=True, custom_categories=custom_categories, user_id=request.uid)
+    uid = "demo_user" if request.uid == "guest" else request.uid
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, custom_categories = get_user_data(user_id=uid)
+    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=True, custom_categories=custom_categories, user_id=uid)
     return jsonify({'success': True})
 
 @app.route('/api/user_tax_info', methods=['PUT'])
-@auth_required
+@token_required
 def update_user_tax_info():
     data = request.get_json()
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories = get_user_data(user_id=request.uid)
+    uid = "demo_user" if request.uid == "guest" else request.uid
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories = get_user_data(user_id=uid)
     
     if data.get('filing_status'): user.filing_status = safe_enum(FilingStatus, data['filing_status'], FilingStatus.SINGLE)
     if data.get('state'): user.state = safe_enum(USState, data['state'], USState.CA)
     
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, user_id=request.uid)
+    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, user_id=uid)
 
     price_map = get_multiple_prices([a.ticker for a in assets])
     
@@ -684,7 +692,7 @@ def update_user_tax_info():
     net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
     net_worth_data['filing_status'] = user.filing_status.name
     net_worth_data['state'] = user.state.name
-    net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
+    net_worth_data['is_authorized'] = is_user_authorized(uid, getattr(request, 'email', None))
     return jsonify(net_worth_data)
 
 @app.route('/api/create_link_token', methods=['POST'])
@@ -877,6 +885,24 @@ def remove_institution():
 
     save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, user_id=request.uid)
     return jsonify({'success': True})
+
+@app.route('/api/feedback', methods=['POST'])
+@token_required
+def submit_feedback():
+    data = request.get_json()
+    topic = data.get('topic')
+    content = data.get('content')
+    severity = data.get('severity', 'LOW')
+    email = getattr(request, 'email', 'Guest/Anonymous')
+    
+    if not topic or not content:
+        return jsonify({'error': "Missing topic or content"}), 400
+        
+    success = firestore_db.save_feedback(request.uid, email, topic, content, severity)
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': "Failed to save feedback"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

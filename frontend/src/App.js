@@ -14,6 +14,7 @@ import Modal from './components/Modal';
 import Login from './components/Login';
 import DataPrivacyFAQ from './components/DataPrivacyFAQ';
 import Onboarding from './components/Onboarding';
+import FeedbackModal from './components/FeedbackModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RefreshCw, CreditCard } from 'lucide-react';
 
@@ -78,9 +79,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [customCategories, setCustomCategories] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTab, setModalTab] = useState('income');
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -181,6 +183,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             };
         }
         const response = await axios.put('/api/portfolio', portfolioData, headers);
+        // ... (data setting)
         setAssets(response.data.assets || []);
         setIncomes(response.data.incomes || []);
         setDebts(response.data.debts || []);
@@ -302,10 +305,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
   const handleUpdateTaxInfo = async (info) => {
     try {
-        const token = await currentUser.getIdToken();
-        const response = await axios.put('/api/user_tax_info', info, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        let headers = {};
+        if (!isGuest && currentUser) {
+            const token = await currentUser.getIdToken();
+            headers = {
+                headers: { Authorization: `Bearer ${token}` }
+            };
+        }
+        const response = await axios.put('/api/user_tax_info', info, headers);
         setTaxDetails(response.data.tax_details || {});
         setUserTaxInfo({
             filing_status: response.data.filing_status,
@@ -318,10 +325,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
   const handleSaveBudgets = async (newBudgets) => {
     try {
-        const token = await currentUser.getIdToken();
-        const response = await axios.put('/api/portfolio', { budgets: newBudgets }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        let headers = {};
+        if (!isGuest && currentUser) {
+            const token = await currentUser.getIdToken();
+            headers = {
+                headers: { Authorization: `Bearer ${token}` }
+            };
+        }
+        const response = await axios.put('/api/portfolio', { budgets: newBudgets }, headers);
         setBudgets(response.data.budgets || []);
     } catch (error) {
         setError("Failed to save budgets: " + error.message);
@@ -330,7 +341,13 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
   const handleUpdateHistoricalIncome = async (amount) => {
     try {
-        const token = await currentUser.getIdToken();
+        let headers = {};
+        if (!isGuest && currentUser) {
+            const token = await currentUser.getIdToken();
+            headers = {
+                headers: { Authorization: `Bearer ${token}` }
+            };
+        }
         // Remove ANY existing income for the historical year to avoid duplicates
         const otherIncomes = incomes.filter(inc => inc.year !== selectedTaxYear);
         const newIncome = {
@@ -340,9 +357,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         };
         const updatedIncomes = [...otherIncomes, newIncome];
         
-        const response = await axios.put('/api/portfolio', { incomes: updatedIncomes }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await axios.put('/api/portfolio', { incomes: updatedIncomes }, headers);
         
         // Refresh all state from the response
         setAssets(response.data.assets || []);
@@ -399,10 +414,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
   const handleSavePaystubs = async (newPaystubs) => {
     try {
-        const token = await currentUser.getIdToken();
-        const response = await axios.put('/api/portfolio', { paystubs: newPaystubs }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        let headers = {};
+        if (!isGuest && currentUser) {
+            const token = await currentUser.getIdToken();
+            headers = {
+              headers: { Authorization: `Bearer ${token}` }
+            };
+        }
+        const response = await axios.put('/api/portfolio', { paystubs: newPaystubs }, headers);
         setPaystubs(response.data.paystubs || []);
     } catch (error) {
         setError("Failed to save paystubs: " + error.message);
@@ -628,10 +647,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 customCategories={customCategories}
                 onSaveCustomCategories={async (cats) => {
                     try {
-                        const token = await currentUser.getIdToken();
-                        const response = await axios.put('/api/portfolio', { custom_categories: cats }, {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
+                        let headers = {};
+                        if (!isGuest && currentUser) {
+                            const token = await currentUser.getIdToken();
+                            headers = {
+                                headers: { Authorization: `Bearer ${token}` }
+                            };
+                        }
+                        const response = await axios.put('/api/portfolio', { custom_categories: cats }, headers);
                         setCustomCategories(response.data.custom_categories || []);
                     } catch (err) {
                         alert("Failed to save categories: " + err.message);
@@ -672,7 +695,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   }
 
   return (
-    <Layout activeView={activeView} setActiveView={setActiveView} isPremium={isPremium}>
+    <Layout activeView={activeView} setActiveView={setActiveView} isPremium={isPremium} onOpenFeedback={() => setIsFeedbackOpen(true)}>
       {renderContent()}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Edit Portfolio">
         <EditPortfolio 
@@ -685,6 +708,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             initialTab={modalTab} 
         /> 
       </Modal>
+      <FeedbackModal 
+        isOpen={isFeedbackOpen} 
+        onClose={() => setIsFeedbackOpen(false)} 
+        userEmail={currentUser?.email}
+        uid={currentUser?.uid || 'guest'}
+      />
     </Layout>
   );
 }

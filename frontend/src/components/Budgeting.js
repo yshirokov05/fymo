@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Card from './Card';
 import axios from 'axios';
-import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, X } from 'lucide-react';
+import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, X, CreditCard } from 'lucide-react';
 
 const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCategories = [], fetchData }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -18,6 +18,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         { name: 'Personal Care', icon: <Zap size={16} /> },
         { name: 'Entertainment', icon: <PlayCircle size={16} /> },
         { name: 'Utilities', icon: <Zap size={16} /> },
+        { name: 'Debit Card', icon: <CreditCard size={16} /> },
         { name: 'Other', icon: <PieChart size={16} /> },
     ];
     
@@ -298,7 +299,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             <select 
                                                 value={getTransactionCategory(t)} 
                                                 onChange={(e) => handleCategoryChange(t, e.target.value)}
-                                                className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase border-none text-center cursor-pointer hover:bg-gray-200 transition-colors apperaance-none"
+                                                className="px-2 py-1 bg-white border border-gray-200 text-gray-600 rounded text-[10px] font-bold uppercase cursor-pointer hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                             >
                                                 <option value="Uncategorized">UNCATEGORIZED</option>
                                                 {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}

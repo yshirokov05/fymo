@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Wallet, CreditCard, PiggyBank, Settings, DollarSign, Shield, PieChart, Sparkles, Menu, X, Lock } from 'lucide-react';
+import { LayoutDashboard, Wallet, CreditCard, PiggyBank, Settings, DollarSign, Shield, PieChart, Sparkles, Menu, X, Lock, MessageSquare } from 'lucide-react';
 
-const Layout = ({ children, activeView, setActiveView, isPremium }) => {
+const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const navItems = [
@@ -58,6 +58,16 @@ const Layout = ({ children, activeView, setActiveView, isPremium }) => {
                             <span className="font-medium">{item.label}</span>
                         </button>
                     ))}
+                    
+                    <div className="pt-4 mt-4 border-t border-gray-800">
+                        <button
+                            onClick={onOpenFeedback}
+                            className="w-full flex items-center space-x-3 py-3 px-4 rounded-lg text-gray-400 hover:bg-blue-600/10 hover:text-blue-400 transition duration-200 group"
+                        >
+                            <MessageSquare size={20} className="group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Feedback</span>
+                        </button>
+                    </div>
                 </nav>
             </div>
 
@@ -88,6 +98,19 @@ const Layout = ({ children, activeView, setActiveView, isPremium }) => {
                                     <span className="font-semibold text-lg">{item.label}</span>
                                 </button>
                             ))}
+                            
+                            <div className="pt-4 mt-4 border-t border-gray-800">
+                                <button
+                                    onClick={() => {
+                                        onOpenFeedback();
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="w-full flex items-center space-x-3 py-4 px-4 rounded-lg text-blue-400 bg-blue-400/5 transition duration-200"
+                                >
+                                    <MessageSquare size={24} />
+                                    <span className="font-bold text-lg">Send Feedback</span>
+                                </button>
+                            </div>
                         </nav>
                     </div>
                 </div>

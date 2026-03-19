@@ -1,9 +1,10 @@
-import firebase_admin
-from typing import Optional
+from datetime import datetime
+from typing import Optional, List, Dict
 from firebase_admin import credentials, firestore
 from models import User, Income, Asset, Debt, FilingStatus, USState, IncomeType, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency, HourlyType, PlaidItem, Budget, Transaction, Paystub, CustomRule, TaxTreatment, DebtType
 import logging
 import os
+import firebase_admin
 from cryptography.fernet import Fernet
 
 # SEC-2: Encryption for Plaid tokens at rest
@@ -294,3 +295,25 @@ def wipe_user_subcollections(user_id):
         stubs = user_ref.collection('paystubs').limit(500).get()
     
     logging.info(f"Wiped subcollections for user {user_id}")
+
+
+def save_feedback(user_id, email, topic, content, severity):
+    """Saves user feedback to a dedicated collection."""
+    db = get_db()
+    if not db: return False
+    
+    try:
+        feedback_ref = db.collection('feedback').document()
+        feedback_ref.set({
+            'user_id': user_id,
+            'email': email,
+            'topic': topic,
+            'content': content,
+            'severity': severity,
+            'timestamp': datetime.now().isoformat()
+        })
+        logging.info(f"Feedback saved from {user_id}")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to save feedback: {e}")
+        return False
