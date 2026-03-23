@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import TaxDocumentUpload from './TaxDocumentUpload';
 
 const FilingStatus = {
     SINGLE: "Single",
@@ -23,9 +24,27 @@ const USStates = {
     WY: "Wyoming"
 };
 
-const TaxCalculator = ({ initialFilingStatus, initialState, onSave, estimatedFederalTax, estimatedStateTax, estimatedFicaTax, totalIncome, selectedYear, incomes, onUpdateHistoricalIncome }) => {
+const TaxCalculator = ({ 
+    initialFilingStatus, 
+    initialState, 
+    initialEmploymentType = 'W2',
+    initialBusinessDeductions = 0,
+    initialDependents = 0,
+    onSave, 
+    estimatedFederalTax, 
+    estimatedStateTax, 
+    estimatedFicaTax, 
+    totalIncome, 
+    selectedYear, 
+    incomes, 
+    onUpdateHistoricalIncome 
+}) => {
     const [filingStatus, setFilingStatus] = useState(initialFilingStatus);
     const [state, setState] = useState(initialState);
+    const [employmentType, setEmploymentType] = useState(initialEmploymentType);
+    const [businessDeductions, setBusinessDeductions] = useState(initialBusinessDeductions);
+    const [dependents, setDependents] = useState(initialDependents);
+    const [taxesWithheld, setTaxesWithheld] = useState(0);
     const isHistorical = selectedYear < new Date().getFullYear();
     
     // Find the FIXED_TOTAL income for this year if it exists
@@ -35,14 +54,31 @@ const TaxCalculator = ({ initialFilingStatus, initialState, onSave, estimatedFed
     useEffect(() => {
         setFilingStatus(initialFilingStatus);
         setState(initialState);
-    }, [initialFilingStatus, initialState]);
+        setEmploymentType(initialEmploymentType);
+        setBusinessDeductions(initialBusinessDeductions);
+        setDependents(initialDependents);
+    }, [initialFilingStatus, initialState, initialEmploymentType, initialBusinessDeductions, initialDependents]);
 
     useEffect(() => {
         setTempHistorical(historicalIncome);
     }, [historicalIncome, selectedYear]);
 
     const handleSave = () => {
-        onSave({ filing_status: filingStatus, state: state });
+        onSave({ 
+            filing_status: filingStatus, 
+            state: state,
+            employment_type: employmentType,
+            business_deductions: parseFloat(businessDeductions) || 0,
+            dependents: parseInt(dependents) || 0
+        });
+    };
+
+    const handleUploadSuccess = (data) => {
+        const totalDocumentTaxes = (data.federal_taxes_withheld || 0) + 
+                                   (data.state_taxes_withheld || 0) + 
+                                   (data.social_security_withheld || 0) + 
+                                   (data.medicare_withheld || 0);
+        setTaxesWithheld(prev => prev + totalDocumentTaxes);
     };
 
     return (
@@ -78,6 +114,43 @@ const TaxCalculator = ({ initialFilingStatus, initialState, onSave, estimatedFed
                             ))}
                         </select>
                     </div>
+                    <div>
+                        <label htmlFor="employmentType" className="block text-sm font-medium text-gray-700">Employment Type</label>
+                        <select
+                            id="employmentType"
+                            name="employmentType"
+                            value={employmentType}
+                            onChange={(e) => setEmploymentType(e.target.value)}
+                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                        >
+                            <option value="W2">W-2 Employee</option>
+                            <option value="1099">1099 / Contractor</option>
+                            <option value="business_owner">Business Owner</option>
+                        </select>
+                    </div>
+                    {(employmentType === '1099' || employmentType === 'business_owner') && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Estimated Business Deductions</label>
+                            <input 
+                                type="number" 
+                                value={businessDeductions} 
+                                onChange={e => setBusinessDeductions(e.target.value)}
+                                className="mt-1 block w-full pl-3 py-2 border-gray-300 rounded-md sm:text-sm border focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="0.00"
+                            />
+                        </div>
+                    )}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Number of Dependents</label>
+                        <input 
+                            type="number" 
+                            min="0"
+                            value={dependents} 
+                            onChange={e => setDependents(e.target.value)}
+                            className="mt-1 block w-full pl-3 py-2 border-gray-300 rounded-md sm:text-sm border focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="0"
+                        />
+                    </div>
                     {isHistorical && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Annual Taxable Income ({selectedYear})</label>
@@ -110,6 +183,17 @@ const TaxCalculator = ({ initialFilingStatus, initialState, onSave, estimatedFed
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">W-2 / Paystub Data Auto-fill</h3>
+                <p className="text-sm text-gray-500 mb-4">Upload documents to verify your already-paid taxes and compute your final return.</p>
+                <TaxDocumentUpload onUploadSuccess={handleUploadSuccess} />
+                {(taxesWithheld > 0) && (
+                    <div className="mt-4 p-4 bg-green-50 rounded-lg text-green-700 border border-green-100 font-medium">
+                        Uploaded Taxes Withheld (Credits): <span className="font-bold ml-1">${taxesWithheld.toLocaleString()}</span>
+                    </div>
+                )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Estimated Tax Liability ({selectedYear})</h3>
                 <p className="text-sm text-gray-600 mb-2">Based on your {selectedYear} total income of <span className="font-bold">${totalIncome.toLocaleString()}</span> and tax profile:</p>
                 <div className="space-y-2">
@@ -129,6 +213,14 @@ const TaxCalculator = ({ initialFilingStatus, initialState, onSave, estimatedFed
                         <span className="text-lg font-bold text-gray-800">Total Estimated Tax:</span>
                         <span className="text-lg font-bold text-red-600">${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
+                    {taxesWithheld > 0 && (
+                        <div className="flex justify-between items-center border-t pt-2 mt-2 bg-gray-50 -mx-6 px-6 pb-2 rounded-b-xl">
+                            <span className="text-lg font-bold text-gray-800">Remaining Tax Due/(Refund):</span>
+                            <span className={`text-lg font-bold ${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax - taxesWithheld) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                ${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax - taxesWithheld).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                    )}
                 </div>
                 <p className="text-xs text-gray-500 mt-4">Note: This is an estimation for informational purposes only and does not constitute tax advice.</p>
             </div>

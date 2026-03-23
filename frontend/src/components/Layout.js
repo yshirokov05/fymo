@@ -13,6 +13,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
         { id: 'investments', label: 'Investments', icon: <PiggyBank size={20} /> },
         { id: 'insurance', label: 'Insurance', icon: <Shield size={20} /> },
         { id: 'debts', label: 'Debts', icon: <CreditCard size={20} /> },
+        { id: 'checks', label: 'Check Tracker', icon: <DollarSign size={20} /> },
         { id: 'faq', label: 'Security FAQ', icon: <Lock size={20} /> },
         { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
     ];

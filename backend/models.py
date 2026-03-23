@@ -11,6 +11,15 @@ class FilingStatus(enum.Enum):
     HEAD_OF_HOUSEHOLD = "head_of_household"
     QUALIFYING_WIDOW = "qualifying_widow"
 
+class CheckStatus(enum.Enum):
+    PENDING = "pending"
+    CLEARED = "cleared"
+
+class EmploymentType(enum.Enum):
+    W2 = "W2"
+    CONTRACTOR = "1099"
+    BUSINESS_OWNER = "business_owner"
+
 class USState(enum.Enum):
     AL = "Alabama"
     AK = "Alaska"
@@ -111,6 +120,9 @@ class User:
     is_subscribed: bool = False
     has_completed_onboarding: bool = False
     custom_categories: List[str] = field(default_factory=list)
+    employment_type: EmploymentType = EmploymentType.W2
+    business_deductions: float = 0.0
+    dependents: int = 0
 
 @dataclass
 class Income:
@@ -193,6 +205,7 @@ class Transaction:
     name: str
     category: Optional[str] = None
     pending: bool = False
+    pending_transaction_id: Optional[str] = None
 
 @dataclass
 class Paystub:
@@ -203,6 +216,7 @@ class Paystub:
     net_amount: Optional[float] = None
     tax_withheld: Optional[float] = None
     employer: Optional[str] = None
+    is_net_primary: bool = False
 
 @dataclass
 class CustomRule:
@@ -210,3 +224,13 @@ class CustomRule:
     category: str
     user_id: str
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+@dataclass
+class OutstandingCheck:
+    id: str
+    user_id: str
+    amount: float
+    payee: str
+    date_written: str
+    status: CheckStatus = CheckStatus.PENDING
+    plaid_transaction_id: Optional[str] = None

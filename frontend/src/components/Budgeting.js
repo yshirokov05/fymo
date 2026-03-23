@@ -309,6 +309,24 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                         <td className={`py-4 px-2 text-sm font-black text-right ${t.amount > 0 ? 'text-gray-900' : 'text-green-600'}`}>
                                             ${Math.abs(t.amount).toFixed(2)}
                                         </td>
+                                        <td className="py-4 px-2 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={async () => {
+                                                    if (window.confirm("Delete this transaction?")) {
+                                                        try {
+                                                            const token = await currentUser.getIdToken();
+                                                            await axios.delete(`/api/transactions/${t.id}`, {
+                                                                headers: { Authorization: `Bearer ${token}` }
+                                                            });
+                                                            fetchData();
+                                                        } catch (err) { alert("Failed to delete"); }
+                                                    }
+                                                }}
+                                                className="text-gray-300 hover:text-red-500"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             ) : (

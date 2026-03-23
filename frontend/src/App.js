@@ -5,6 +5,7 @@ import Budgeting from './components/Budgeting';
 import Earnings from './components/Earnings';
 import Advisor from './components/Advisor';
 import Settings from './components/Settings';
+import CheckTracker from './components/CheckTracker';
 import EditPortfolio from './components/EditPortfolio';
 import TaxCalculator from './components/TaxCalculator';
 import PlaidLink from './components/PlaidLink';
@@ -15,8 +16,9 @@ import Login from './components/Login';
 import DataPrivacyFAQ from './components/DataPrivacyFAQ';
 import Onboarding from './components/Onboarding';
 import FeedbackModal from './components/FeedbackModal';
+import StatementUpload from './components/StatementUpload';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { RefreshCw, CreditCard } from 'lucide-react';
+import { RefreshCw, CreditCard, Upload } from 'lucide-react';
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -62,6 +64,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [retirementAccounts, setRetirementAccounts] = useState([]);
   const [insurances, setInsurances] = useState([]);
   const [paystubs, setPaystubs] = useState([]);
+  const [outstandingChecks, setOutstandingChecks] = useState([]);
   const [selectedTaxYear, setSelectedTaxYear] = useState(2026);
   const [taxDetails, setTaxDetails] = useState({});
   const [plaidItems, setPlaidItems] = useState([]);
@@ -74,7 +77,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     state: 0,
     fica: 0
   });
-  const [userTaxInfo, setUserTaxInfo] = useState({ filing_status: 'SINGLE', state: 'CA' });
+  const [userTaxInfo, setUserTaxInfo] = useState({ filing_status: 'SINGLE', state: 'CA', employment_type: 'W2', business_deductions: 0, dependents: 0 });
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [customCategories, setCustomCategories] = useState([]);
   const [error, setError] = useState(null);
@@ -83,6 +86,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [modalTab, setModalTab] = useState('income');
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -103,6 +107,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setTransactions(response.data.transactions || []);
         setBudgets(response.data.budgets || []);
         setPaystubs(response.data.paystubs || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
         setPlaidItems(response.data.plaid_items || []);
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
@@ -127,7 +133,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
-            state: response.data.state
+            state: response.data.state,
+            employment_type: response.data.employment_type || 'W2',
+            business_deductions: response.data.business_deductions || 0,
+            dependents: response.data.dependents || 0
         });
         setLoading(false);
         
@@ -192,6 +201,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setTransactions(response.data.transactions || []);
         setBudgets(response.data.budgets || []);
         setPaystubs(response.data.paystubs || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
         setPlaidItems(response.data.plaid_items || []);
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
@@ -211,7 +222,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
-            state: response.data.state
+            state: response.data.state,
+            employment_type: response.data.employment_type || 'W2',
+            business_deductions: response.data.business_deductions || 0,
+            dependents: response.data.dependents || 0
         });
         setIsModalOpen(false);
         setLoading(false);
@@ -253,7 +267,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
-            state: response.data.state
+            state: response.data.state,
+            employment_type: response.data.employment_type || 'W2',
+            business_deductions: response.data.business_deductions || 0,
+            dependents: response.data.dependents || 0
         });
         setLoading(false);
         setError(null);
@@ -277,6 +294,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setBudgets(data.budgets || []);
         setTransactions(data.transactions || []);
         setPaystubs(data.paystubs || []);
+        setOutstandingChecks(data.outstanding_checks || []);
         setNetWorth(data.real_time_net_worth);
         setTaxDetails(data.tax_details || {});
         setIsPremium(data.is_authorized || false);
@@ -316,7 +334,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setTaxDetails(response.data.tax_details || {});
         setUserTaxInfo({
             filing_status: response.data.filing_status,
-            state: response.data.state
+            state: response.data.state,
+            employment_type: response.data.employment_type || 'W2',
+            business_deductions: response.data.business_deductions || 0,
+            dependents: response.data.dependents || 0
         });
     } catch (error) {
         setError("Failed to update tax info: " + error.message);
@@ -366,6 +387,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setRetirementAccounts(response.data.retirement_accounts || []);
         setInsurances(response.data.insurances || []);
         setPaystubs(response.data.paystubs || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
         
@@ -423,8 +446,25 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         }
         const response = await axios.put('/api/portfolio', { paystubs: newPaystubs }, headers);
         setPaystubs(response.data.paystubs || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
+        setOutstandingChecks(response.data.outstanding_checks || []);
     } catch (error) {
         setError("Failed to save paystubs: " + error.message);
+    }
+  };
+
+  
+  const handleSaveChecks = async (data) => {
+    try {
+        let headers = {};
+        if (!isGuest && currentUser) {
+            const token = await currentUser.getIdToken();
+            headers = { headers: { Authorization: `Bearer ${token}` } };
+        }
+        const response = await axios.put('/api/portfolio', data, headers);
+        setOutstandingChecks(response.data.outstanding_checks || []);
+    } catch (error) {
+        setError("Failed to save checks: " + error.message);
     }
   };
 
@@ -559,7 +599,16 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
       case 'debts':
         return (
           <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-gray-800">Debts & Liabilities</h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold text-gray-800">Debts & Liabilities</h2>
+                <button 
+                    onClick={() => setIsUploadOpen(true)}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                >
+                    <Upload size={18} />
+                    <span>Import Statement</span>
+                </button>
+            </div>
                <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
                    <div className="flex justify-between items-center mb-8">
                        <div>
@@ -612,7 +661,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
               />
           );
       case 'taxes':
-        const totalAnnualIncome = incomes.filter(inc => inc.year === selectedTaxYear).reduce((acc, inc) => acc + inc.amount, 0);
+        const yearPaystubs = paystubs.filter(p => new Date(p.date).getFullYear() === selectedTaxYear);
+        const totalPaystubsGross = yearPaystubs.reduce((acc, p) => acc + parseFloat(p.gross_amount || 0), 0);
+        const totalAnnualIncome = incomes.filter(inc => inc.year === selectedTaxYear).reduce((acc, inc) => acc + inc.amount, 0) + totalPaystubsGross;
         return (
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -622,6 +673,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 <TaxCalculator 
                     initialFilingStatus={userTaxInfo.filing_status}
                     initialState={userTaxInfo.state}
+                    initialEmploymentType={userTaxInfo.employment_type}
+                    initialBusinessDeductions={userTaxInfo.business_deductions}
+                    initialDependents={userTaxInfo.dependents}
                     onSave={handleSaveTaxInfo}
                     estimatedFederalTax={taxLiability.federal}
                     estimatedStateTax={taxLiability.state}
@@ -633,6 +687,16 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 />
             </div>
         );
+      
+      case 'checks':
+          return (
+              <CheckTracker
+                  outstandingChecks={outstandingChecks}
+                  assets={assets}
+                  onDataUpdate={(data) => { if(data.outstanding_checks) setOutstandingChecks(data.outstanding_checks); }}
+                  saveUserData={handleSaveChecks}
+              />
+          );
       case 'settings':
           return (
               <Settings 
@@ -713,6 +777,11 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         onClose={() => setIsFeedbackOpen(false)} 
         userEmail={currentUser?.email}
         uid={currentUser?.uid || 'guest'}
+      />
+      <StatementUpload 
+        isOpen={isUploadOpen} 
+        onClose={() => setIsUploadOpen(false)} 
+        onUploadSuccess={() => fetchData()} 
       />
     </Layout>
   );

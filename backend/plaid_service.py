@@ -488,7 +488,8 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 date=t_date,
                 name=t_name,
                 category=categorize_transaction(t_name, t.get('category'), custom_rules),
-                pending=t.get('pending', False)
+                pending=t.get('pending', False),
+                pending_transaction_id=t.get('pending_transaction_id')
             ))
             
             # Auto-detect payroll deposits (negative amount means deposit in Plaid)
@@ -500,10 +501,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                         id=f"paystub_{t['transaction_id']}",
                         user_id=user_id,
                         date=t_date,
-                        gross_amount=abs(amt),
-                        net_amount=abs(amt),
+                        gross_amount=abs(amt), # Initially set to net, but flagged as net_primary
+                        net_amount=abs(amt),   # This is the actual deposit amount
                         tax_withheld=0.0,
-                        employer=t_name if t_name else "Auto-detected Payroll"
+                        employer=t_name if t_name else "Auto-detected Payroll",
+                        is_net_primary=True
                     ))
             
         return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs

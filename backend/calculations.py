@@ -1,9 +1,9 @@
 from price_service import get_current_price
 from tax_logic import calculate_federal_tax, calculate_state_tax, calculate_fica_tax
-from models import User, Income, Asset, Debt, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency
+from models import User, Income, Asset, Debt, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency, Paystub
 from datetime import datetime
 
-def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], debts: list[Debt], retirement_accounts: list[RetirementAccount] = [], insurances: list[Insurance] = []):
+def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], debts: list[Debt], retirement_accounts: list[RetirementAccount] = [], insurances: list[Insurance] = [], paystubs: list[Paystub] = []):
     """
     Calculates the real-time net worth for a user with safety for None values.
     """
@@ -39,10 +39,23 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
     current_year = datetime.now().year
     tax_years = [current_year - 1, current_year]
     
+    employment_type_name = getattr(user, 'employment_type', None)
+    if employment_type_name and hasattr(employment_type_name, 'name'):
+        employment_type_name = employment_type_name.name
+
     tax_info = {}
     for year in tax_years:
         year_incomes = [inc for inc in incomes if getattr(inc, 'year', current_year) == year]
-        gross_income = sum(float(inc.amount or 0) for inc in year_incomes)
+        year_paystubs = [p for p in paystubs if int(p.date[:4]) == year]
+        
+        # EXCLUDE paystubs where gross is effectively unknown (net_primary and 0 taxes)
+        # to prevent underestimating tax liability in projections.
+        valid_year_paystubs = [
+            p for p in year_paystubs 
+            if not (getattr(p, 'is_net_primary', False) and (p.tax_withheld or 0) == 0)
+        ]
+        
+        gross_income = sum(float(inc.amount or 0) for inc in year_incomes) + sum(float(p.gross_amount or 0) for p in valid_year_paystubs)
         
         retirement_deductions = 0
         for ra in retirement_accounts:
@@ -52,11 +65,25 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
                 elif year == current_year:
                     retirement_deductions += float(ra.contributions_2026 or 0)
         
-        taxable_income = max(0, gross_income - retirement_deductions - total_annual_insurance)
+        business_deductions = float(getattr(user, 'business_deductions', 0)) if employment_type_name in ['CONTRACTOR', 'BUSINESS_OWNER'] else 0.0
+        
+        taxable_income = max(0, gross_income - retirement_deductions - total_annual_insurance - business_deductions)
         
         fed_tax = calculate_federal_tax(taxable_income, user.filing_status.value, year)
+        
+        # Child Tax Credit is a dollar-for-dollar reduction against federal tax liability
+        dependents = int(getattr(user, 'dependents', 0))
+        child_tax_credit = dependents * 2200
+        fed_tax = max(0, fed_tax - child_tax_credit)
+
         state_tax = calculate_state_tax(taxable_income, user.state.name, user.filing_status.value, year)
-        fica_tax = calculate_fica_tax(gross_income, user.filing_status.value, year)
+        
+        if employment_type_name in ['CONTRACTOR', 'BUSINESS_OWNER']:
+            net_earnings = max(0, gross_income - business_deductions)
+            se_taxble_income = net_earnings * 0.9235
+            fica_tax = se_taxble_income * 0.153
+        else:
+            fica_tax = calculate_fica_tax(gross_income, user.filing_status.value, year)
         
         tax_info[year] = {
             "gross_income": gross_income,

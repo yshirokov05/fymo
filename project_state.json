@@ -1,12 +1,40 @@
 {
-  "current_task": "Verifying fixes and finalizing task",
+  "current_task": "None (Ready for new tasks)",
   "fixed_issues": [
+    "Implemented Outstanding Check Tracker with Plaid Reconciliation and OCR support",
+    "Implemented Gemini 1.5 Flash Tax Document OCR for dynamic paystub/W-2 auto-filling",
+    "Fixed Tax Estimator missing YTD Paystubs from Earned Income calculations",
+    "Added W2 vs 1099/Business Owner toggle to Tax Estimator and backend",
+    "Added Business Deductions field (subtracts from federal/FICA logic for self-employed)",
+    "Added Number of Dependents field to tax profile (applies $2000 standard credit)",
+    "Fixed PlaidLink infinite spinner loop on token generation failure",
+    "Relocated StatementUpload button from Dashboard to Debts tab for better UX",
+    "Redeployed Personal-Finance-App-18cbc to Firebase with new premium user whitelist",
+    "Authorized new early access user: evfvadim@gmail.com",
+    "Fixed Plaid Sync UnboundLocalError: cannot access local variable 'datetime' where it is not associated with a value",
+    "Implemented Paystub editing in the Earnings tab",
+    "Corrected Paystub sync logic to map transaction amounts specifically to net_amount",
     "Goldman Sachs (Apple Card) and Synchrony Bank missing (Updated Plaid products)",
     "Card count mismatch (Improved deduplication logic)",
     "Sync error: NameError: name 'TaxTreatment' is not defined (Cleaned up imports)",
     "Missing 'debit card' transaction type (Added to default categories)",
-    "Category switching bug in frontend (Fixed CSS typo and improved styling)"
+    "Category switching bug in frontend (Fixed CSS typo and improved styling)",
+    "Authorized new early access user: maxwell.hawthorne9@gmail.com",
+    "Debt naming cleaned to prioritize brand/product (e.g., 'Chase Sapphire Reserve')",
+    "Manual override Preservation for debt names during Plaid syncs",
+    "Clean naming logic for rewards-related keywords and masks",
+    "Improved deduplication for assets reported as both debts and holdings",
+    "Plaid sync datetime error (Fixed)",
+    "Earned Income UI improvements: Gross/Net toggle, cleaner editor (Fixed)",
+    "Robust Plaid Deduplication: replaced fuzzy logic with pending_transaction_id mapping (Fixed)",
+    "Net Primary Paystub logic: excluded incomplete gross data from tax projections (Fixed)",
+    "Implemented Manual Statement Upload (CSV) for Apple Card and other providers",
+    "Created StatementUpload frontend component with glassmorphism UI",
+    "Added backend CSV processor for multiple Apple Card statement formats",
+    "Implemented AI Habit Tracking: Period-over-Period (PoP) spending analysis",
+    "Developed AI Memory System: Persistent Firestore-based user insights",
+    "Enhanced FHQ Advisor: Normalized budgets (Weekly/Monthly) and identity enforcement (Mr. Bean)"
   ],
   "pending_issues": [],
-  "last_updated": "2026-03-19T13:44:26-07:00"
+  "last_updated": "2026-03-23T14:10:00Z"
 }

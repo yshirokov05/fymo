@@ -54,10 +54,10 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
     }, [currentUser, isGenerating]);
 
     useEffect(() => {
-        if (currentUser && !linkToken && !isGenerating && !hasFetched.current) {
+        if (currentUser && !linkToken && !isGenerating && !hasFetched.current && !error) {
             generateLinkToken();
         }
-    }, [currentUser, linkToken, isGenerating, generateLinkToken]);
+    }, [currentUser, linkToken, isGenerating, generateLinkToken, error]);
 
     const onSuccess = useCallback(async (public_token, metadata) => {
         try {

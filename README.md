@@ -11,9 +11,11 @@ Financial Headquarters is a premium, privacy-first personal finance platform des
 - **🤖 AI Financial Advisor**: Personalized wealth guidance powered by **Google Gemini**, with access to your real-time data.
 - **🏦 Automated Financial Sync**: Production-ready integration with 12,000+ institutions via **Plaid**.
 - **📈 Investment Tracking**: Live stock and bond price monitoring via `yfinance` with intelligent fallbacks.
-- **⚖️ 50-State Tax Engine**: High-accuracy tax liability estimation (2026 codes) for Federal, State, and FICA.
+- **⚖️ 50-State Tax Engine**: High-accuracy tax liability estimation (2026 codes) for Federal, State, and FICA. Supports W-2/1099 and dependents.
 - **📊 Smart Budgeting**: Automated transaction categorization and real-time budget tracking.
-- **💰 Earned Income (YTD)**: Track actual paystubs against projected annual income for precise planning.
+- **💰 Earned Income (YTD)**: Track actual paystubs against projected annual income for precise planning. Includes Gross/Net toggle.
+- **📸 Gemini OCR Vision**: Upload paystubs, W-2s, and checks for instant, automated data extraction via Gemini 1.5 Flash.
+- **📝 Outstanding Check Tracker**: Keep track of written checks that haven't cleared yet with "Safe-to-Spend" balance logic.
 
 ## 🚀 Technical Architecture
 - **Frontend**: React 19, Tailwind CSS, Lucide Icons, Recharts.
@@ -63,7 +65,7 @@ We are currently in **Beta (v1.1.0)**.
 - [x] Phase 1: Core Tax & Net Worth Engine
 - [x] Phase 2: Production Plaid Integration
 - [x] Phase 3: AI Advisor & Budget Tracking
-- [ ] Phase 4: Wealth Projection & Trends (In Progress)
+- [x] Phase 4: Wealth Projection & Gemini OCR Vision Implementation
 - [ ] Phase 5: Financial Optimization Alerts
 - [ ] Phase 6: Market Launch & Stripe Billing
 
