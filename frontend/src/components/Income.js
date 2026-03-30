@@ -139,11 +139,8 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <Card className="bg-gradient-to-br from-gray-900 to-gray-800 text-white border-none shadow-2xl">
                     <div className="p-1">
-                        <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Total Gross Income (YTD)</p>
+                        <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Total Income (YTD)</p>
                         <p className="text-3xl font-black">${totalIncomeYTD.toLocaleString()}</p>
-                        <div className="mt-2 text-[10px] text-gray-400 font-bold bg-white/10 w-fit px-2 py-0.5 rounded-full">
-                            {((totalIncomeYTD / 120000) * 100).toFixed(1)}% of $120k Target
-                        </div>
                     </div>
                 </Card>
                 <Card title="W2 Earnings" icon={<Briefcase className="text-blue-500"/>}>
