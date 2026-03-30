@@ -97,9 +97,9 @@ def get_multiple_prices(tickers):
         for future in future_to_ticker:
             ticker = future_to_ticker[future]
             try:
-                results[ticker] = future.result()
+                results[ticker] = future.result(timeout=5)
             except Exception as e:
-                logging.error(f"Parallel fetch error for {ticker}: {e}")
+                logging.error(f"Parallel fetch error or timeout for {ticker}: {e}")
                 results[ticker] = None
                 
     return results

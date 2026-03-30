@@ -103,7 +103,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             };
         }
         
-        const response = await axios.get('/api/net_worth', headers);
+        const response = await axios.get('/api/net_worth', {
+            ...headers,
+            timeout: 10000 // Force 10-second timeout
+        });
         setAssets(response.data.assets || []);
         setIncomes(response.data.incomes || []);
         setDebts(response.data.debts || []);

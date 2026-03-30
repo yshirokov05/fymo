@@ -1088,8 +1088,8 @@ def get_health_brief():
         tax_results = {}
         
     # Calculate simplistic live values for the brief context
-    total_assets = sum(a.value for a in assets)
-    total_debts = sum(d.current_balance for d in debts)
+    total_assets = sum((a.shares * a.cost_basis) for a in assets)
+    total_debts = sum(d.remaining_balance for d in debts)
         
     financial_data = {
         'real_time_net_worth': total_assets - total_debts,
