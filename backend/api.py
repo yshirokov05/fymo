@@ -107,7 +107,8 @@ def income_to_dict(income):
         'yearly_income': income.amount if income.income_type in [IncomeType.ANNUAL_SALARY, IncomeType.MONTHLY_SALARY, IncomeType.FIXED_TOTAL] else None,
         'hourly_wage': income.hourly_wage,
         'hours_worked': income.hours_worked,
-        'year': getattr(income, 'year', 2026)
+        'year': getattr(income, 'year', 2026),
+        'is_net': getattr(income, 'is_net', False)
     }
 
 def debt_to_dict(debt):
@@ -532,7 +533,8 @@ def update_portfolio():
                 income_type=income_type, 
                 amount=float(income_data.get('amount', 0) or income_data.get('yearly_income', 0)), 
                 year=int(income_data.get('year', 2026)),
-                description=income_data.get('description')
+                description=income_data.get('description'),
+                is_net=income_data.get('is_net', False)
             )
             if income_type == IncomeType.ANNUAL_SALARY:
                 income.amount = float(income_data.get('yearly_income', 0))

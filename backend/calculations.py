@@ -56,7 +56,8 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
         gross_income_from_stubs = sum(float(p.gross_amount or 0) for p in year_paystubs)
         
         # Investment and other Income
-        other_gross_income = sum(float(inc.amount or 0) for inc in year_incomes)
+        other_gross_income = sum(float(inc.amount or 0) for inc in year_incomes if not getattr(inc, 'is_net', False))
+        other_net_income = sum(float(inc.amount or 0) for inc in year_incomes if getattr(inc, 'is_net', False))
         
         gross_income = other_gross_income + gross_income_from_stubs
         
@@ -97,14 +98,15 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
             "state_tax": state_tax,
             "fica_tax": fica_tax,
             "total_tax": fed_tax + state_tax + fica_tax,
-            "total_withheld": total_taxes_paid
+            "total_withheld": total_taxes_paid,
+            "net_income_addons": other_net_income
         }
 
     # ARCH-4: Explicit cast for linter safety
     real_time_net_worth = float(total_assets_market_value) - float(total_debts)
     
     current_year_tax = tax_info.get(current_year, {})
-    total_annual_income = current_year_tax.get('gross_income', 0)
+    total_annual_income = current_year_tax.get('gross_income', 0) + current_year_tax.get('net_income_addons', 0)
     monthly_post_tax_income = (total_annual_income - current_year_tax.get('total_tax', 0)) / 12
 
     return {

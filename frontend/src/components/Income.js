@@ -32,7 +32,8 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
         type: 'DIVIDENDS',
         amount: '',
         description: '',
-        year: new Date().getFullYear()
+        year: new Date().getFullYear(),
+        is_net: false
     });
 
     const currentYear = new Date().getFullYear();
@@ -105,11 +106,12 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
             income_type: newOther.type,
             amount: amt,
             description: newOther.description,
-            year: parseInt(newOther.year)
+            year: parseInt(newOther.year),
+            is_net: newOther.is_net
         };
         onSaveOtherIncomes([entry, ...(otherIncomes || [])]);
         setIsAdding(false);
-        setNewOther({ type: 'DIVIDENDS', amount: '', description: '', year: currentYear });
+        setNewOther({ type: 'DIVIDENDS', amount: '', description: '', year: currentYear, is_net: false });
     };
 
     const handleDeleteStub = (id) => {
@@ -264,6 +266,19 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                     <label className="block text-[10px] font-black text-gray-400 uppercase mb-2">Description</label>
                                     <input type="text" placeholder="e.g. Sold Reddit shares (NVDA profit, etc)" value={newOther.description} onChange={e => setNewOther({...newOther, description: e.target.value})} className="w-full rounded-xl border-gray-200" />
                                 </div>
+                                <div className="md:col-span-2 flex flex-col justify-end pb-3">
+                                    <label className="flex items-center space-x-2 cursor-pointer group">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={newOther.is_net} 
+                                            onChange={e => setNewOther({...newOther, is_net: e.target.checked})} 
+                                            className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-5 h-5 cursor-pointer"
+                                        />
+                                        <span className="text-sm font-bold text-gray-700 group-hover:text-gray-900 transition-colors">
+                                            This is Net Take-Home Pay (Exclude from taxes)
+                                        </span>
+                                    </label>
+                                </div>
                             </div>
                             <button onClick={handleAddOther} className="w-full bg-green-600 text-white py-4 rounded-2xl font-black text-lg uppercase shadow-xl hover:bg-green-700">Save Investment Income</button>
                         </div>
@@ -315,7 +330,10 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                             {(otherIncomes || []).map((inc) => (
                                 <div key={inc.id} className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100 group">
                                     <div>
-                                        <p className="text-[10px] font-black text-blue-600 uppercase mb-0.5">{inc.income_type.replace('_', ' ')}</p>
+                                        <p className="text-[10px] font-black text-blue-600 uppercase mb-0.5 flex items-center">
+                                            {inc.income_type.replace('_', ' ')}
+                                            {inc.is_net && <span className="ml-2 bg-green-100 text-green-700 border border-green-200 px-1.5 py-[1px] rounded-[4px] text-[8px] animate-pulse">NET / POST-TAX</span>}
+                                        </p>
                                         <p className="text-sm font-bold text-gray-900">{inc.description || 'Investment Gain'}</p>
                                     </div>
                                     <div className="text-right">

@@ -107,7 +107,8 @@ def get_user_data(user_id="default_user"):
             hourly_wage=inc.get('hourly_wage'), 
             hours_worked=inc.get('hours_worked'), 
             year=inc.get('year', 2026),
-            description=inc.get('description')
+            description=inc.get('description'),
+            is_net=inc.get('is_net', False)
         ) for inc in data.get('incomes', [])
     ]
     assets = [Asset(
@@ -292,7 +293,8 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
                 'hourly_wage': i.hourly_wage, 
                 'hours_worked': i.hours_worked, 
                 'year': i.year,
-                'description': i.description
+                'description': i.description,
+                'is_net': getattr(i, 'is_net', False)
             } for i in incomes
         ],
         'assets': [{

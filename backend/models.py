@@ -138,6 +138,7 @@ class Income:
     hourly_type: Optional[HourlyType] = HourlyType.REPEATING
     year: int = 2026
     description: Optional[str] = None
+    is_net: bool = False
 
 @dataclass
 class Insurance:
