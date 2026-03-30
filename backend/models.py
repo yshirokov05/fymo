@@ -123,6 +123,8 @@ class User:
     employment_type: EmploymentType = EmploymentType.W2
     business_deductions: float = 0.0
     dependents: int = 0
+    ignored_subscription_merchants: List[str] = field(default_factory=list)
+    manual_subscription_merchants: List[str] = field(default_factory=list)
 
 @dataclass
 class Income:
@@ -234,3 +236,12 @@ class OutstandingCheck:
     date_written: str
     status: CheckStatus = CheckStatus.PENDING
     plaid_transaction_id: Optional[str] = None
+
+@dataclass
+class UserMemory:
+    fact_id: str
+    user_id: str
+    category: str  # e.g., 'Goal', 'Habit', 'Constraint', 'EconBackground'
+    content: str
+    confidence_score: float = 1.0
+    last_updated: str = field(default_factory=lambda: datetime.now().isoformat())

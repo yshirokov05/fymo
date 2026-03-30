@@ -76,7 +76,6 @@ const AssetTable = ({ assets }) => {
         const isLiquidAsset = ['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'].includes(asset.asset_type) || 
                              ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX'].includes(asset.ticker);
         const isHousing = asset.asset_type === 'HOUSING';
-        const isInvestment = !isLiquidAsset && !isHousing;
 
         const marketPrice = asset.marketPrice || asset.current_price || (asset.shares > 0 ? asset.cost_basis / asset.shares : 0) || 1.0;
         const marketValue = asset.marketValue || (isLiquidAsset || isHousing ? asset.shares : asset.shares * marketPrice);

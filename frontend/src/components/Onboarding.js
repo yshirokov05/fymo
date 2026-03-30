@@ -7,10 +7,7 @@ import {
     Briefcase, 
     ArrowDownCircle, 
     UserPlus, 
-    Zap,
-    Building,
-    Calendar,
-    Receipt
+    Zap
 } from 'lucide-react';
 import Card from './Card';
 

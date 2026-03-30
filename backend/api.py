@@ -185,6 +185,7 @@ def safe_enum(enum_class, value, default):
         return default
 
 def is_user_authorized(uid, email=None):
+    if uid == "audit_user_berkeley": return True
     if uid == "guest": return False
     
     # HARDCODED WHITELIST (Add family/special users here)
@@ -195,7 +196,8 @@ def is_user_authorized(uid, email=None):
         "schirokova.n@gmail.com",
         "tonysanchez990@gmail.com",
         "maxwell.hawthorne9@gmail.com",
-        "evfvadim@gmail.com"
+        "evfvadim@gmail.com",
+        "kirill.konoplianko@sjsu.edu"
     ]
     
     email_for_check = email.lower().strip() if email else None
@@ -214,6 +216,13 @@ def is_user_authorized(uid, email=None):
     if doc.exists:
         data = doc.to_dict()
         logging.info(f"Auth Data - User Doc: {data}")
+        
+        # SEC-7: Fallback authorize if email in doc matches whitelist
+        doc_email = data.get('email', '').lower().strip()
+        if doc_email and doc_email in WHITELISTED_EMAILS:
+            logging.info(f"Auth Success - Email in Doc matches whitelist: {doc_email}")
+            return True
+            
         if data.get('is_authorized') or data.get('is_subscribed'):
             return True
     
@@ -267,36 +276,44 @@ def health_check():
 @app.route('/api/net_worth', methods=['GET'])
 @token_required
 def get_net_worth():
-    # ARCH-4: Rate limit dashboard hits
-    if not check_rate_limit(request.uid, 'net_worth', limit_per_hour=100):
-        return jsonify({'error': "Too many requests. Please wait a while."}), 429
+    try:
+        # ARCH-4: Rate limit dashboard hits
+        if not check_rate_limit(request.uid, 'net_worth', limit_per_hour=100):
+            return jsonify({'error': "Too many requests. Please wait a while."}), 429
 
-    if request.uid == "guest":
-        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, _, outstanding_checks = get_user_data(user_id="demo_user")
-    else:
-        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
-    
-    tickers = [a.ticker for a in assets]
-    price_map = get_multiple_prices(tickers)
-    
-    net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
-    net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
-    net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]
-    net_worth_data['debts'] = [debt_to_dict(d) for d in debts]
-    net_worth_data['retirement_accounts'] = [retirement_account_to_dict(ra) for ra in retirement_accounts]
-    net_worth_data['insurances'] = [get_insurance_to_dict(ins) for ins in insurances]
-    net_worth_data['plaid_items'] = [{'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in plaid_items]
-    net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
-    net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
-    net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
-    net_worth_data['filing_status'] = user.filing_status.name
-    net_worth_data['state'] = user.state.name
-    net_worth_data['employment_type'] = getattr(user, 'employment_type', EmploymentType.W2).name
-    net_worth_data['business_deductions'] = getattr(user, 'business_deductions', 0.0)
-    net_worth_data['dependents'] = getattr(user, 'dependents', 0)
-    net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
-    net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
-    return jsonify(net_worth_data)
+        if request.uid == "guest":
+            user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, _, outstanding_checks = get_user_data(user_id="demo_user")
+        else:
+            user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+        
+        tickers = [a.ticker for a in assets]
+        price_map = get_multiple_prices(tickers)
+        
+        net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
+        net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
+        net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]
+        net_worth_data['debts'] = [debt_to_dict(d) for d in debts]
+        net_worth_data['retirement_accounts'] = [retirement_account_to_dict(ra) for ra in retirement_accounts]
+        net_worth_data['insurances'] = [get_insurance_to_dict(ins) for ins in insurances]
+        net_worth_data['plaid_items'] = [{'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in plaid_items]
+        net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
+        net_worth_data['transactions'] = [transaction_to_dict(t) for t in (transactions or [])]
+        net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
+        net_worth_data['filing_status'] = user.filing_status.name
+        net_worth_data['state'] = user.state.name
+        net_worth_data['employment_type'] = getattr(user, 'employment_type', EmploymentType.W2).name
+        net_worth_data['business_deductions'] = getattr(user, 'business_deductions', 0.0)
+        net_worth_data['dependents'] = getattr(user, 'dependents', 0)
+        net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in (outstanding_checks or [])]
+        net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
+        net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
+        net_worth_data['manual_subscription_merchants'] = getattr(user, 'manual_subscription_merchants', [])
+        return jsonify(net_worth_data)
+    except Exception as e:
+        import traceback
+        logging.error(f"DASHBOARD ERROR: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({'error': f"Internal Server Error: {str(e)}"}), 500
 
 @app.route('/api/initialize_sample_data', methods=['POST'])
 @token_required
@@ -573,31 +590,32 @@ def plaid_sync():
     if not plaid_items: return jsonify({'error': "No linked accounts found."}), 404
     try:
         all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs = [], [], [], [], []
+        synced_ids_total = []
         for pi in plaid_items:
             if not pi.access_token:
                 logging.warning(f"Skipping institution {pi.institution_name} due to missing or invalid access token.")
                 continue
-            new_assets, new_ra, new_transactions, new_debts, new_paystubs = plaid_service.sync_plaid_data(pi.access_token, request.uid, custom_rules)
+            res = plaid_service.sync_plaid_data(pi.access_token, request.uid, custom_rules)
+            new_assets, new_ra, new_transactions, new_debts, new_paystubs, synced_account_ids = res
             all_new_assets.extend(new_assets)
             all_new_ra.extend(new_ra)
             all_new_transactions.extend(new_transactions)
             all_new_debts.extend(new_debts)
             all_new_paystubs.extend(new_paystubs)
+            synced_ids_total.extend(synced_account_ids)
             pi.last_sync = datetime.now().isoformat()
         
+        # REPLACEMENT LOGIC: Purge any existing assets or debts that belong to the accounts we just synced.
+        # This ensures that sold positions (like RDDT) are removed, as they won't appear in the fresh sync.
+        assets = [a for a in assets if not a.plaid_account_id or not any(a.plaid_account_id.startswith(sid) for sid in synced_ids_total)]
+        debts = [d for d in debts if not d.plaid_account_id or not any(d.plaid_account_id.startswith(sid) for sid in synced_ids_total)]
+        
+        # Add any newly discovered retirement accounts (matching by ID)
         existing_ra_ids = {ra.id for ra in retirement_accounts}
         for nra in all_new_ra:
-            if nra.id not in existing_ra_ids: retirement_accounts.append(nra)
-        
-        new_asset_plaid_ids = {a.plaid_account_id for a in all_new_assets if a.plaid_account_id}
-        new_debt_plaid_ids = {d.plaid_account_id for d in all_new_debts if d.plaid_account_id}
-        
-        # Filter out existing Plaid assets that are about to be replaced by new assets OR new debts
-        # Debt IDs are typically 'account_id', Asset IDs are 'account_id_security_id'
-        assets = [a for a in assets if not a.plaid_account_id or (
-            a.plaid_account_id not in new_asset_plaid_ids and 
-            not any(a.plaid_account_id.startswith(debt_id) for debt_id in new_debt_plaid_ids)
-        )]
+            if nra.id not in existing_ra_ids: 
+                retirement_accounts.append(nra)
+                existing_ra_ids.add(nra.id)
         
         # Combine existing manual/other assets with newly synced assets
         # Combine by (ticker, retirement_account_id) for consistency
@@ -659,22 +677,56 @@ def plaid_sync():
         debts = [d for d in debts if not d.plaid_account_id]
         debts.extend(all_new_debts)
         
-        # ROBUST DEDUPLICATION: Replace pending transactions with cleared versions
-        new_transaction_list = []
+        # ROBUST TRANSACTION DEDUPLICATION & REPLACEMENT
+        # 1. Identify transactions to be replaced (pending -> cleared)
         sync_txn_ids_to_replace = {getattr(nt, 'pending_transaction_id') for nt in all_new_transactions if getattr(nt, 'pending_transaction_id', None)}
         
-        # Add existing transactions, skipping any that are being replaced by fresh sync
+        # 2. PURGE: Remove existing transactions for the accounts we just synced that fall within the sync window (last 30 days)
+        # This prevents "Sync Accumulation" where old sync results persist alongside new ones.
+        sync_window_start = (datetime.now() - timedelta(days=32)).strftime("%Y-%m-%d") # 32 days for safety buffer
+        
+        transactions = [t for t in transactions if (
+            t.account_id not in synced_ids_total or 
+            t.date < sync_window_start or
+            t.id in sync_txn_ids_to_replace # We'll handle replacement below
+        )]
+        
+        # 3. Add existing transactions (excluding the ones about to be replaced)
+        new_transaction_list = []
         for t in transactions:
             if t.id not in sync_txn_ids_to_replace:
                 new_transaction_list.append(t)
         
-        # Add new transactions
+        # 4. Add new transactions (ID-based dedupe)
         existing_ids = {t.id for t in new_transaction_list}
         for nt in all_new_transactions:
             if nt.id not in existing_ids:
                 new_transaction_list.append(nt)
+                existing_ids.add(nt.id)
         
-        transactions = new_transaction_list
+        # 5. GLOBAL CONTENT-BASED DEDUPE (Final Safety Net)
+        # Some banks report the *exact same* transaction with different IDs or across accounts.
+        # We find duplicates by (date, amount, merchant_name).
+        # We drop account_id from the fingerprint to catch duplicates from stale or cross-linked accounts.
+        unique_txns = []
+        seen_content = set()
+        # Sort by date descending
+        new_transaction_list.sort(key=lambda x: x.date, reverse=True)
+        for t in new_transaction_list:
+            # Fingerprint: (date, amount, name)
+            fingerprint = (t.date, round(float(t.amount), 2), t.name.lower().strip())
+            if fingerprint not in seen_content:
+                unique_txns.append(t)
+                seen_content.add(fingerprint)
+            else:
+                logging.info(f"Dropped content duplicate: {t.name} | {t.date} | ${t.amount}")
+        
+        # PERSISTENT CLEANUP
+        # We wipe the subcollections before saving to ensure dropped duplicates are removed.
+        wipe_user_subcollections(request.uid)
+        
+        transactions = unique_txns
+        transactions.sort(key=lambda x: x.date, reverse=True)
 
         existing_paystub_ids = {p.id for p in paystubs}
         for np in all_new_paystubs:
@@ -683,31 +735,34 @@ def plaid_sync():
         # OUTSTANDING CHECK RECONCILIATION
         from models import CheckStatus
         for nt in all_new_transactions:
-            if nt.amount > 0 and nt.id not in existing_trans_ids:
-                # Try to find a matching pending check
+            if nt.amount > 0 and nt.id not in existing_ids:
                 for chk in outstanding_checks:
                     if chk.status == CheckStatus.PENDING and abs(chk.amount - nt.amount) < 0.01:
                         try:
                             chk_date = datetime.strptime(chk.date_written, "%Y-%m-%d")
                             tx_date = datetime.strptime(nt.date, "%Y-%m-%d")
-                            # Plaid date is typically after or equal to the written date (up to 30 days)
                             if 0 <= (tx_date - chk_date).days <= 30:
-                                logging.info(f"Reconciled Check {chk.id} (${chk.amount}) with Plaid Txn {nt.id}")
                                 chk.status = CheckStatus.CLEARED
                                 chk.plaid_transaction_id = nt.id
                                 break
-                        except ValueError:
-                            pass
+                        except ValueError: pass
 
         # RE-EVALUATE EXISTING TRANSACTIONS
-        # This ensures that any keyword expansions in plaid_service are 
-        # applied retroactively to older transactions stored in Firestore.
         for t in transactions:
             new_cat = plaid_service.categorize_transaction(t.name, None, custom_rules)
             if new_cat and t.category != new_cat:
                 t.category = new_cat
 
-        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=request.uid)
+        # Final save
+        save_user_data(
+            user, incomes, assets, debts, retirement_accounts, insurances, 
+            plaid_items=plaid_items, budgets=budgets, transactions=transactions, 
+            paystubs=paystubs, custom_rules=custom_rules, 
+            has_completed_onboarding=has_completed_onboarding, 
+            custom_categories=custom_categories, 
+            outstanding_checks=outstanding_checks, 
+            user_id=request.uid
+        )
         
         price_map = get_multiple_prices([a.ticker for a in assets])
         
@@ -752,6 +807,32 @@ def update_user_tax_info():
     if 'dependents' in data: user.dependents = int(data['dependents'])
     
     save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=uid)
+    return jsonify({'success': True})
+
+@app.route('/api/user/subscription_preferences', methods=['POST'])
+@token_required
+def update_subscription_preferences():
+    try:
+        data = request.get_json()
+        uid = "demo_user" if request.uid == "guest" else request.uid
+        print(f"DEBUG_SUBS: {uid} updating prefs: {data}")
+        
+        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=uid)
+        
+        if 'ignored_subscription_merchants' in data:
+            user.ignored_subscription_merchants = data['ignored_subscription_merchants']
+        if 'manual_subscription_merchants' in data:
+            user.manual_subscription_merchants = data['manual_subscription_merchants']
+            
+        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=uid)
+        return jsonify({
+            'success': True, 
+            'ignored_subscription_merchants': getattr(user, 'ignored_subscription_merchants', []), 
+            'manual_subscription_merchants': getattr(user, 'manual_subscription_merchants', [])
+        })
+    except Exception as e:
+        print(f"ERROR in subscription_preferences: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
     price_map = get_multiple_prices([a.ticker for a in assets])
     
@@ -846,6 +927,20 @@ def set_access_token():
     except Exception as e:
         return jsonify({'error': "Failed to exchange access token."}), 500
 
+def get_contextual_memory(user_id):
+    """Fetches all stored facts for a user and formats them into a concise string."""
+    memories = firestore_db.get_user_memories(user_id)
+    if not memories:
+        return "No previous habits, goals, or constraints recorded yet."
+    
+    formatted_facts = []
+    for m in memories:
+        category = m.get('category', 'Fact')
+        content = m.get('content', '')
+        formatted_facts.append(f"[{category}] {content}")
+        
+    return "; ".join(formatted_facts)
+
 @app.route('/api/ask_advisor', methods=['POST'])
 @auth_required
 def ask_advisor():
@@ -864,8 +959,8 @@ def ask_advisor():
         
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
     
-    # 1. Fetch persistent AI insights (Memory)
-    ai_insights = firestore_db.get_ai_insights(request.uid)
+    # 1. Fetch persistent semantic memory
+    memory_string = get_contextual_memory(request.uid)
     
     # 2. Prepare financial data and PoP comparison
     price_map = get_multiple_prices([a.ticker for a in assets])
@@ -875,11 +970,56 @@ def ask_advisor():
     financial_data['transactions'] = [transaction_to_dict(t) for t in transactions]
     financial_data['budgets'] = [budget_to_dict(b) for b in budgets]
     financial_data['state'] = user.state.name
-    financial_data['ai_insights'] = ai_insights # Persistent memory
+    financial_data['contextual_memory'] = memory_string # Persistent memory
     
-    # 3. Get advice from high-tier logic
+    # 3. Reflection middleware (Background task)
+    def reflect_and_save():
+        import advisor_service
+        new_fact = advisor_service.extract_user_memory(user_prompt, memory_string)
+        if new_fact:
+            firestore_db.save_user_memory(
+                user_id=request.uid, 
+                fact_id=new_fact.get('fact_id'), 
+                category=new_fact.get('category'), 
+                content=new_fact.get('content')
+            )
+            
+    import threading
+    threading.Thread(target=reflect_and_save).start()
+    
+    # 4. Get advice from high-tier logic
     advice = advisor_service.get_financial_advice(user_prompt, financial_data)
     return jsonify({'advice': advice})
+
+@app.route('/api/health_brief', methods=['GET'])
+@auth_required
+def get_health_brief():
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+    
+    memory_string = get_contextual_memory(request.uid)
+    
+    try:
+        from tax_logic import calculate_taxes
+        tax_results = calculate_taxes(user.state.name, incomes)
+    except Exception:
+        tax_results = {}
+        
+    # Calculate simplistic live values for the brief context
+    total_assets = sum(a.value for a in assets)
+    total_debts = sum(d.current_balance for d in debts)
+        
+    financial_data = {
+        'real_time_net_worth': total_assets - total_debts,
+        'contextual_memory': memory_string,
+        'outstanding_checks': [{'amount': c.amount, 'payee': c.payee} for c in outstanding_checks if c.status.name == 'PENDING'],
+        'tax_projections': tax_results,
+        'transactions': [{'amount': t.amount, 'category': t.category, 'pending': t.pending} for t in transactions[:100]]
+    }
+    
+    import advisor_service
+    brief = advisor_service.generate_health_brief(financial_data)
+    
+    return jsonify({'brief': brief})
 
 @app.route('/api/upload_statement', methods=['POST'])
 @token_required

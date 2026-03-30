@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Check, Star, RefreshCw, Activity, AlertCircle, Wrench, Trash2, Tag, X } from 'lucide-react';
+import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X } from 'lucide-react';
 import PlaidLink from './PlaidLink';
 import axios from 'axios';
 
-const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, handlePlaidSync, onPlaidSuccess, isSyncing, customCategories = [], onSaveCustomCategories }) => {
+const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, handlePlaidSync, onPlaidSuccess, isSyncing, syncMessage, customCategories = [], onSaveCustomCategories }) => {
     const { currentUser, logout } = useAuth();
     const [health, setHealth] = useState(null);
     const [plaidError, setPlaidError] = useState(null);
@@ -163,18 +163,25 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                 <div className="flex flex-wrap gap-4">
                                     <PlaidLink onPlaidSuccess={onPlaidSuccess} updateToken={updateToken} onUpdateReset={() => setUpdateToken(null)} />
                                     {plaidItems.length > 0 && (
-                                        <button 
-                                            onClick={handlePlaidSync}
-                                            disabled={isSyncing}
-                                            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-medium ${
-                                                isSyncing 
-                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-                                            }`}
-                                        >
-                                            <RefreshCw size={18} className={isSyncing ? "animate-spin" : ""} />
-                                            <span>{isSyncing ? "Syncing..." : "Manual Sync Now"}</span>
-                                        </button>
+                                        <div className="flex items-center space-x-3">
+                                            <button 
+                                                onClick={handlePlaidSync}
+                                                disabled={isSyncing}
+                                                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-medium ${
+                                                    isSyncing 
+                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                                    : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                                                }`}
+                                            >
+                                                <RefreshCw size={18} className={isSyncing ? "animate-spin" : ""} />
+                                                <span>{isSyncing ? "Syncing..." : "Manual Sync Now"}</span>
+                                            </button>
+                                            {syncMessage && (
+                                                <div className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm ${syncMessage.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                                                    {syncMessage.text}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                                 
@@ -255,62 +262,6 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                             </div>
                         </div>
                     )}
-                </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-                <div className="p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                        <Tag className="mr-2 text-indigo-600" size={20} />
-                        Custom Budget Categories
-                    </h2>
-                    <p className="text-sm text-gray-600 mb-4">Add your own categories like "Hair" or "Nails" to categorize transactions.</p>
-                    
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        {customCategories.map((cat, idx) => (
-                            <div key={idx} className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold flex items-center space-x-2">
-                                <span>{cat}</span>
-                                <button 
-                                    onClick={() => {
-                                        if (window.confirm(`Delete category "${cat}"?`)) {
-                                            onSaveCustomCategories(customCategories.filter(c => c !== cat));
-                                        }
-                                    }}
-                                    className="hover:text-red-500 transition-colors"
-                                >
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        ))}
-                        {customCategories.length === 0 && <p className="text-gray-400 text-xs italic">No custom categories added yet.</p>}
-                    </div>
-
-                    <div className="flex space-x-2">
-                        <input 
-                            type="text" 
-                            id="new-category-input"
-                            placeholder="Add category (e.g. Nails)" 
-                            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                            onKeyPress={(e) => {
-                                if (e.key === 'Enter' && e.target.value) {
-                                    onSaveCustomCategories([...customCategories, e.target.value]);
-                                    e.target.value = '';
-                                }
-                            }}
-                        />
-                        <button 
-                            onClick={() => {
-                                const input = document.getElementById('new-category-input');
-                                if (input.value) {
-                                    onSaveCustomCategories([...customCategories, input.value]);
-                                    input.value = '';
-                                }
-                            }}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-sm active:scale-95"
-                        >
-                            Add
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -420,7 +371,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                 </button>
             </div>
 
-            {currentUser?.email === 'yshirokov05@gmail.com' && (
+            {['yshirokov05@gmail.com', 'yshirokov@gmail.com', 'ys05@gmail.com'].includes(currentUser?.email?.toLowerCase()) && (
                 <div className="mt-8 p-4 bg-gray-100 rounded-lg border border-gray-200 text-[10px] font-mono text-gray-500">
                     <p className="font-bold mb-1 flex items-center"><Activity size={10} className="mr-1"/> OWNER DEBUG INFO</p>
                     <p>UID: {currentUser.uid}</p>

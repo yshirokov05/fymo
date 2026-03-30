@@ -1,12 +1,36 @@
 import React, { useState } from 'react';
 import Card from './Card';
 import axios from 'axios';
-import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, X, CreditCard } from 'lucide-react';
+import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, CreditCard, X, Search, BarChart2, Star } from 'lucide-react';
 
-const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCategories = [], fetchData }) => {
+const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCategories = [], onSaveCustomCategories, fetchData, ignoredSubscriptions = [], manualSubscriptions = [], setIgnoredSubscriptions, setManualSubscriptions }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editedBudgets, setEditedBudgets] = useState([...budgets]);
     const [showAllTransactions, setShowAllTransactions] = useState(false);
+    const [analysisSearch, setAnalysisSearch] = useState('');
+    const [categoryUpdatePending, setCategoryUpdatePending] = useState(null);
+    const [isUpdatingPrefs, setIsUpdatingPrefs] = useState(false);
+
+    const handleUpdateSubscriptionPrefs = async (newIgnored, newManual) => {
+        setIsUpdatingPrefs(true);
+        try {
+            const token = await currentUser.getIdToken();
+            await axios.post('/api/user/subscription_preferences', {
+                ignored_subscription_merchants: newIgnored,
+                manual_subscription_merchants: newManual
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Update local state in parent
+            if (setIgnoredSubscriptions) setIgnoredSubscriptions(newIgnored);
+            if (setManualSubscriptions) setManualSubscriptions(newManual);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to update preferences");
+        } finally {
+            setIsUpdatingPrefs(false);
+        }
+    };
 
     // ... (categories and periods logic same)
     const baseCategories = [
@@ -26,12 +50,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
     
     const periods = ['Weekly', 'Bi-Weekly', 'Monthly', 'Quarterly', 'Bi-Annually', 'Annually'];
 
-    const handleAddCustomCategory = () => {
-        const name = window.prompt("Enter new category name:");
-        if (name && !customCategories.includes(name)) {
-            alert("Please add custom categories in Settings.");
-        }
-    };
+
 
     const getTransactionCategory = (transaction) => {
         if (transaction.category && transaction.category !== 'Uncategorized') return transaction.category;
@@ -42,7 +61,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         if (name.includes('vanguard') || name.includes('chase card') || name.includes('payment to') || name.includes('zelle') || name.includes('stradavarius') || name.includes('moose llc') || name.includes('transfer') || name.includes('funding')) return 'Ignore';
         
         // Distinction: Safeway Gas vs Groceries
-        if (name.includes('safeway fuel') || name.includes('safeway gas')) return 'Transportation';
+        if (name.includes('safeway fuel') || name.includes('safeway gas') || name.includes('safeway #')) return 'Transportation';
         if (name.includes('safeway') || name.includes('grocer') || name.includes('kroger') || name.includes('trader joe') || name.includes('costco') || name.includes('target') || name.includes('walmart') || name.includes('whole foods') || name.includes('sprouts')) return 'Groceries';
         
         if (name.includes('dining') || name.includes('mcdonald') || name.includes('starbucks') || name.includes('coffee') || name.includes('cal dining') || name.includes('uber eats') || name.includes('doordash') || name.includes('ramen') || name.includes('pizza') || name.includes('grill') || name.includes('wings') || name.includes('cafe') || name.includes('baguette') || name.includes('eataly') || name.includes('in-n-out') || name.includes('mountain mikes') || name.includes('nick the greek') || name.includes('house of three') || name.includes('kiklo')) return 'Eating Out';
@@ -56,9 +75,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         return 'Other';
     };
 
-    const handleCategoryChange = async (t, newCategory) => {
-        const createRule = window.confirm(`Update all future transactions from "${t.name}" to ${newCategory}?`);
-        
+    const handleCategoryChange = async (t, newCategory, createRule = false) => {
         try {
             const token = await currentUser.getIdToken();
             const res = await axios.put(`/api/transactions/${t.id}/category`, {
@@ -69,6 +86,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.status === 200) {
+                setCategoryUpdatePending(null);
                 if (fetchData) {
                     await fetchData();
                 } else {
@@ -90,7 +108,8 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         return transactions
             .filter(t => {
                 const tCat = getTransactionCategory(t);
-                return tCat.toLowerCase() === category.toLowerCase() && t.date >= startOfMonth;
+                // Important: Don't count "Ignore" or "Debit Card" in the budget totals if they are meant to be excluded
+                return tCat.toLowerCase() === category.toLowerCase() && tCat !== 'Ignore' && t.date >= startOfMonth;
             })
             .reduce((sum, t) => sum + (t.amount > 0 ? t.amount : 0), 0);
     };
@@ -124,10 +143,108 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         setIsEditing(false);
     };
 
+    const getMonthlyAnalysis = () => {
+        const now = new Date();
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        const thisMonthStr = startOfThisMonth.toISOString().split('T')[0];
+        const lastMonthStartStr = startOfLastMonth.toISOString().split('T')[0];
+        const lastMonthEndStr = endOfLastMonth.toISOString().split('T')[0];
+
+        const results = {};
+        
+        transactions.forEach(t => {
+            // Only expenses
+            if (t.amount <= 0) return;
+            
+            const cat = getTransactionCategory(t);
+            if (cat === 'Ignore') return;
+
+            const matchesSearch = !analysisSearch || t.name.toLowerCase().includes(analysisSearch.toLowerCase());
+            if (!matchesSearch) return;
+
+            if (!results[cat]) results[cat] = { name: cat, current: 0, previous: 0 };
+            
+            if (t.date >= thisMonthStr) {
+                results[cat].current += t.amount;
+            } else if (t.date >= lastMonthStartStr && t.date <= lastMonthEndStr) {
+                results[cat].previous += t.amount;
+            }
+        });
+
+        return Object.values(results).sort((a, b) => b.current - a.current);
+    };
+
+    const getSubscriptions = () => {
+        const groups = {};
+        // Only look at last 90 days for subscription detection
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split('T')[0];
+
+        const filteredTxns = transactions.filter(t => 
+            t.amount > 0 && 
+            t.date >= ninetyDaysAgoStr && 
+            getTransactionCategory(t) !== 'Ignore' &&
+            !ignoredSubscriptions.some(ignored => ignored.trim() === t.name.trim())
+        );
+
+        filteredTxns.forEach(t => {
+            const key = `${t.name.toLowerCase()}_${t.amount.toFixed(2)}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(t);
+        });
+
+        const detected = Object.values(groups)
+            .filter(group => {
+                if (group.length < 2) return false;
+                const sortedDates = group.map(t => new Date(t.date)).sort((a,b) => a - b);
+                let hasValidGap = false;
+                for (let i = 1; i < sortedDates.length; i++) {
+                    const diffDays = (sortedDates[i] - sortedDates[i-1]) / (1000 * 60 * 60 * 24);
+                    if (diffDays >= 15) hasValidGap = true;
+                }
+                return hasValidGap;
+            })
+            .map(group => ({
+                name: group[0].name,
+                amount: group[0].amount,
+                count: group.length,
+                lastDate: group.sort((a,b) => b.date.localeCompare(a.date))[0].date,
+                isManual: false
+            }));
+
+        // Add manual subscriptions if not already detected
+        manualSubscriptions.forEach(mName => {
+            if (!detected.find(d => d.name === mName)) {
+                // Find latest transaction for this merchant
+                const mTxns = transactions.filter(t => t.name === mName && t.amount > 0).sort((a,b) => b.date.localeCompare(a.date));
+                if (mTxns.length > 0) {
+                    detected.push({
+                        name: mName,
+                        amount: mTxns[0].amount,
+                        count: mTxns.length,
+                        lastDate: mTxns[0].date,
+                        isManual: true
+                    });
+                }
+            }
+        });
+
+        return detected.sort((a,b) => b.amount - a.amount);
+    };
+
+    const subscriptions = getSubscriptions();
+    const totalFixedCommitment = subscriptions.reduce((sum, s) => sum + s.amount, 0);
+
+    const analysisData = getMonthlyAnalysis();
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-gray-800">Budget Tracker</h2>
+                <h2 className="text-3xl font-bold text-gray-800">Expenditure Dashboard</h2>
                 <div className="flex items-center space-x-3">
                     {!isEditing ? (
                         <button 
@@ -160,6 +277,74 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         <span>Add Budget</span>
                     </button>
                 </div>
+            </div>
+
+            {/* Top Level Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <Card className="bg-gradient-to-br from-blue-600 to-blue-700 text-white border-none shadow-blue-200">
+                    <div className="flex items-center justify-between mb-2 opacity-80">
+                        <span className="text-[10px] font-black uppercase tracking-widest">Fixed Commitment</span>
+                        <PlayCircle size={16} />
+                    </div>
+                    <div className="text-2xl font-black">${totalFixedCommitment.toFixed(0)}</div>
+                    <div className="text-[10px] opacity-70 mt-1 font-bold italic">{subscriptions.length} Subscriptions active</div>
+                </Card>
+
+                <Card className="bg-white">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Budget Utilization</span>
+                        <PieChart size={16} className="text-blue-500" />
+                    </div>
+                    {(() => {
+                        const totalSpent = budgets.reduce((sum, b) => sum + getSpentForCategory(b.category, b.period), 0);
+                        const totalLimit = budgets.reduce((sum, b) => sum + getNormalizedMonthlyLimit(b.limit_amount, b.period), 0);
+                        const utilization = totalLimit > 0 ? (totalSpent / totalLimit) * 100 : 0;
+                        return (
+                            <>
+                                <div className="text-2xl font-black text-gray-900">{utilization.toFixed(0)}%</div>
+                                <div className="w-full bg-gray-100 rounded-full h-1 mt-2">
+                                    <div className="bg-blue-500 h-full rounded-full" style={{ width: `${utilization}%` }}></div>
+                                </div>
+                            </>
+                        );
+                    })()}
+                </Card>
+                
+                <Card className="bg-white md:col-span-2 overflow-hidden relative">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Detected Subscriptions</span>
+                        <Tag size={16} className="text-blue-500" />
+                    </div>
+                    <div className="flex space-x-3 overflow-x-auto pt-2 pr-2 pb-2 scrollbar-none no-scrollbar">
+                        {subscriptions.slice(0, 5).map((s, idx) => (
+                            <div key={idx} className="flex-shrink-0 bg-gray-50 p-2 rounded-lg border border-gray-100 relative group/sub">
+                                <div className="text-[10px] font-black text-gray-900 truncate w-24">{s.name}</div>
+                                <div className="text-xs font-bold text-blue-600">${s.amount.toFixed(2)}</div>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log("Dismissing subscription:", s.name);
+                                        handleUpdateSubscriptionPrefs([...ignoredSubscriptions, s.name], manualSubscriptions.filter(m => m !== s.name));
+                                    }}
+                                    className="absolute -top-2 -right-2 bg-white shadow-md border border-gray-200 rounded-full p-1 text-gray-400 hover:text-red-500 hover:scale-110 transition-all z-10"
+                                    title="Dismiss Subscription"
+                                >
+                                    <X size={12} />
+                                </button>
+                                {s.isManual && (
+                                    <div className="absolute -bottom-1 -right-1 text-amber-500">
+                                        <Star size={8} fill="currentColor" />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            </div>
+
+            <div className="flex items-center space-x-2 pb-2">
+                <BarChart2 className="text-blue-600" size={20} />
+                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Flexible Spending Budgets</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -205,7 +390,14 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 {categories.find(c => c.name === budget.category)?.icon || <PieChart size={16}/>}
                                                 <span className="ml-2">{budget.category}</span>
                                             </h3>
-                                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{budget.period || 'Monthly'}</span>
+                                            <div className="flex items-center space-x-1">
+                                                <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{budget.period || 'Monthly'}</span>
+                                                {(budget.period === 'Monthly' || !budget.period) && (
+                                                    <span className="text-[10px] text-gray-300 font-medium">
+                                                        ({new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} - {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -275,6 +467,137 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 )}
             </div>
 
+            {/* Spending Analysis Section */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                            <BarChart2 className="mr-2 text-blue-600" size={24} />
+                            Spending Analysis
+                        </h2>
+                        <p className="text-sm text-gray-500">Compare your spending trends month-over-month.</p>
+                    </div>
+                    
+                    <div className="relative max-w-xs w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <input 
+                            type="text"
+                            placeholder="Search merchant or keyword..."
+                            value={analysisSearch}
+                            onChange={(e) => setAnalysisSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                        />
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="text-left text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
+                                <th className="pb-3 px-2">Category</th>
+                                <th className="pb-3 px-2 text-right">This Month</th>
+                                <th className="pb-3 px-2 text-right">Last Month</th>
+                                <th className="pb-3 px-2 text-right">Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                            {analysisData.length > 0 ? (
+                                analysisData.map((data, idx) => {
+                                    const diff = data.current - data.previous;
+                                    const percentChange = data.previous > 0 ? (diff / data.previous) * 100 : 0;
+                                    const isUp = diff > 0;
+                                    
+                                    return (
+                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="py-3 px-2">
+                                                <div className="flex items-center space-x-2">
+                                                    <div className="p-1.5 bg-gray-100 rounded-lg text-gray-600">
+                                                        {categories.find(c => c.name === data.name)?.icon || <Tag size={14} />}
+                                                    </div>
+                                                    <span className="font-bold text-sm text-gray-800">{data.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-2 text-right font-black text-sm text-gray-900">${data.current.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                                            <td className="py-3 px-2 text-right font-bold text-sm text-gray-400">${data.previous.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                                            <td className="py-3 px-2 text-right">
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                                    data.previous === 0 ? 'bg-gray-100 text-gray-500' : 
+                                                    isUp ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                                }`}>
+                                                    {data.previous === 0 ? 'NEW' : `${isUp ? '+' : ''}${percentChange.toFixed(0)}%`}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan="4" className="py-8 text-center text-gray-400 text-sm italic">
+                                        {analysisSearch ? "No spending found matching that keyword." : "No spending data found for these periods."}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-8">
+                <div className="p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                        <Tag className="mr-2 text-indigo-600" size={20} />
+                        Custom Budget Categories
+                    </h2>
+                    <p className="text-sm text-gray-600 mb-4">Add your own categories like "Hair" or "Nails" to categorize transactions.</p>
+                    
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {customCategories.map((cat, idx) => (
+                            <div key={idx} className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold flex items-center space-x-2">
+                                <span>{cat}</span>
+                                <button 
+                                    onClick={() => {
+                                        if (window.confirm(`Delete category "${cat}"?`)) {
+                                            onSaveCustomCategories(customCategories.filter(c => c !== cat));
+                                        }
+                                    }}
+                                    className="hover:text-red-500 transition-colors"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
+                        {customCategories.length === 0 && <p className="text-gray-400 text-xs italic">No custom categories added yet.</p>}
+                    </div>
+
+                    <div className="flex space-x-2">
+                        <input 
+                            type="text" 
+                            id="new-category-input"
+                            placeholder="Add category (e.g. Nails)" 
+                            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter' && e.target.value) {
+                                    onSaveCustomCategories([...customCategories, e.target.value]);
+                                    e.target.value = '';
+                                }
+                            }}
+                        />
+                        <button 
+                            onClick={() => {
+                                const input = document.getElementById('new-category-input');
+                                if (input.value) {
+                                    onSaveCustomCategories([...customCategories, input.value]);
+                                    input.value = '';
+                                }
+                            }}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-sm active:scale-95"
+                        >
+                            Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <Card title="Recent Transactions" className="mt-8">
                 <div className="overflow-x-auto">
                     <table className="w-full">
@@ -284,54 +607,103 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 <th className="pb-4 px-2">Merchant</th>
                                 <th className="pb-4 px-2">Category</th>
                                 <th className="pb-4 px-2 text-right">Amount</th>
+                                <th className="pb-4 px-2 w-8"></th>
+                                <th className="pb-4 px-2"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {transactions.filter(t => getTransactionCategory(t) !== 'Ignore').length > 0 ? (
-                                (showAllTransactions ? 
-                                    transactions.filter(t => getTransactionCategory(t) !== 'Ignore') : 
-                                    transactions.filter(t => getTransactionCategory(t) !== 'Ignore').slice(0, 10)
-                                ).map((t) => (
-                                    <tr key={t.id} className="hover:bg-gray-50/50 transition-colors group">
-                                        <td className="py-4 px-2 text-sm text-gray-500">{t.date}</td>
-                                        <td className="py-4 px-2 text-sm font-bold text-gray-900">{t.name}</td>
-                                        <td className="py-4 px-2">
-                                            <select 
-                                                value={getTransactionCategory(t)} 
-                                                onChange={(e) => handleCategoryChange(t, e.target.value)}
-                                                className="px-2 py-1 bg-white border border-gray-200 text-gray-600 rounded text-[10px] font-bold uppercase cursor-pointer hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                            >
-                                                <option value="Uncategorized">UNCATEGORIZED</option>
-                                                {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                                                <option value="Ignore">IGNORE</option>
-                                            </select>
-                                        </td>
-                                        <td className={`py-4 px-2 text-sm font-black text-right ${t.amount > 0 ? 'text-gray-900' : 'text-green-600'}`}>
-                                            ${Math.abs(t.amount).toFixed(2)}
-                                        </td>
-                                        <td className="py-4 px-2 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button 
-                                                onClick={async () => {
-                                                    if (window.confirm("Delete this transaction?")) {
-                                                        try {
-                                                            const token = await currentUser.getIdToken();
-                                                            await axios.delete(`/api/transactions/${t.id}`, {
-                                                                headers: { Authorization: `Bearer ${token}` }
-                                                            });
-                                                            fetchData();
-                                                        } catch (err) { alert("Failed to delete"); }
-                                                    }
-                                                }}
-                                                className="text-gray-300 hover:text-red-500"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                            {transactions.length > 0 ? (
+                                (showAllTransactions ? transactions : transactions.slice(0, 10)).map((t) => {
+                                    const category = getTransactionCategory(t);
+                                    const isIgnored = category === 'Ignore';
+                                    return (
+                                        <tr key={t.id} className={`hover:bg-gray-50/50 transition-colors group ${isIgnored ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                                            <td className="py-4 px-2 text-sm text-gray-500">{t.date}</td>
+                                            <td className="py-4 px-2 text-sm font-bold text-gray-900 leading-tight">
+                                                {t.name}
+                                                {isIgnored && <span className="ml-2 text-[8px] bg-gray-200 text-gray-500 px-1 rounded uppercase">Ignored</span>}
+                                            </td>
+                                            <td className="py-4 px-2">
+                                                <select 
+                                                    value={category} 
+                                                    onChange={(e) => setCategoryUpdatePending({ transaction: t, newCategory: e.target.value })}
+                                                    className="px-2 py-1 bg-white border border-gray-200 text-gray-600 rounded text-[10px] font-bold uppercase cursor-pointer hover:bg-gray-50 transition-colors shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                                >
+                                                    <option value="Uncategorized">UNCATEGORIZED</option>
+                                                    {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                                    <option value="Ignore">IGNORE</option>
+                                                </select>
+                                                
+                                                {categoryUpdatePending?.transaction.id === t.id && (
+                                                    <div className="absolute z-50 mt-2 bg-white border border-gray-200 shadow-xl rounded-xl p-4 w-64 -translate-x-1/2 left-1/2">
+                                                        <h4 className="text-sm font-bold text-gray-900 mb-1">Update Merchant?</h4>
+                                                        <p className="text-[10px] text-gray-500 mb-4">Would you like to apply <b>{categoryUpdatePending.newCategory}</b> to all future <b>{t.name}</b> transactions?</p>
+                                                        <div className="flex space-x-2">
+                                                            <button 
+                                                                onClick={() => handleCategoryChange(t, categoryUpdatePending.newCategory, true)}
+                                                                className="flex-1 bg-blue-600 text-white text-[10px] font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                                            >
+                                                                All Future
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleCategoryChange(t, categoryUpdatePending.newCategory, false)}
+                                                                className="flex-1 bg-gray-100 text-gray-700 text-[10px] font-bold py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                                                            >
+                                                                Just This One
+                                                            </button>
+                                                        </div>
+                                                        <button 
+                                                            onClick={() => setCategoryUpdatePending(null)}
+                                                            className="mt-2 w-full text-[10px] text-gray-400 hover:text-gray-600 font-medium py-1"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className={`py-4 px-2 text-sm font-black text-right ${t.amount > 0 ? 'text-gray-900' : 'text-green-600'}`}>
+                                                ${Math.abs(t.amount).toFixed(2)}
+                                            </td>
+                                            <td className="py-4 px-2 text-center">
+                                                <button 
+                                                    onClick={() => {
+                                                        const isManual = manualSubscriptions.includes(t.name);
+                                                        if (isManual) {
+                                                            handleUpdateSubscriptionPrefs(ignoredSubscriptions, manualSubscriptions.filter(m => m !== t.name));
+                                                        } else {
+                                                            handleUpdateSubscriptionPrefs(ignoredSubscriptions.filter(i => i !== t.name), [...manualSubscriptions, t.name]);
+                                                        }
+                                                    }}
+                                                    className={`transition-colors ${manualSubscriptions.includes(t.name) ? 'text-amber-500 hover:text-amber-600' : 'text-gray-200 hover:text-gray-400'}`}
+                                                    title={manualSubscriptions.includes(t.name) ? "Remove from Subscriptions" : "Mark as Subscription"}
+                                                >
+                                                    <Star size={16} fill={manualSubscriptions.includes(t.name) ? "currentColor" : "none"} />
+                                                </button>
+                                            </td>
+                                            <td className="py-4 px-2 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={async () => {
+                                                        if (window.confirm("Delete this transaction?")) {
+                                                            try {
+                                                                const token = await currentUser.getIdToken();
+                                                                await axios.delete(`/api/transactions/${t.id}`, {
+                                                                    headers: { Authorization: `Bearer ${token}` }
+                                                                });
+                                                                fetchData();
+                                                            } catch (err) { alert("Failed to delete"); }
+                                                        }
+                                                    }}
+                                                    className="text-gray-300 hover:text-red-500"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr>
-                                    <td colSpan="4" className="py-12 text-center text-gray-400 text-sm italic">
+                                    <td colSpan="5" className="py-12 text-center text-gray-400 text-sm italic">
                                         No transactions found. Sync your bank in Settings to see recent activity.
                                     </td>
                                 </tr>
@@ -339,7 +711,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         </tbody>
                     </table>
                 </div>
-                {transactions.filter(t => getTransactionCategory(t) !== 'Ignore').length > 10 && (
+                {transactions.length > 10 && (
                     <button 
                         onClick={() => setShowAllTransactions(!showAllTransactions)}
                         className="w-full mt-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-xl transition-colors flex items-center justify-center cursor-pointer"
@@ -347,7 +719,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         {showAllTransactions ? (
                             <><ChevronUp size={18} className="mr-2"/> Show Less</>
                         ) : (
-                            <><ChevronDown size={18} className="mr-2"/> View All {transactions.filter(t => getTransactionCategory(t) !== 'Ignore').length} Transactions</>
+                            <><ChevronDown size={18} className="mr-2"/> View All {transactions.length} Transactions</>
                         )}
                     </button>
                 )}

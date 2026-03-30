@@ -49,7 +49,7 @@ def create_link_token(user_id):
     try:
         args = {
             "products": [Products('transactions')],
-            "optional_products": [Products('investments'), Products('liabilities'), Products('auth'), Products('identity')],
+            "optional_products": [Products('investments'), Products('liabilities'), Products('identity')],
             "client_name": "Financial HQ",
             "country_codes": [CountryCode('US')],
             "language": 'en',
@@ -74,7 +74,7 @@ def create_update_token(user_id, access_token):
     try:
         request = LinkTokenCreateRequest(
             products=[Products('transactions')],
-            optional_products=[Products('investments'), Products('liabilities'), Products('auth'), Products('identity')],
+            optional_products=[Products('investments'), Products('liabilities'), Products('identity')],
             client_name="Financial HQ",
             country_codes=[CountryCode('US')],
             language='en',
@@ -160,6 +160,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
         # 1. Get Accounts (for Cash/Bank balances)
         accounts_request = AccountsGetRequest(access_token=access_token)
         accounts_response = client.accounts_get(accounts_request).to_dict()
+        synced_account_ids = [acc['account_id'] for acc in accounts_response.get('accounts', [])]
         logging.info(f"Retrieved {len(accounts_response.get('accounts', []))} accounts from Plaid.")
         
         # 2. Get Investment Holdings
@@ -208,7 +209,8 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
             subtype = acc.get('subtype', '').lower()
             name = acc['name'].lower()
             official_name = (acc.get('official_name') or '').lower()
-            balance = acc['balances']['current']
+            # Use 'available' balance for checking/savings for better real-time accuracy
+            balance = acc['balances'].get('available') if (acc['type'] == 'depository' and acc['balances'].get('available') is not None) else acc['balances']['current']
             
             print(f"Processing Account: {acc['name']} ({acc['type']}/{subtype}), Balance: {balance}")
             
@@ -508,7 +510,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                         is_net_primary=True
                     ))
             
-        return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs
+        return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, synced_account_ids
     except Exception as e:
         import traceback
         print(f"CRITICAL SYNC ERROR: {e}")

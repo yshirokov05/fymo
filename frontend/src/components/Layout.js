@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Wallet, CreditCard, PiggyBank, Settings, DollarSign, Shield, PieChart, Sparkles, Menu, X, Lock, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Wallet, CreditCard, PiggyBank, Settings, DollarSign, Shield, PieChart, Sparkles, Menu, X, Lock, MessageSquare, TrendingDown, BarChart3 } from 'lucide-react';
 
 const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const navItems = [
         { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-        { id: 'advisor', label: 'AI Advisor', icon: <Sparkles size={20} /> },
-        { id: 'budget', label: 'Budget Tracker', icon: <PieChart size={20} /> },
+        { id: 'advisor', label: 'AI Analyst', icon: <Sparkles size={20} /> },
+        { id: 'budget', label: 'Expenditures', icon: <PieChart size={20} /> },
         { id: 'earnings', label: 'Earned Income', icon: <Wallet size={20} /> },
         { id: 'taxes', label: 'Tax Projection', icon: <DollarSign size={20} /> },
         { id: 'investments', label: 'Investments', icon: <PiggyBank size={20} /> },
         { id: 'insurance', label: 'Insurance', icon: <Shield size={20} /> },
         { id: 'debts', label: 'Debts', icon: <CreditCard size={20} /> },
         { id: 'checks', label: 'Check Tracker', icon: <DollarSign size={20} /> },
+        { id: 'visualizations', label: 'Visualizations', icon: <BarChart3 size={20} /> },
         { id: 'faq', label: 'Security FAQ', icon: <Lock size={20} /> },
         { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
     ];
@@ -21,7 +22,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
     const quickNavItems = [
         { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={24} /> },
         { id: 'advisor', label: 'AI', icon: <Sparkles size={24} /> },
-        { id: 'budget', label: 'Budget', icon: <PieChart size={24} /> },
+        { id: 'budget', label: 'Spending', icon: <PieChart size={24} /> },
         { id: 'investments', label: 'Vault', icon: <PiggyBank size={24} /> },
         { id: 'menu', label: 'More', icon: <Menu size={24} /> },
     ];
@@ -70,6 +71,9 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                         </button>
                     </div>
                 </nav>
+                <div className="p-4 text-[10px] text-gray-500 border-t border-gray-800 leading-tight italic">
+                    All rights reserved. Built as a solo project by Yury Shirokov.
+                </div>
             </div>
 
             {/* Mobile Sidebar Overlay */}
@@ -113,6 +117,9 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                                 </button>
                             </div>
                         </nav>
+                        <div className="p-6 text-[11px] text-gray-500 border-t border-gray-800 leading-tight bg-gray-950/30 italic">
+                            All rights reserved. Built as a solo project by Yury Shirokov.
+                        </div>
                     </div>
                 </div>
             )}

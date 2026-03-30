@@ -59,7 +59,7 @@ def get_financial_advice(user_prompt, financial_data):
     """
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
-        return "I'm sorry, Mr. Bean, but the Gemini API Key is missing. I cannot provide advice at this time."
+        return "I'm sorry, but the Gemini API Key is missing. I cannot provide advice at this time."
 
     genai.configure(api_key=api_key)
     
@@ -110,12 +110,11 @@ def get_financial_advice(user_prompt, financial_data):
             })
 
         # 4. Fetch persistent AI memory
-        ai_insights = financial_data.get('ai_insights', [])
-        memory_str = json.dumps(ai_insights) if ai_insights else "No previous habits or goals recorded yet."
+        memory_str = financial_data.get('contextual_memory', "No previous habits or goals recorded yet.")
 
         system_instruction = f"""
         You are the Financial Headquarters (FHQ) AI Advisor. 
-        Always address the user as "Mr. Bean". This is mandatory for your identity protocol.
+        You are the Financial Headquarters (FHQ) AI Advisor. 
         
         GOAL: Provide high-precision financial advice based strictly on ACTUAL spending data and longitudinal habits.
         
@@ -137,7 +136,7 @@ def get_financial_advice(user_prompt, financial_data):
         {json.dumps(normalized_budgets)}
 
         IMPORTANT GUIDELINES:
-        1. Professional & Honest: If Mr. Bean is overspending, point it out firmly but professionally.
+        1. Professional & Honest: If the user is overspending, point it out firmly but professionally.
         2. Data-Driven: Use the PoP insights above to give specific examples (e.g., "Your dining spend is up 20%").
         3. Professional Disclosure: Always include this at the end: "This advice is for informational purposes only. Consult a human professional for regulated financial decisions."
         4. Conciseness: Keep the response under 300 words unless deeply complex.
@@ -155,4 +154,104 @@ def get_financial_advice(user_prompt, financial_data):
     except Exception as e:
         import traceback
         logging.error(f"Advisor Service Error: {e} - Traceback: {traceback.format_exc()}")
-        return "I encountered an error while analyzing your data, Mr. Bean. Please try again later."
+        return "I encountered an error while analyzing your data. Please try again later."
+
+def extract_user_memory(user_prompt, existing_memory_str):
+    """
+    Reflection Middleware:
+    Uses a secondary instance of Gemini 1.5 Flash to automatically identify and extract
+    permanent financial facts, goals, or habits from the user's message.
+    Returns a dict matching the UserMemory schema if a new fact is found, else None.
+    """
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key: return None
+    
+    genai.configure(api_key=api_key)
+    
+    system_instruction = f"""
+    You are the Semantic Memory Extractor for Financial Headquarters (FHQ).
+    Your job is to read the user's message and extract any NEW permanent financial facts, goals, constraints, or background context.
+    
+    EXISTING MEMORIES:
+    {existing_memory_str}
+    
+    RULES:
+    1. If the user mentions a fact, goal, or habit that is NOT clearly present in EXISTING MEMORIES, extract it.
+    2. If the user's message does not contain any permanent facts, or if the facts are already known, you MUST return `null`.
+    3. You must respond ONLY with a valid JSON object matching this schema (or the literal word null):
+    {{
+        "fact_id": "a_short_unique_snake_case_string",
+        "category": "Goal", // Must be one of: Goal, Habit, Constraint, EconBackground, Fact
+        "content": "The concise fact extracted."
+    }}
+    """
+    
+    try:
+        model = genai.GenerativeModel(
+            model_name='gemini-1.5-flash',
+            system_instruction=system_instruction,
+            generation_config=genai.types.GenerationConfig(
+                response_mime_type="application/json",
+            )
+        )
+        response = model.generate_content(user_prompt)
+        text = response.text.strip()
+        if text == "null" or not text:
+            return None
+            
+        data = json.loads(text)
+        if "category" in data and "content" in data:
+            return data
+        return None
+    except Exception as e:
+        logging.error(f"Memory Extraction Error: {e}")
+        return None
+
+def generate_health_brief(financial_data):
+    """
+    Generates a 3-bullet 'Brutally Honest' status report covering:
+    1. Liquidity Check
+    2. Tax Preparedness
+    3. Goal Progress
+    """
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key: return "API Key missing."
+    
+    genai.configure(api_key=api_key)
+    
+    outstanding_checks = financial_data.get('outstanding_checks', [])
+    tax_data = financial_data.get('tax_projections', {})
+    transactions = financial_data.get('transactions', [])
+    memory_str = financial_data.get('contextual_memory', "No specific goals tracked.")
+    net_worth = financial_data.get('real_time_net_worth', 0)
+    
+    # Calculate a rough 30-day spend
+    recent_spend = sum(t.get('amount', 0) for t in transactions if not t.get('pending') and t.get('amount', 0) > 0)
+    
+    system_instruction = f"""
+    You are the FHQ AI Analyst preparing a 'Morning Brief' for Mr. Bean.
+    Provide a 'Brutally Honest', hard-hitting 3-bullet status report based EXACTLY on these categories:
+    **Liquidity Check:** (Are the pending checks going to bounce? Is cash flow tight?)
+    **Tax Preparedness:** (Is the tax picture looking okay?)
+    **Goal Progress:** (Are they on track for their goals based on spending?)
+    
+    CONTEXT DATA:
+    - Net Worth: ${net_worth:,.2f}
+    - Memories/Goals: {memory_str}
+    - Outstanding Checks: {json.dumps(outstanding_checks)}
+    - Recent Spend Detected: ${recent_spend:,.2f}
+    - Tax Profile: {json.dumps(tax_data)[:500]}
+    
+    RULES:
+    Keep each bullet point to 1-3 highly concise sentences. 
+    Be honest, direct, and slightly cynical if they appear to be doing poorly or making bad financial decisions.
+    Return ONLY the markdown formatted bullet points. Do not include any introductory text.
+    """
+    
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+        response = model.generate_content("Generate my morning brief.")
+        return response.text.strip()
+    except Exception as e:
+        logging.error(f"Morning Brief Error: {e}")
+        return "**Liquidity Check:** System Unavailable\n**Tax Preparedness:** System Unavailable\n**Goal Progress:** System Unavailable"

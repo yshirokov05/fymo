@@ -17,6 +17,7 @@
     }
   ],
   "hosting": {
+    "site": "personal-finance-app-18cbc",
     "public": "frontend/build",
     "ignore": [
       "firebase.json",

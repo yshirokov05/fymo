@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Card from './Card';
 import TaxDocumentUpload from './TaxDocumentUpload';
-import { Plus, Trash2, Calendar, Building, DollarSign, Receipt } from 'lucide-react';
+import { Plus, Trash2, Calendar, DollarSign, Receipt } from 'lucide-react';
 
 const Earnings = ({ paystubs, onSavePaystubs }) => {
     const [isAdding, setIsAdding] = useState(false);

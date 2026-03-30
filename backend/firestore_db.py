@@ -6,6 +6,7 @@ import logging
 import os
 import firebase_admin
 from cryptography.fernet import Fernet
+import uuid
 
 # SEC-2: Encryption for Plaid tokens at rest
 # In production, set FERNET_KEY in your environment/Secret Manager
@@ -75,14 +76,14 @@ def get_user_data(user_id="default_user"):
     """Fetches user financial state with robust error handling and subcollection support."""
     db = get_db()
     if db is None:
-        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, []
+        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], []
     
     user_ref = db.collection('users').document(user_id)
     doc = user_ref.get()
     
     if not doc.exists:
         logging.info(f"User document {user_id} not found.")
-        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, []
+        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], []
     
     data = doc.to_dict()
     
@@ -92,7 +93,9 @@ def get_user_data(user_id="default_user"):
         is_authorized=data.get('is_authorized', False),
         is_subscribed=data.get('is_subscribed', False),
         has_completed_onboarding=data.get('has_completed_onboarding', False),
-        custom_categories=data.get('custom_categories', [])
+        custom_categories=data.get('custom_categories', []),
+        ignored_subscription_merchants=data.get('ignored_subscription_merchants', []),
+        manual_subscription_merchants=data.get('manual_subscription_merchants', [])
     )
     
     incomes = [Income(income_type=safe_enum(IncomeType, inc.get('income_type'), IncomeType.ANNUAL_SALARY), hourly_type=safe_enum(HourlyType, inc.get('hourly_type'), HourlyType.REPEATING), amount=inc['amount'], monthly_income=inc.get('monthly_income'), hourly_wage=inc.get('hourly_wage'), hours_worked=inc.get('hours_worked'), year=inc.get('year', 2026)) for inc in data.get('incomes', [])]
@@ -292,7 +295,9 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
         'custom_rules': [{'id': r.id, 'merchant_name': r.merchant_name, 'category': r.category} for r in (custom_rules or [])],
         'outstanding_checks': [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in (outstanding_checks[:20] if outstanding_checks else [])],
         'has_completed_onboarding': has_completed_onboarding if has_completed_onboarding is not None else user.has_completed_onboarding,
-        'custom_categories': custom_categories if custom_categories is not None else user.custom_categories
+        'custom_categories': custom_categories if custom_categories is not None else user.custom_categories,
+        'ignored_subscription_merchants': getattr(user, 'ignored_subscription_merchants', []),
+        'manual_subscription_merchants': getattr(user, 'manual_subscription_merchants', [])
     }
     user_ref.set(data, merge=True)
     logging.info(f"Successfully saved encrypted state for {user_id}")
@@ -382,4 +387,39 @@ def get_ai_insights(user_id):
         return [doc.to_dict() for doc in insights]
     except Exception as e:
         logging.error(f"Failed to fetch AI insights: {e}")
+        return []
+
+def save_user_memory(user_id, fact_id, category, content, confidence_score=1.0):
+    """Saves a structured memory fact for the AI advisor to use across sessions."""
+    db = get_db()
+    if not db: return False
+    
+    try:
+        if not fact_id:
+            fact_id = str(uuid.uuid4())
+            
+        memory_ref = db.collection('users').document(user_id).collection('user_memory').document(fact_id)
+        memory_ref.set({
+            'fact_id': fact_id,
+            'category': category,
+            'content': content,
+            'confidence_score': confidence_score,
+            'last_updated': datetime.now().isoformat()
+        }, merge=True)
+        logging.info(f"User memory fact '{fact_id}' saved for user {user_id}")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to save user memory: {e}")
+        return False
+
+def get_user_memories(user_id):
+    """Fetches all semantic memory facts for a user from the user_memory collection."""
+    db = get_db()
+    if not db: return []
+    
+    try:
+        memories = db.collection('users').document(user_id).collection('user_memory').get()
+        return [doc.to_dict() for doc in memories]
+    except Exception as e:
+        logging.error(f"Failed to fetch user memories: {e}")
         return []

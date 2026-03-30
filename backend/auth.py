@@ -19,6 +19,7 @@ def token_required(f):
         if auth_header and auth_header.startswith('Bearer '):
             id_token = auth_header.split('Bearer ')[1]
         
+
         # If no token, we treat as a guest (for public/demo endpoints)
         if not id_token:
             request.uid = "guest"

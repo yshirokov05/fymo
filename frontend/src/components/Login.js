@@ -59,8 +59,13 @@ const Login = () => {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100">
+        <div className="min-h-screen bg-gray-100 flex flex-col">
+            <div className="bg-blue-600 text-white px-4 py-3 text-center text-sm font-semibold tracking-wide shadow-md">
+                Financial HQ — Personal Finance Dashboard
+            </div>
+            
+            <div className="flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border border-gray-100">
                 <div>
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
                         {isSignup ? 'Create your account' : 'Sign in to your account'}
@@ -155,7 +160,8 @@ const Login = () => {
                 </div>
             </div>
         </div>
-    );
+    </div>
+);
 };
 
 export default Login;

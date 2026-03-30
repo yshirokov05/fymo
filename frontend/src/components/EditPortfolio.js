@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Trash2, Briefcase, DollarSign, Shield } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
 
 const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes, debts: initialDebts, retirementAccounts: initialRetirementAccounts, insurances: initialInsurances, initialTab }) => {
     const [activeTab, setActiveTab] = useState(initialTab || 'income');

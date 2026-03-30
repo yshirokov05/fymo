@@ -106,6 +106,9 @@ const TaxDocumentUpload = ({ onUploadSuccess }) => {
                     <button onClick={() => fileInputRef.current?.click()} className="ml-2 underline text-red-600 hover:text-red-800">Retry</button>
                 </div>
             )}
+            <p className="mt-2 text-[10px] text-gray-400 text-center italic">
+                Privacy Notice: Documents are processed securely via Gemini API. We do not store your original files or PII beyond the extracted fields.
+            </p>
         </div>
     );
 };

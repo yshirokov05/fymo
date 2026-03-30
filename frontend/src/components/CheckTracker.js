@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Upload, Loader2, CheckCircle, AlertCircle, Trash2, CheckCircle2, DollarSign, Image } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Trash2, CheckCircle2, DollarSign, Image } from 'lucide-react';
 
 const CheckTracker = ({ 
     outstandingChecks, 
@@ -168,6 +168,9 @@ const CheckTracker = ({
                         <span>{ocrStatus === 'uploading' ? 'Analyzing...' : 'Scan Check Image'}</span>
                     </button>
                 </div>
+                <p className="mb-4 text-[10px] text-gray-400 italic">
+                    Privacy Notice: Check images are processed securely via Gemini API. Original images are not stored on FHQ servers.
+                </p>
 
                 {ocrStatus === 'error' && (
                     <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md flex items-center text-sm border border-red-200">
