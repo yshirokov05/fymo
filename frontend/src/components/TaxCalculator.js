@@ -35,6 +35,7 @@ const TaxCalculator = ({
     estimatedStateTax, 
     estimatedFicaTax, 
     totalIncome, 
+    totalWithheldFromPaystubs,
     selectedYear, 
     incomes, 
     onUpdateHistoricalIncome 
@@ -195,7 +196,17 @@ const TaxCalculator = ({
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Estimated Tax Liability ({selectedYear})</h3>
-                <p className="text-sm text-gray-600 mb-2">Based on your {selectedYear} total income of <span className="font-bold">${totalIncome.toLocaleString()}</span> and tax profile:</p>
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <p className="text-xs font-black text-blue-600 uppercase mb-1">Projected Total Liability</p>
+                        <p className="text-2xl font-black text-gray-900">${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax).toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-xl border border-green-100">
+                        <p className="text-xs font-black text-green-600 uppercase mb-1">Total Paid YTD (Withholding)</p>
+                        <p className="text-2xl font-black text-gray-900">${(totalWithheldFromPaystubs || 0).toLocaleString()}</p>
+                    </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">Detailed Breakdown:</p>
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <span className="text-gray-700">Estimated Federal Tax:</span>

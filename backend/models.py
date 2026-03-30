@@ -77,6 +77,8 @@ class IncomeType(enum.Enum):
     ANNUAL_SALARY = "annual_salary"
     MONTHLY_SALARY = "monthly_salary"
     FIXED_TOTAL = "fixed_total"
+    DIVIDENDS = "dividends"
+    CAPITAL_GAINS = "capital_gains"
 
 class HourlyType(enum.Enum):
     REPEATING = "repeating"
@@ -135,12 +137,18 @@ class Income:
     hours_worked: Optional[float] = None
     hourly_type: Optional[HourlyType] = HourlyType.REPEATING
     year: int = 2026
+    description: Optional[str] = None
 
 @dataclass
 class Insurance:
     name: str
     amount: float
     frequency: InsuranceFrequency = InsuranceFrequency.MONTHLY
+    insurance_type: Optional[str] = "Auto" # "Auto", "Health", "Life", etc.
+    deductible: Optional[float] = 0.0
+    coverage_summary: Optional[str] = None # Detailed rundown of benefits
+    advisor_observations: Optional[str] = None # AI comparisons and observations
+    last_audit_date: Optional[str] = field(default_factory=lambda: datetime.now().isoformat())
 
 @dataclass
 class RetirementAccount:

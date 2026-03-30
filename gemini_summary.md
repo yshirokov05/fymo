@@ -23,8 +23,17 @@ This document summarizes the recent high-tier engineering work performed on the 
 - **Dependent Support**: Added support for dependents and the **Child Tax Credit** ($2,200/child) to refine the YTD tax liability projection.
 
 ## 📈 Project Metrics
-- **File Count**: 168
-- **Lines of Code**: 16,332
+- **Core File Count**: 89
+- **Lines of Code**: 21,671
+
+## 🛡️ AI-Powered Insurance Audit
+- **Deep Extraction**: Integrated Gemini 1.5 Flash Vision to automatically extract coverage limits, deductibles, and benefits from uploaded insurance policies.
+- **Advisor Awareness**: The AI Analyst is now fully aware of the user's uploaded insurance policies and can evaluate risk scenarios based on existing coverage limits.
+
+## 📈 Automated Investment Income
+- **Smart Detection**: Enhanced `backend/plaid_service.py` to automatically identify **Dividends** and **Trades (Capital Gains)** from Plaid transaction history.
+- **Auto-Categorization**: Integrated income detection directly into the sync pipeline, ensuring investment gains appear in the "Income Forecast" without manual entry.
+- **Robust Deduplication**: Implemented content-based deduplication in `backend/api.py` to ensure synced incomes don't duplicate on subsequent refreshes.
 
 ---
-*Last Updated: 2026-03-30*
+*Last Updated: 2026-03-31*

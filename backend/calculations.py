@@ -48,14 +48,17 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
         year_incomes = [inc for inc in incomes if getattr(inc, 'year', current_year) == year]
         year_paystubs = [p for p in paystubs if int(p.date[:4]) == year]
         
-        # EXCLUDE paystubs where gross is effectively unknown (net_primary and 0 taxes)
-        # to prevent underestimating tax liability in projections.
-        valid_year_paystubs = [
-            p for p in year_paystubs 
-            if not (getattr(p, 'is_net_primary', False) and (p.tax_withheld or 0) == 0)
-        ]
+        # Calculate total taxes paid (withheld) across all paystubs
+        total_taxes_paid = sum(float(p.tax_withheld or 0) for p in year_paystubs)
         
-        gross_income = sum(float(inc.amount or 0) for inc in year_incomes) + sum(float(p.gross_amount or 0) for p in valid_year_paystubs)
+        # Include all paystubs for gross calculation, but handle net_primary specifically
+        # If net_primary is true, the gross_amount should already be net + withheld.
+        gross_income_from_stubs = sum(float(p.gross_amount or 0) for p in year_paystubs)
+        
+        # Investment and other Income
+        other_gross_income = sum(float(inc.amount or 0) for inc in year_incomes)
+        
+        gross_income = other_gross_income + gross_income_from_stubs
         
         retirement_deductions = 0
         for ra in retirement_accounts:
@@ -93,7 +96,8 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
             "federal_tax": fed_tax,
             "state_tax": state_tax,
             "fica_tax": fica_tax,
-            "total_tax": fed_tax + state_tax + fica_tax
+            "total_tax": fed_tax + state_tax + fica_tax,
+            "total_withheld": total_taxes_paid
         }
 
     # ARCH-4: Explicit cast for linter safety

@@ -98,7 +98,18 @@ def get_user_data(user_id="default_user"):
         manual_subscription_merchants=data.get('manual_subscription_merchants', [])
     )
     
-    incomes = [Income(income_type=safe_enum(IncomeType, inc.get('income_type'), IncomeType.ANNUAL_SALARY), hourly_type=safe_enum(HourlyType, inc.get('hourly_type'), HourlyType.REPEATING), amount=inc['amount'], monthly_income=inc.get('monthly_income'), hourly_wage=inc.get('hourly_wage'), hours_worked=inc.get('hours_worked'), year=inc.get('year', 2026)) for inc in data.get('incomes', [])]
+    incomes = [
+        Income(
+            income_type=safe_enum(IncomeType, inc.get('income_type'), IncomeType.ANNUAL_SALARY), 
+            hourly_type=safe_enum(HourlyType, inc.get('hourly_type'), HourlyType.REPEATING), 
+            amount=inc['amount'], 
+            monthly_income=inc.get('monthly_income'), 
+            hourly_wage=inc.get('hourly_wage'), 
+            hours_worked=inc.get('hours_worked'), 
+            year=inc.get('year', 2026),
+            description=inc.get('description')
+        ) for inc in data.get('incomes', [])
+    ]
     assets = [Asset(
         ticker=ass['ticker'], 
         shares=ass['shares'], 
@@ -123,7 +134,18 @@ def get_user_data(user_id="default_user"):
         debt_type=safe_enum(DebtType, dbt.get('debt_type'), DebtType.INSTALLMENT)
     ) for dbt in data.get('debts', [])]
     retirement_accounts = [RetirementAccount(id=ra.get('id'), name=ra['name'], account_type=safe_enum(AccountType, ra.get('account_type'), AccountType.TRADITIONAL_IRA), contributions_2025=ra.get('contributions_2025', 0.0), contributions_2026=ra.get('contributions_2026', 0.0)) for ra in data.get('retirement_accounts', [])]
-    insurances = [Insurance(name=ins['name'], amount=ins['amount'], frequency=safe_enum(InsuranceFrequency, ins.get('frequency'), InsuranceFrequency.MONTHLY)) for ins in data.get('insurances', [])]
+    insurances = [
+        Insurance(
+            name=ins['name'], 
+            amount=ins['amount'], 
+            frequency=safe_enum(InsuranceFrequency, ins.get('frequency'), InsuranceFrequency.MONTHLY),
+            insurance_type=ins.get('insurance_type', 'Auto'),
+            deductible=float(ins.get('deductible', 0.0)),
+            coverage_summary=ins.get('coverage_summary'),
+            advisor_observations=ins.get('advisor_observations'),
+            last_audit_date=ins.get('last_audit_date', datetime.now().isoformat())
+        ) for ins in data.get('insurances', [])
+    ]
     
     plaid_items = []
     for pi in data.get('plaid_items', []):
@@ -261,7 +283,18 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
     data = {
         'filing_status': user.filing_status.name,
         'state': user.state.name,
-        'incomes': [{'income_type': i.income_type.name, 'hourly_type': i.hourly_type.name if i.hourly_type else 'REPEATING', 'amount': i.amount, 'monthly_income': i.monthly_income, 'hourly_wage': i.hourly_wage, 'hours_worked': i.hours_worked, 'year': i.year} for i in incomes],
+        'incomes': [
+            {
+                'income_type': i.income_type.name, 
+                'hourly_type': i.hourly_type.name if i.hourly_type else 'REPEATING', 
+                'amount': i.amount, 
+                'monthly_income': i.monthly_income, 
+                'hourly_wage': i.hourly_wage, 
+                'hours_worked': i.hours_worked, 
+                'year': i.year,
+                'description': i.description
+            } for i in incomes
+        ],
         'assets': [{
             'ticker': a.ticker, 
             'shares': a.shares, 
@@ -286,7 +319,18 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
             'debt_type': d.debt_type.name
         } for d in debts],
         'retirement_accounts': [{'id': r.id, 'name': r.name, 'account_type': r.account_type.name, 'contributions_2025': r.contributions_2025, 'contributions_2026': r.contributions_2026} for r in retirement_accounts],
-        'insurances': [{'name': ins.name, 'amount': ins.amount, 'frequency': ins.frequency.name} for ins in insurances],
+        'insurances': [
+            {
+                'name': ins.name, 
+                'amount': ins.amount, 
+                'frequency': ins.frequency.name,
+                'insurance_type': ins.insurance_type,
+                'deductible': ins.deductible,
+                'coverage_summary': ins.coverage_summary,
+                'advisor_observations': ins.advisor_observations,
+                'last_audit_date': ins.last_audit_date
+            } for ins in insurances
+        ],
         # SEC-2: Encrypt Plaid tokens on save
         'plaid_items': [{'access_token': encrypt_token(pi.access_token), 'item_id': pi.item_id, 'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in (plaid_items or [])],
         'budgets': [{'id': b.id, 'category': b.category, 'limit_amount': b.limit_amount, 'period': b.period} for b in (budgets or [])],

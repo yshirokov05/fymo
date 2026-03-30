@@ -136,7 +136,11 @@ def get_insurance_to_dict(ins):
     return {
         'name': ins.name,
         'amount': ins.amount,
-        'frequency': ins.frequency.name
+        'frequency': getattr(ins.frequency, 'name', str(ins.frequency)),
+        'insurance_type': getattr(ins, 'insurance_type', 'Auto'),
+        'coverage_summary': getattr(ins, 'coverage_summary', None),
+        'deductible': getattr(ins, 'deductible', 0.0),
+        'advisor_observations': getattr(ins, 'advisor_observations', None)
     }
 
 def budget_to_dict(b):
@@ -435,9 +439,48 @@ def update_portfolio():
         retirement_accounts = [RetirementAccount(id=ra_data.get('id') or str(uuid.uuid4()), name=ra_data['name'], account_type=safe_enum(AccountType, ra_data['account_type'], AccountType.TRADITIONAL_IRA), contributions_2025=float(ra_data.get('contributions_2025', 0)), contributions_2026=float(ra_data.get('contributions_2026', 0))) for ra_data in data['retirement_accounts']]
 
     if 'insurances' in data:
-        insurances = [Insurance(name=ins_data['name'], amount=float(ins_data.get('amount', 0)), frequency=safe_enum(InsuranceFrequency, ins_data['frequency'], InsuranceFrequency.MONTHLY)) for ins_data in data['insurances']]
+        insurances = [
+            Insurance(
+                name=ins_data['name'], 
+                amount=float(ins_data.get('amount', 0)), 
+                frequency=safe_enum(InsuranceFrequency, ins_data['frequency'], InsuranceFrequency.MONTHLY),
+                insurance_type=ins_data.get('insurance_type', 'Auto'),
+                deductible=float(ins_data.get('deductible', 0)),
+                coverage_summary=ins_data.get('coverage_summary'),
+                advisor_observations=ins_data.get('advisor_observations'),
+                last_audit_date=ins_data.get('last_audit_date', datetime.now().isoformat())
+            ) for ins_data in data['insurances']
+        ]
 
     if 'assets' in data:
+        # SELL DETECTION & CAPITAL GAINS AUTOMATION
+        # compare with current assets to detect sales
+        new_income_entries = []
+        for asset_data in data['assets']:
+            ticker = asset_data.get('ticker', '').upper()
+            new_shares = float(asset_data.get('shares', 0))
+            
+            # Find matching existing asset
+            matching = next((a for a in assets if a.ticker == ticker), None)
+            if matching and new_shares < matching.shares:
+                # Potential sell
+                qty_sold = matching.shares - new_shares
+                price_data = get_current_price(ticker)
+                curr_price = price_data.get('current_price', matching.cost_basis) # Fallback to basis if price unknown
+                
+                realized_gain = (curr_price - matching.cost_basis) * qty_sold
+                if realized_gain != 0:
+                    new_income = Income(
+                        income_type=IncomeType.CAPITAL_GAINS,
+                        amount=realized_gain,
+                        year=datetime.now().year,
+                        description=f"Realized gain from {ticker} sale"
+                    )
+                    new_income_entries.append(new_income)
+                    logging.info(f"Auto-detected sale of {qty_sold} shares of {ticker}. Realized gain: ${realized_gain}")
+        
+        incomes.extend(new_income_entries)
+
         incoming_assets = []
         for asset_data in data['assets']:
             incoming_assets.append(Asset(
@@ -485,7 +528,12 @@ def update_portfolio():
         incomes = []
         for income_data in data['incomes']:
             income_type = safe_enum(IncomeType, income_data['income_type'], IncomeType.ANNUAL_SALARY)
-            income = Income(income_type=income_type, year=int(income_data.get('year', 2026)))
+            income = Income(
+                income_type=income_type, 
+                amount=float(income_data.get('amount', 0) or income_data.get('yearly_income', 0)), 
+                year=int(income_data.get('year', 2026)),
+                description=income_data.get('description')
+            )
             if income_type == IncomeType.ANNUAL_SALARY:
                 income.amount = float(income_data.get('yearly_income', 0))
                 income.monthly_income = income.amount / 12
@@ -497,6 +545,9 @@ def update_portfolio():
                 income.hourly_wage, income.hours_worked = float(income_data.get('hourly_wage', 0)), float(income_data.get('hours_worked', 0))
                 income.hourly_type = safe_enum(HourlyType, income_data.get('hourly_type'), HourlyType.REPEATING)
             elif income_type == IncomeType.FIXED_TOTAL:
+                income.amount = float(income_data.get('amount', 0))
+                income.monthly_income = income.amount / 12
+            elif income_type in [IncomeType.DIVIDENDS, IncomeType.CAPITAL_GAINS]:
                 income.amount = float(income_data.get('amount', 0))
                 income.monthly_income = income.amount / 12
             incomes.append(income)
@@ -589,19 +640,20 @@ def plaid_sync():
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
     if not plaid_items: return jsonify({'error': "No linked accounts found."}), 404
     try:
-        all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs = [], [], [], [], []
+        all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs, all_new_incomes = [], [], [], [], [], []
         synced_ids_total = []
         for pi in plaid_items:
             if not pi.access_token:
                 logging.warning(f"Skipping institution {pi.institution_name} due to missing or invalid access token.")
                 continue
             res = plaid_service.sync_plaid_data(pi.access_token, request.uid, custom_rules)
-            new_assets, new_ra, new_transactions, new_debts, new_paystubs, synced_account_ids = res
+            new_assets, new_ra, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids = res
             all_new_assets.extend(new_assets)
             all_new_ra.extend(new_ra)
             all_new_transactions.extend(new_transactions)
             all_new_debts.extend(new_debts)
             all_new_paystubs.extend(new_paystubs)
+            all_new_incomes.extend(new_incomes)
             synced_ids_total.extend(synced_account_ids)
             pi.last_sync = datetime.now().isoformat()
         
@@ -731,6 +783,36 @@ def plaid_sync():
         existing_paystub_ids = {p.id for p in paystubs}
         for np in all_new_paystubs:
             if np.id not in existing_paystub_ids: paystubs.append(np)
+
+        # INVESTMENT INCOME MERGE & DEDUPE
+        existing_income_fingerprints = {
+            (getattr(i, 'date', ''), i.income_type.name, round(float(i.amount), 2), (i.description or '').lower().strip())
+            for i in incomes
+        }
+        
+        for ni in all_new_incomes:
+            # Note: Income model from sync doesn't have an ID yet, it's just a dataclass
+            # Fingerprint: (year, type, amount, description)
+            # Since sync'd incomes have 'year' but not 'date' in the Income model, 
+            # and we want to be year-aware.
+            safe_amt = round(float(ni.amount if ni.amount is not None else 0), 2)
+            safe_desc = str(ni.description or '').lower().strip()
+            fingerprint = (getattr(ni, 'year', 2026), ni.income_type.name, safe_amt, safe_desc)
+            
+            # Check against existing (some might have date, some just year)
+            # Let's simplify: if same year, type, amount, and description -> likely same.
+            is_duplicate = False
+            for ei in incomes:
+                ei_safe_amt = round(float(ei.amount if ei.amount is not None else 0), 2)
+                ei_safe_desc = str(ei.description or '').lower().strip()
+                ei_fingerprint = (getattr(ei, 'year', 2026), ei.income_type.name, ei_safe_amt, ei_safe_desc)
+                if fingerprint == ei_fingerprint:
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                logging.info(f"Adding new SYNCED INCOME: {ni.description} | ${ni.amount}")
+                incomes.append(ni)
 
         # OUTSTANDING CHECK RECONCILIATION
         from models import CheckStatus
@@ -969,6 +1051,7 @@ def ask_advisor():
     financial_data['debts'] = [debt_to_dict(d) for d in debts]
     financial_data['transactions'] = [transaction_to_dict(t) for t in transactions]
     financial_data['budgets'] = [budget_to_dict(b) for b in budgets]
+    financial_data['insurances'] = [get_insurance_to_dict(ins) for ins in insurances]
     financial_data['state'] = user.state.name
     financial_data['contextual_memory'] = memory_string # Persistent memory
     
@@ -1013,7 +1096,8 @@ def get_health_brief():
         'contextual_memory': memory_string,
         'outstanding_checks': [{'amount': c.amount, 'payee': c.payee} for c in outstanding_checks if c.status.name == 'PENDING'],
         'tax_projections': tax_results,
-        'transactions': [{'amount': t.amount, 'category': t.category, 'pending': t.pending} for t in transactions[:100]]
+        'transactions': [{'amount': t.amount, 'category': t.category, 'pending': t.pending} for t in transactions[:100]],
+        'insurances': [get_insurance_to_dict(ins) for ins in insurances]
     }
     
     import advisor_service
@@ -1108,9 +1192,12 @@ def extract_document():
         if doc_type == 'check':
             system_instruction = "You are a precise financial document extraction API. Analyze the provided check image. Return ONLY a valid JSON object with the following keys: amount (float, just the numerical value), payee (string, who the check is written to), and date_written (string, format YYYY-MM-DD). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
             prompt = "Extract the check data from this image."
+        elif doc_type == 'insurance':
+            system_instruction = "You are a precise insurance policy auditor. Analyze the provided insurance document. Extract 'the juice'—the key benefits, liabilities, risks, and summary of the policy. Return ONLY a valid JSON object with the following keys: insurance_name (string), insurance_type (string, one of: Auto, Health, Life, Home, Other), premium_amount (float), frequency (string: MONTHLY, EVERY_6_MONTHS, YEARLY), deductible (float), coverage_summary (string, max 500 chars summarizes benefits/limits and what is actually covered), and advisor_observations (string, max 500 chars comparing to standards, spotting gaps, or noting value). Do not include any markdown formatting or conversational text. If a value is missing, return 0.0 or null."
+            prompt = "Audit this insurance policy and provide a rundown."
         else:
-            system_instruction = "You are a precise tax document extraction API. Analyze the provided W-2 or paystub. Return ONLY a valid JSON object with the following keys: gross_income (float), federal_taxes_withheld (float), state_taxes_withheld (float), social_security_withheld (float), medicare_withheld (float), and employer_name (string). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
-            prompt = "Extract the tax data from this document."
+            system_instruction = "You are a precise financial document extraction API. Analyze the provided W-2 or paystub. Return ONLY a valid JSON object with the following keys: gross_income (float), net_income (float), pay_date (string, YYYY-MM-DD), federal_taxes_withheld (float), state_taxes_withheld (float), social_security_withheld (float), medicare_withheld (float), and employer_name (string). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
+            prompt = "Extract the financial data from this document."
         
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",

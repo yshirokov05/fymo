@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const TaxDocumentUpload = ({ onUploadSuccess }) => {
+const TaxDocumentUpload = ({ onUploadSuccess, docType = 'tax' }) => {
     const { currentUser } = useAuth();
     const [status, setStatus] = useState('idle'); // idle, uploading, success, error
     const [message, setMessage] = useState('');
@@ -25,6 +25,7 @@ const TaxDocumentUpload = ({ onUploadSuccess }) => {
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('doc_type', docType);
 
         try {
             let headers = {};

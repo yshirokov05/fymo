@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Wallet, CreditCard, PiggyBank, Settings, DollarSign, Shield, PieChart, Sparkles, Menu, X, Lock, MessageSquare, TrendingDown, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Wallet, CreditCard, PiggyBank, Settings, DollarSign, Shield, PieChart, Sparkles, Menu, X, Lock, MessageSquare, TrendingDown, BarChart3, TrendingUp } from 'lucide-react';
 
 const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -8,7 +8,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
         { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
         { id: 'advisor', label: 'AI Analyst', icon: <Sparkles size={20} /> },
         { id: 'budget', label: 'Expenditures', icon: <PieChart size={20} /> },
-        { id: 'earnings', label: 'Earned Income', icon: <Wallet size={20} /> },
+        { id: 'income', label: 'Income', icon: <TrendingUp size={20} /> },
         { id: 'taxes', label: 'Tax Projection', icon: <DollarSign size={20} /> },
         { id: 'investments', label: 'Investments', icon: <PiggyBank size={20} /> },
         { id: 'insurance', label: 'Insurance', icon: <Shield size={20} /> },

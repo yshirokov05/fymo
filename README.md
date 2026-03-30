@@ -13,9 +13,10 @@ Financial Headquarters is a premium, privacy-first personal finance platform des
 - **📈 Investment Tracking**: Live stock and bond price monitoring via `yfinance` with intelligent fallbacks.
 - **⚖️ 50-State Tax Engine**: High-accuracy tax liability estimation (2026 codes) for Federal, State, and FICA. Supports W-2/1099 and dependents.
 - **📊 Smart Budgeting**: Automated transaction categorization and real-time budget tracking.
-- **💰 Earned Income (YTD)**: Track actual paystubs against projected annual income for precise planning. Includes Gross/Net toggle.
-- **📸 Gemini OCR Vision**: Upload paystubs, W-2s, and checks for instant, automated data extraction via Gemini 1.5 Flash.
-- **📝 Outstanding Check Tracker**: Keep track of written checks that haven't cleared yet with "Safe-to-Spend" balance logic.
+- 💰 **Earned Income (YTD)**: Track actual paystubs against projected annual income for precise planning. Includes Gross/Net toggle.
+- 📸 **Gemini OCR Vision**: Upload paystubs, W-2s, and checks for instant, automated data extraction via Gemini 1.5 Flash.
+- 🛡️ **AI Insurance Audit**: Upload policies (Auto, Home, Health) to automatically extract coverage limits and get personalized AI risk assessments.
+- 📝 **Outstanding Check Tracker**: Keep track of written checks that haven't cleared yet with "Safe-to-Spend" balance logic.
 
 ## 🚀 Technical Architecture
 - **Frontend**: React 19, Tailwind CSS, Lucide Icons, Recharts.

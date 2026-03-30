@@ -263,6 +263,8 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                                 <option value="ANNUAL_SALARY">Annual Salary</option>
                                                 <option value="MONTHLY_SALARY">Monthly Salary</option>
                                                 <option value="HOURLY">Hourly Wage</option>
+                                                <option value="DIVIDENDS">Dividends</option>
+                                                <option value="CAPITAL_GAINS">Capital Gains / Sales</option>
                                             </select>
                                         </div>
                                         <button onClick={() => removeIncome(income.originalIndex)} className="text-red-500 hover:text-red-700">

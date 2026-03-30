@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import Budgeting from './components/Budgeting';
-import Earnings from './components/Earnings';
+import Income from './components/Income';
+import Insurance from './components/Insurance';
 import AIAnalyst from './components/AIAnalyst';
 import Settings from './components/Settings';
 import CheckTracker from './components/CheckTracker';
@@ -75,7 +76,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     total: 0, 
     federal: 0, 
     state: 0,
-    fica: 0
+    fica: 0,
+    withheld: 0
   });
   const [userTaxInfo, setUserTaxInfo] = useState({ filing_status: 'SINGLE', state: 'CA', employment_type: 'W2', business_deductions: 0, dependents: 0 });
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -137,7 +139,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             total: yearData.total_tax,
             federal: yearData.federal_tax,
             state: yearData.state_tax,
-            fica: yearData.fica_tax
+            fica: yearData.fica_tax,
+            withheld: yearData.total_withheld || 0
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
@@ -170,7 +173,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             total: yearData.total_tax,
             federal: yearData.federal_tax,
             state: yearData.state_tax,
-            fica: yearData.fica_tax
+            fica: yearData.fica_tax,
+            withheld: yearData.total_withheld || 0
         });
     }
   }, [selectedTaxYear, taxDetails]);
@@ -242,7 +246,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           total: yearData.total_tax,
           federal: yearData.federal_tax,
           state: yearData.state_tax,
-          fica: yearData.fica_tax
+          fica: yearData.fica_tax,
+          withheld: yearData.total_withheld || 0
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
@@ -287,7 +292,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           total: yearData.total_tax,
           federal: yearData.federal_tax,
           state: yearData.state_tax,
-          fica: yearData.fica_tax
+          fica: yearData.fica_tax,
+          withheld: yearData.total_withheld || 0
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
@@ -546,68 +552,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 />
             </div>
         );
-      case 'income':
-        const totalAnnualIncomeForOverview = incomes.filter(inc => inc.year === selectedTaxYear).reduce((acc, inc) => acc + inc.amount, 0);
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-gray-800">Income Overview</h2>
-                <YearSelector />
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-               <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <p className="text-gray-600">Total Annual Gross Income ({selectedTaxYear}): <span className="font-bold text-green-600">${totalAnnualIncomeForOverview.toLocaleString()}</span></p>
-                  </div>
-                  <button onClick={() => openEditModal('income')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Update Income</button>
-               </div>
-               <div className="space-y-4">
-                  {incomes.filter(inc => inc.year === selectedTaxYear).map((inc, idx) => (
-                      <div key={idx} className="flex justify-between items-center p-4 border rounded-lg">
-                          <div>
-                              <p className="font-semibold text-gray-800">{inc.income_type.replace(/_/g, ' ')}</p>
-                              <p className="text-sm text-gray-500">{inc.hourly_type ? inc.hourly_type.toLowerCase() : 'Regular'}</p>
-                          </div>
-                          <p className="font-bold text-gray-900">${inc.amount.toLocaleString()}</p>
-                      </div>
-                  ))}
-                  {incomes.filter(inc => inc.year === selectedTaxYear).length === 0 && (
-                      <p className="text-center text-gray-500 py-8">No income recorded for {selectedTaxYear}.</p>
-                  )}
-               </div>
-            </div>
-          </div>
-        );
       case 'insurance':
-          const totalAnnualInsurance = insurances.reduce((acc, ins) => {
-              if (ins.frequency === 'MONTHLY') return acc + ins.amount * 12;
-              if (ins.frequency === 'EVERY_6_MONTHS') return acc + ins.amount * 2;
-              return acc + ins.amount; // YEARLY
-          }, 0);
           return (
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold text-gray-800">Insurance & Protections</h2>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                 <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <p className="text-gray-600">Total Annual Insurance Costs: <span className="font-bold text-blue-600">${totalAnnualInsurance.toLocaleString()}</span></p>
-                    </div>
-                    <button onClick={() => openEditModal('insurance')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Manage Insurance</button>
-                 </div>
-                 <div className="space-y-4">
-                     {insurances.map((ins, index) => (
-                         <div key={index} className="flex justify-between items-center p-4 border rounded-lg">
-                             <div>
-                                 <p className="font-semibold text-gray-800">{ins.name}</p>
-                                 <p className="text-sm text-gray-500">{ins.frequency.replace(/_/g, ' ').toLowerCase()}</p>
-                             </div>
-                             <p className="font-bold text-gray-900">${ins.amount.toLocaleString()}</p>
-                         </div>
-                     ))}
-                     {insurances.length === 0 && <p className="text-center text-gray-500 py-8">No insurance records found. Add some to track your protection costs.</p>}
-                 </div>
-              </div>
-            </div>
+            <Insurance 
+              insurances={insurances} 
+              onSaveInsurances={(i) => handleSave({ insurances: i })} 
+            />
           );
       case 'investments':
         return (
@@ -684,11 +634,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           );
       case 'advisor':
           return <AIAnalyst isPremium={isPremium} onUpgrade={() => setActiveView('settings')} />;
-      case 'earnings':
+      case 'income':
           return (
-              <Earnings 
+              <Income 
                 paystubs={paystubs} 
                 onSavePaystubs={handleSavePaystubs} 
+                otherIncomes={incomes}
+                onSaveOtherIncomes={(i) => handleSave({ incomes: i })}
+                transactions={transactions}
               />
           );
       case 'taxes':
@@ -711,6 +664,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     estimatedFederalTax={taxLiability.federal}
                     estimatedStateTax={taxLiability.state}
                     estimatedFicaTax={taxLiability.fica}
+                    totalWithheldFromPaystubs={taxLiability.withheld}
                     totalIncome={totalAnnualIncome}
                     selectedYear={selectedTaxYear}
                     incomes={incomes}

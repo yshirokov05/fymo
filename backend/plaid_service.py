@@ -11,7 +11,7 @@ from plaid.model.transactions_get_request_options import TransactionsGetRequestO
 from plaid.model.liabilities_get_request import LiabilitiesGetRequest
 from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
-from models import Asset, AssetType, RetirementAccount, AccountType, Transaction, Debt, Paystub, TaxTreatment, DebtType
+from models import Asset, AssetType, RetirementAccount, AccountType, Transaction, Debt, Paystub, TaxTreatment, DebtType, Income, IncomeType
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
@@ -148,6 +148,12 @@ def categorize_transaction(name, plaid_categories, custom_rules=None):
     if 'utilities' in pcats or any(k in name for k in ['pge', 'comcast', 'at&t', 'verizon', 'water bill', 'electric bill']):
         return "Utilities"
 
+    # 8. Investment Income (Dividends/Sales)
+    if 'dividend' in pcats or 'dividend' in name:
+        return "Dividends"
+    if 'sell' in pcats or 'gain' in pcats or 'trade' in name:
+        return "Capital Gains"
+
     return pcats[0].capitalize() if pcats else "Other"
 
 def sync_plaid_data(access_token, user_id, custom_rules=None):
@@ -201,6 +207,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
         new_transactions = []
         new_debts = []
         new_paystubs = []
+        new_incomes = []
         
         # Map Plaid Accounts to our models
         account_id_to_name = {acc['account_id']: acc['name'] for acc in accounts_response['accounts']}
@@ -510,7 +517,27 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                         is_net_primary=True
                     ))
             
-        return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, synced_account_ids
+            # Auto-detect Investment Income (Dividends / Capital Gains)
+            if amt < 0: # Deposit
+                cat = categorize_transaction(t_name, t.get('category'), custom_rules)
+                if cat == "Dividends":
+                    new_incomes.append(Income(
+                        income_type=IncomeType.DIVIDENDS,
+                        amount=abs(amt),
+                        year=datetime.now().year,
+                        description=t_name
+                    ))
+                    logging.info(f"Auto-detected DIVIDEND: {t_name} | ${abs(amt)}")
+                elif cat == "Capital Gains":
+                    new_incomes.append(Income(
+                        income_type=IncomeType.CAPITAL_GAINS,
+                        amount=abs(amt),
+                        year=datetime.now().year,
+                        description=t_name
+                    ))
+                    logging.info(f"Auto-detected CAPITAL GAIN: {t_name} | ${abs(amt)}")
+
+        return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids
     except Exception as e:
         import traceback
         print(f"CRITICAL SYNC ERROR: {e}")

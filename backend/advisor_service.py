@@ -135,6 +135,9 @@ def get_financial_advice(user_prompt, financial_data):
         BUDGET STATUS (Normalized to Monthly):
         {json.dumps(normalized_budgets)}
 
+        INSURANCE POLICIES:
+        {json.dumps(financial_data.get('insurances', []))}
+
         IMPORTANT GUIDELINES:
         1. Professional & Honest: If the user is overspending, point it out firmly but professionally.
         2. Data-Driven: Use the PoP insights above to give specific examples (e.g., "Your dining spend is up 20%").
@@ -228,11 +231,14 @@ def generate_health_brief(financial_data):
     # Calculate a rough 30-day spend
     recent_spend = sum(t.get('amount', 0) for t in transactions if not t.get('pending') and t.get('amount', 0) > 0)
     
+    insurances = financial_data.get('insurances', [])
+    insurance_summary = ", ".join([f"{i.get('insurance_type', 'Policy')} ({i.get('name', '')})" for i in insurances]) if insurances else "No policies recorded."
+
     system_instruction = f"""
     You are the FHQ AI Analyst preparing a 'Morning Brief' for Mr. Bean.
     Provide a 'Brutally Honest', hard-hitting 3-bullet status report based EXACTLY on these categories:
     **Liquidity Check:** (Are the pending checks going to bounce? Is cash flow tight?)
-    **Tax Preparedness:** (Is the tax picture looking okay?)
+    **Insurance & Protection:** (Are they adequately protected based on their policies? Note any gaps.)
     **Goal Progress:** (Are they on track for their goals based on spending?)
     
     CONTEXT DATA:
@@ -240,6 +246,7 @@ def generate_health_brief(financial_data):
     - Memories/Goals: {memory_str}
     - Outstanding Checks: {json.dumps(outstanding_checks)}
     - Recent Spend Detected: ${recent_spend:,.2f}
+    - Insurance Profile: {insurance_summary}
     - Tax Profile: {json.dumps(tax_data)[:500]}
     
     RULES:
