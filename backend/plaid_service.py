@@ -318,7 +318,9 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                     ra = RetirementAccount(id=acc['account_id'], name=acc.get('official_name') or acc['name'], account_type=ra_type)
                     new_retirement_accounts.append(ra)
 
-                if balance < -0.01:
+                # Skip direct margin checks for retirement accounts
+                is_ra = acc['account_id'] in [r.id for r in new_retirement_accounts]
+                if balance < -0.01 and not is_ra:
                     print(f"Adding Direct Margin Debt: {abs(balance)}")
                     new_debts.append(Debt(
                         name=f"Margin: {acc['name']}",
@@ -381,9 +383,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
             # 1. Skip zero-balance cash holdings
             if (ticker in CASH_TICKERS or 'money market' in (sec.get('type') or '').lower()) and abs(shares) <= 0.01:
                 continue
+            
+            is_ra = acc_id in [ra.id for ra in new_retirement_accounts]
                 
-            # 2. Handle Negative Holdings (Margin)
-            if market_value < -0.01:
+            # 2. Handle Negative Holdings (Margin) - Skip for Retirement
+            if market_value < -0.01 and not is_ra:
                 debt_amt = abs(market_value)
                 plaid_debt_amt = abs(plaid_reported_value)
                 print(f"Adding Negative Holding Margin: {ticker} = {debt_amt} (Plaid: {plaid_debt_amt})")
@@ -453,7 +457,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 # total_debt = gross_assets - net_equity
                 unexplained_margin = (gross_assets - net_equity) - identified_margin
                 
-                if unexplained_margin > 10.0: # 10.0 buffer for rounding/price lag
+                # Check if RA
+                is_ra = acc_id in [ra.id for ra in new_retirement_accounts]
+                
+                # Use a larger buffer ($500) and ignore RAs entirely for margin detection
+                if unexplained_margin > 500.0 and not is_ra: # 500.0 buffer for Vanguard/Drift
                     print(f"ADDING MARGIN LOAN DEBT (Unexplained remainder): {unexplained_margin}")
                     new_debts.append(Debt(
                         name=f"Margin Loan: {acc['name']}",

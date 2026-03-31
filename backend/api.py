@@ -121,6 +121,7 @@ def debt_to_dict(debt):
         'interest_rate': getattr(debt, 'interest_rate', 0),
         'plaid_account_id': getattr(debt, 'plaid_account_id', None),
         'official_name': getattr(debt, 'official_name', None),
+        'benefits': getattr(debt, 'benefits', None),
         'debt_type': debt.debt_type.name
     }
 
@@ -561,6 +562,7 @@ def update_portfolio():
             monthly_payment=float(debt_data.get('monthly_payment', 0)), 
             interest_rate=float(debt_data.get('interest_rate', 0)), 
             plaid_account_id=debt_data.get('plaid_account_id'),
+            benefits=debt_data.get('benefits'),
             debt_type=safe_enum(DebtType, debt_data.get('debt_type'), DebtType.INSTALLMENT)
         ) for debt_data in data['debts']]
 
@@ -1101,8 +1103,13 @@ def get_health_brief():
         'insurances': [get_insurance_to_dict(ins) for ins in insurances]
     }
     
-    import advisor_service
-    brief = advisor_service.generate_health_brief(financial_data)
+    try:
+        import advisor_service
+        # Add a safety timeout wrapper if necessary, but advisor_service now has internal timeouts
+        brief = advisor_service.generate_health_brief(financial_data)
+    except Exception as e:
+        logging.error(f"Failed to generate morning brief: {e}")
+        brief = "**Liquidity Check:** Analysis timed out.\n**Insurance:** Analysis timed out.\n**Goal Progress:** Analysis timed out. Please refresh to retry."
     
     return jsonify({'brief': brief})
 

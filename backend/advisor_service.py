@@ -134,14 +134,18 @@ def get_financial_advice(user_prompt, financial_data):
         BUDGET STATUS (Normalized to Monthly):
         {json.dumps(normalized_budgets)}
 
+        DEBTS & LIABILITIES (Analyze Names for APR/Benefits):
+        {json.dumps(financial_data.get('debts', []))}
+
         INSURANCE POLICIES:
         {json.dumps(financial_data.get('insurances', []))}
 
         IMPORTANT GUIDELINES:
         1. Professional & Honest: If the user is overspending, point it out firmly but professionally.
         2. Data-Driven: Use the PoP insights above to give specific examples (e.g., "Your dining spend is up 20%").
-        3. Professional Disclosure: Always include this at the end: "This advice is for informational purposes only. Consult a human professional for regulated financial decisions."
-        4. Conciseness: Keep the response under 300 words unless deeply complex.
+        3. Credit Card Analysis: If the user asks about credit cards, use your internal knowledge to describe the benefits and estimated APRs for the cards listed in DEBTS based on their names (e.g. "Chase Sapphire Reserve").
+        4. Professional Disclosure: Always include this at the end: "This advice is for informational purposes only. Consult a human professional for regulated financial decisions."
+        5. Conciseness: Keep the response under 300 words unless deeply complex.
         """
 
         model = genai.GenerativeModel(
@@ -151,7 +155,7 @@ def get_financial_advice(user_prompt, financial_data):
         )
         
         chat = model.start_chat(enable_automatic_function_calling=True)
-        response = chat.send_message(user_prompt)
+        response = chat.send_message(user_prompt, request_options={"timeout": 30}) # Higher timeout for interactive
         return response.text
     except Exception as e:
         import traceback
@@ -196,7 +200,8 @@ def extract_user_memory(user_prompt, existing_memory_str):
                 response_mime_type="application/json",
             )
         )
-        response = model.generate_content(user_prompt)
+        response = model.generate_content(user_prompt, request_options={"timeout": 10})
+        response.resolve()
         text = response.text.strip()
         if text == "null" or not text:
             return None
@@ -245,18 +250,21 @@ def generate_health_brief(financial_data):
     - Memories/Goals: {memory_str}
     - Outstanding Checks: {json.dumps(outstanding_checks)}
     - Recent Spend Detected: ${recent_spend:,.2f}
+    - Debts (Analyze CC Names for Benefits/APR): {json.dumps(financial_data.get('debts', []))}
     - Insurance Profile: {insurance_summary}
     - Tax Profile: {json.dumps(tax_data)[:500]}
     
     RULES:
-    Keep each bullet point to 1-3 highly concise sentences. 
-    Be honest, direct, and slightly cynical if they appear to be doing poorly or making bad financial decisions.
-    Return ONLY the markdown formatted bullet points. Do not include any introductory text.
+    1. Keep each bullet point to 1-3 highly concise sentences. 
+    2. Be honest, direct, and slightly cynical.
+    3. Credit Cards: Briefly mention any notable card benefits or high APR warnings if you recognize the card names in the Debt section.
+    4. Return ONLY the markdown formatted bullet points. Do not include any introductory text.
     """
     
     try:
         model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
-        response = model.generate_content("Generate my morning brief.")
+        response = model.generate_content("Generate my morning brief.", request_options={"timeout": 15})
+        response.resolve()
         return response.text.strip()
     except Exception as e:
         logging.error(f"Morning Brief Error: {e}")

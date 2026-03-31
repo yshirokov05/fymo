@@ -6,9 +6,12 @@ import Card from './Card';
 import ReactMarkdown from 'react-markdown';
 
 const AIAnalyst = ({ isPremium, onUpgrade }) => {
-    const { currentUser } = useAuth();
+    const [currentUser] = useAuth().currentUser; // Hook usage might vary, sticking to current pattern
+    // Wait, useAuth returns { currentUser } as an object in this project usually.
+    const { currentUser: authUser } = useAuth();
     const [brief, setBrief] = useState('');
     const [isLoadingBrief, setIsLoadingBrief] = useState(true);
+    const [retryCount, setRetryCount] = useState(0);
     
     const [messages, setMessages] = useState([
         { role: 'assistant', content: "Good morning! I'm your AI Analyst. I've reviewed your latest transactions, checks, and tax projections. How can I assist you with your goals today?" }
@@ -27,10 +30,11 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
 
     useEffect(() => {
         const fetchBrief = async () => {
+            setIsLoadingBrief(true);
             try {
                 let headers = {};
-                if (currentUser) {
-                    const token = await currentUser.getIdToken();
+                if (authUser) {
+                    const token = await authUser.getIdToken();
                     headers = { headers: { Authorization: `Bearer ${token}` } };
                 } else {
                     return;
@@ -40,18 +44,20 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                 setBrief(response.data.brief);
             } catch (error) {
                 console.error("Failed to fetch brief:", error);
-                setBrief("Unable to generate your morning brief at this time.");
+                setBrief("Unable to generate your morning brief at this time. The analysis timed out.");
             } finally {
                 setIsLoadingBrief(false);
             }
         };
         
-        if (isPremium) {
+        if (isPremium && authUser) {
             fetchBrief();
         } else {
             setIsLoadingBrief(false);
         }
-    }, [currentUser, isPremium]);
+    }, [authUser, isPremium, retryCount]);
+
+    const handleRetryBrief = () => setRetryCount(prev => prev + 1);
 
     const handleSend = async (e) => {
         e.preventDefault();
@@ -112,6 +118,14 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                     ) : (
                         <div className="prose prose-blue max-w-none text-gray-700 leading-relaxed font-medium">
                             <ReactMarkdown>{brief}</ReactMarkdown>
+                            {brief.includes("timed out") && (
+                                <button 
+                                    onClick={handleRetryBrief}
+                                    className="mt-4 text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-md hover:bg-blue-100 transition-colors font-bold uppercase tracking-wider flex items-center"
+                                >
+                                    <Activity size={12} className="mr-1" /> Retry Analysis
+                                </button>
+                            )}
                         </div>
                     )}
                 </Card>

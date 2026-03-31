@@ -183,6 +183,7 @@ class Debt:
     plaid_account_id: Optional[str] = None
     institution_name: Optional[str] = None
     official_name: Optional[str] = None
+    benefits: Optional[str] = None
     debt_type: DebtType = DebtType.INSTALLMENT
 
     @property
