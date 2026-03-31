@@ -40,6 +40,18 @@ configuration = plaid.Configuration(
 api_client = plaid.ApiClient(configuration)
 client = plaid_api.PlaidApi(api_client)
 
+def normalize_merchant_name(name):
+    if not name: return ""
+    # Strip common branch/location noise (e.g. - WES, - Westga, #1234, @ Town Center)
+    # This helps deduplicate transactions like "Classic Car Wash - WES" vs "Classic Car Wash - Westga"
+    s = name.lower()
+    s = re.sub(r' - [a-z0-9]+$', '', s) # Strip trailing branch codes like - WES
+    s = re.sub(r' #[0-9]+$', '', s)    # Strip trailing numbers like #1234
+    s = re.sub(r' [a-z]st$', '', s)    # Strip common location noise
+    s = re.sub(r' [a-z]ga$', '', s)
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s.upper()
+
 def create_link_token(user_id):
     if not PLAID_CLIENT_ID or not PLAID_SECRET:
         error_msg = "Plaid API keys are missing in the server environment. Please set PLAID_CLIENT_ID and PLAID_SECRET in Firebase secrets."
@@ -251,50 +263,55 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 official_name = acc.get('official_name') or acc['name']
                 mask = acc.get('mask')
                 
-                # Helper to strip rewards-related strings and mask
                 def clean_debt_name(s, m):
                     if not s: return ""
-                    # Strip rewards keywords - be careful not to strip product names
-                    # 'preferred' and 'reserve' are product tiers, keep them.
-                    keywords = ['ultimate rewards', 'ultimate', 'rewards', 'points', 'cash back']
-                    for kw in keywords:
+                    
+                    # Strip specific generic or noise phrases
+                    noise = ['ultimate rewards', 'ultimate', 'rewards', 'points', 'cash back', 'preferred member', 'signature', 'visa', 'mastercard', 'amex']
+                    for kw in noise:
                         s = re.sub(rf'\b{kw}\b', '', s, flags=re.IGNORECASE)
+                    
+                    # Strip common registered/trademark symbols
+                    s = s.replace('®', '').replace('™', '').strip()
+
                     # Strip mask if present
                     if m:
                         s = s.replace(f"-{m}", "").replace(f" {m}", "").replace(m, "")
-                    # Strip special chars and extra whitespace
-                    s = s.replace('®', '').replace('™', '').strip()
+                    
                     # Clean up double spaces or trailing dashes
                     s = re.sub(r'\s+', ' ', s).strip(' -')
-                    return s
+                    return s.upper()
+
 
                 c_display = clean_debt_name(display_name, mask)
                 c_official = clean_debt_name(official_name, mask)
                 
                 # Check for specific product identifiers in any field
-                product_keywords = ['sapphire', 'reserve', 'preferred', 'gold', 'platinum', 'business', 'ink', 'freedom']
+                product_keywords = ['sapphire', 'reserve', 'preferred', 'gold', 'platinum', 'business', 'ink', 'freedom', 'active cash']
                 
                 # If official name has the brand/product but display doesn't, use official
                 found_product = next((kw for kw in product_keywords if kw in official_name.lower()), None)
                 if found_product and found_product not in c_display.lower():
-                    # Check if official name has "Chase" or "American Express" etc.
                     display_name = c_official
                 else:
                     display_name = c_display
 
-                # Final refinement: if it's just "Credit Card" but we know it's Chase (from institution or name)
-                if len(display_name) < 12 and 'chase' not in display_name.lower():
-                    if 'chase' in official_name.lower() or 'chase' in acc.get('name', '').lower():
-                        display_name = f"Chase {display_name}" if display_name.lower() != 'credit card' else "Chase Credit Card"
-                
-                # Ensure it's not JUST "Chase" or JUST "Credit Card" if better info exists
-                if display_name.lower() in ['chase', 'credit card'] and c_official:
-                    display_name = c_official
+                # 3. IF THE NAME IS STILL GENERIC (e.g. "CREDIT CARD"), prefix with Institution
+                if display_name.lower() in ['credit card', 'card', 'visa', 'mastercard']:
+                    # We have institution_name from the top of sync_plaid_data (via metadata)
+                    # But for now let's try to find it in official_name
+                    if 'chase' in official_name.lower():
+                        display_name = f"Chase {display_name}"
+                    elif 'vanguard' in official_name.lower():
+                        display_name = f"Vanguard {display_name}"
+                    elif 'amex' in official_name.lower() or 'american express' in official_name.lower():
+                        display_name = f"Amex {display_name}"
                 
                 # Special Case: user's specific examples
                 for product in ['Sapphire', 'Reserve', 'Preferred']:
                     if product.lower() in official_name.lower() and product.lower() not in display_name.lower():
                         display_name = f"{display_name} {product}".replace("  ", " ").strip()
+
 
                 new_debts.append(Debt(
                     name=display_name,
@@ -391,8 +408,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 debt_amt = abs(market_value)
                 plaid_debt_amt = abs(plaid_reported_value)
                 print(f"Adding Negative Holding Margin: {ticker} = {debt_amt} (Plaid: {plaid_debt_amt})")
+                # If it's a negative CUR:USD, it's almost always a settlement drift / pending trade
+                friendly_margin_name = f"Settlement Adjustment: {ticker}" if ticker == "CUR:USD" else f"Margin Loan: {ticker}"
+                
                 new_debts.append(Debt(
-                    name=f"Margin: {ticker}",
+                    name=friendly_margin_name,
                     initial_amount=debt_amt,
                     amount_paid=0.0,
                     monthly_payment=0,
@@ -460,17 +480,29 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 # Check if RA
                 is_ra = acc_id in [ra.id for ra in new_retirement_accounts]
                 
-                # Use a larger buffer ($500) and ignore RAs entirely for margin detection
-                if unexplained_margin > 500.0 and not is_ra: # 500.0 buffer for Vanguard/Drift
-                    print(f"ADDING MARGIN LOAN DEBT (Unexplained remainder): {unexplained_margin}")
-                    new_debts.append(Debt(
-                        name=f"Margin Loan: {acc['name']}",
-                        initial_amount=unexplained_margin,
-                        amount_paid=0.0, monthly_payment=0, interest_rate=0.0,
-                        plaid_account_id=f"margin_calc_{acc_id}",
-                        institution_name=acc['name'],
-                        official_name=acc.get('official_name') or acc['name']
-                    ))
+                # Use a larger buffer ($1000) for Vanguard/Drift accounts unless it's a huge % of net worth
+                # Or just SKIP it if it looks like a known drift pattern
+                # If gross_assets and net_equity are within 5% of each other, ignore it.
+                drift_tolerance = 0.05 * gross_assets
+                
+                drift_tolerance = 0.05 * gross_assets
+                
+                # If the margin is more than 30% of the account value, it's almost certainly a sync/pricing hallucination
+                hallucination_threshold = 0.30 * gross_assets
+                
+                if unexplained_margin > max(1000.0, drift_tolerance) and not is_ra:
+                    if unexplained_margin > hallucination_threshold and gross_assets > 0:
+                        print(f"SKIPPING MARGIN HALLUCINATION: {unexplained_margin} is > 30% of account {acc_id}")
+                    else:
+                        print(f"ADDING MARGIN LOAN DEBT (Unexplained remainder): {unexplained_margin}")
+                        new_debts.append(Debt(
+                            name=f"Brokerage Margin: {acc['name']}",
+                            initial_amount=unexplained_margin,
+                            amount_paid=0.0, monthly_payment=0, interest_rate=0.0,
+                            plaid_account_id=f"margin_calc_{acc_id}",
+                            institution_name=acc['name'],
+                            official_name=acc.get('official_name') or acc['name']
+                        ))
                 elif net_equity > (gross_assets + 10.0):
                     # Identified margin is subtracted from the "extra cash" calculation too
                     cash_amt = (net_equity - gross_assets) + identified_margin

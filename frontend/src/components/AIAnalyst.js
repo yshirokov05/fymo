@@ -6,9 +6,7 @@ import Card from './Card';
 import ReactMarkdown from 'react-markdown';
 
 const AIAnalyst = ({ isPremium, onUpgrade }) => {
-    const [currentUser] = useAuth().currentUser; // Hook usage might vary, sticking to current pattern
-    // Wait, useAuth returns { currentUser } as an object in this project usually.
-    const { currentUser: authUser } = useAuth();
+    const { currentUser } = useAuth();
     const [brief, setBrief] = useState('');
     const [isLoadingBrief, setIsLoadingBrief] = useState(true);
     const [retryCount, setRetryCount] = useState(0);
@@ -31,31 +29,44 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
     useEffect(() => {
         const fetchBrief = async () => {
             setIsLoadingBrief(true);
+            
+            // Controller for request timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 25000); 
+
             try {
-                let headers = {};
-                if (authUser) {
-                    const token = await authUser.getIdToken();
-                    headers = { headers: { Authorization: `Bearer ${token}` } };
+                let headers = { signal: controller.signal };
+                if (currentUser) {
+                    const token = await currentUser.getIdToken();
+                    headers = { ...headers, Authorization: `Bearer ${token}` };
                 } else {
                     return;
                 }
 
-                const response = await axios.get('/api/health_brief', headers);
+                const response = await axios.get('/api/health_brief', {
+                    headers: headers,
+                    signal: controller.signal
+                });
                 setBrief(response.data.brief);
             } catch (error) {
                 console.error("Failed to fetch brief:", error);
-                setBrief("Unable to generate your morning brief at this time. The analysis timed out.");
+                if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+                    setBrief("The analysis is taking longer than expected. The server might be under heavy load. Please try again.");
+                } else {
+                    setBrief("Unable to generate your morning brief at this time. Please check your connection.");
+                }
             } finally {
+                clearTimeout(timeoutId);
                 setIsLoadingBrief(false);
             }
         };
         
-        if (isPremium && authUser) {
+        if (isPremium && currentUser) {
             fetchBrief();
         } else {
             setIsLoadingBrief(false);
         }
-    }, [authUser, isPremium, retryCount]);
+    }, [currentUser, isPremium, retryCount]);
 
     const handleRetryBrief = () => setRetryCount(prev => prev + 1);
 

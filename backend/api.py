@@ -761,20 +761,22 @@ def plaid_sync():
         
         # 5. GLOBAL CONTENT-BASED DEDUPE (Final Safety Net)
         # Some banks report the *exact same* transaction with different IDs or across accounts.
-        # We find duplicates by (date, amount, merchant_name).
-        # We drop account_id from the fingerprint to catch duplicates from stale or cross-linked accounts.
+        # We find duplicates by (date, amount, normalized_merchant_name).
         unique_txns = []
         seen_content = set()
         # Sort by date descending
         new_transaction_list.sort(key=lambda x: x.date, reverse=True)
         for t in new_transaction_list:
-            # Fingerprint: (date, amount, name)
-            fingerprint = (t.date, round(float(t.amount), 2), t.name.lower().strip())
+            # Fingerprint: (date, amount, normalized_name)
+            # Use the helper from plaid_service to strip branch/location noise
+            norm_name = plaid_service.normalize_merchant_name(t.name)
+            fingerprint = (t.date, round(float(t.amount), 2), norm_name)
+            
             if fingerprint not in seen_content:
                 unique_txns.append(t)
                 seen_content.add(fingerprint)
             else:
-                logging.info(f"Dropped content duplicate: {t.name} | {t.date} | ${t.amount}")
+                logging.info(f"Dropped content duplicate (fuzzy): {t.name} -> {norm_name} | {t.date} | ${t.amount}")
         
         # PERSISTENT CLEANUP
         # We wipe the subcollections before saving to ensure dropped duplicates are removed.
@@ -833,10 +835,25 @@ def plaid_sync():
                         except ValueError: pass
 
         # RE-EVALUATE EXISTING TRANSACTIONS
+        # ARCH-5: Persistence - only overwrite category if a valid CUSTOM RULE exists.
+        # This prevents manual overrides from being reset to defaults (e.g. Safeway -> Transportation).
         for t in transactions:
-            new_cat = plaid_service.categorize_transaction(t.name, None, custom_rules)
-            if new_cat and t.category != new_cat:
-                t.category = new_cat
+            # 1. Check if there's a custom rule first
+            rule_cat = None
+            if custom_rules:
+                for rule in custom_rules:
+                    if rule.merchant_name.lower() in t.name.lower() or t.name.lower() in rule.merchant_name.lower():
+                        rule_cat = rule.category
+                        break
+            
+            if rule_cat:
+                if t.category != rule_cat:
+                    t.category = rule_cat
+            elif not t.category or t.category in ['Other', 'Uncategorized']:
+                # Only guess if it's currently uncategorized
+                new_cat = plaid_service.categorize_transaction(t.name, None, custom_rules)
+                if new_cat and t.category != new_cat:
+                    t.category = new_cat
 
         # Final save
         save_user_data(
@@ -1100,6 +1117,7 @@ def get_health_brief():
         'outstanding_checks': [{'amount': c.amount, 'payee': c.payee} for c in outstanding_checks if c.status.name == 'PENDING'],
         'tax_projections': tax_results,
         'transactions': [{'amount': t.amount, 'category': t.category, 'pending': t.pending} for t in transactions[:100]],
+        'debts': [debt_to_dict(d) for d in debts],
         'insurances': [get_insurance_to_dict(ins) for ins in insurances]
     }
     

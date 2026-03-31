@@ -228,7 +228,7 @@ def generate_health_brief(financial_data):
     
     outstanding_checks = financial_data.get('outstanding_checks', [])
     tax_data = financial_data.get('tax_projections', {})
-    transactions = financial_data.get('transactions', [])
+    transactions = financial_data.get('transactions', [])[:50]
     memory_str = financial_data.get('contextual_memory', "No specific goals tracked.")
     net_worth = financial_data.get('real_time_net_worth', 0)
     
