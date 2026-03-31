@@ -14,9 +14,17 @@ Financial Headquarters is a premium, privacy-first personal finance platform des
 - **⚖️ 50-State Tax Engine**: High-accuracy tax liability estimation (2026 codes) for Federal, State, and FICA. Supports W-2/1099 and dependents.
 - **📊 Smart Budgeting**: Automated transaction categorization and real-time budget tracking.
 - 💰 **Earned Income (YTD)**: Track actual paystubs against projected annual income for precise planning. Includes Gross/Net toggle.
-- 📸 **Gemini OCR Vision**: Upload paystubs, W-2s, and checks for instant, automated data extraction via Gemini 1.5 Flash.
-- 🛡️ **AI Insurance Audit**: Upload policies (Auto, Home, Health) to automatically extract coverage limits and get personalized AI risk assessments.
+- 📸 **Universal AI Statement Ingestion**: Upload any bank statement (PDF, Image, CSV) for automated transaction extraction via Gemini 1.5 Flash. Zero-shot transaction parsing for non-Plaid users.
+- 🛡️ **AI Insurance Audit**: Upload policies (Auto, Home, Health) to automatically extract coverage limits and get personalized AI risk assessments and benefit summaries.
 - 📝 **Outstanding Check Tracker**: Keep track of written checks that haven't cleared yet with "Safe-to-Spend" balance logic.
+
+---
+
+## 📈 Project Metrics
+- **Lines of Code (LOC)**: 21,780
+- **Total Files**: 89
+- **Build Status**: Production (v1.2.0)
+
 
 ## 🚀 Technical Architecture
 - **Frontend**: React 19, Tailwind CSS, Lucide Icons, Recharts.
@@ -66,9 +74,8 @@ We are currently in **Beta (v1.1.0)**.
 - [x] Phase 1: Core Tax & Net Worth Engine
 - [x] Phase 2: Production Plaid Integration
 - [x] Phase 3: AI Advisor & Budget Tracking
-- [x] Phase 4: Wealth Projection & Gemini OCR Vision Implementation
-- [ ] Phase 5: Financial Optimization Alerts
-- [ ] Phase 6: Market Launch & Stripe Billing
+- [x] Phase 5: Universal AI Statement Ingestion & Insurance Audit
+- [/] Phase 6: Market Launch & Stripe Billing (In Progress)
 
 ---
 **License**: All rights reserved. Built as a solo project by Yury Shirokov.

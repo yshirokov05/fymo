@@ -114,7 +114,6 @@ def get_financial_advice(user_prompt, financial_data):
 
         system_instruction = f"""
         You are the Financial Headquarters (FHQ) AI Advisor. 
-        You are the Financial Headquarters (FHQ) AI Advisor. 
         
         GOAL: Provide high-precision financial advice based strictly on ACTUAL spending data and longitudinal habits.
         
@@ -235,7 +234,7 @@ def generate_health_brief(financial_data):
     insurance_summary = ", ".join([f"{i.get('insurance_type', 'Policy')} ({i.get('name', '')})" for i in insurances]) if insurances else "No policies recorded."
 
     system_instruction = f"""
-    You are the FHQ AI Analyst preparing a 'Morning Brief' for Mr. Bean.
+    You are the FHQ AI Analyst preparing a 'Morning Brief' for the user.
     Provide a 'Brutally Honest', hard-hitting 3-bullet status report based EXACTLY on these categories:
     **Liquidity Check:** (Are the pending checks going to bounce? Is cash flow tight?)
     **Insurance & Protection:** (Are they adequately protected based on their policies? Note any gaps.)

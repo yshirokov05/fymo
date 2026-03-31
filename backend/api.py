@@ -190,7 +190,6 @@ def safe_enum(enum_class, value, default):
         return default
 
 def is_user_authorized(uid, email=None):
-    if uid == "audit_user_berkeley": return True
     if uid == "guest": return False
     
     # HARDCODED WHITELIST (Add family/special users here)
@@ -1107,6 +1106,25 @@ def get_health_brief():
     
     return jsonify({'brief': brief})
 
+def process_extracted_transactions(new_transactions, uid):
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=uid)
+    
+    existing_sigs = {(t.amount, t.name, t.date) for t in transactions}
+    added_count = 0
+    for nt in new_transactions:
+        if (nt.amount, nt.name, nt.date) not in existing_sigs:
+            transactions.append(nt)
+            added_count += 1
+            
+    if added_count > 0:
+        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=uid)
+        
+    return jsonify({
+        'success': True, 
+        'message': f"Successfully imported {added_count} new transactions.",
+        'transactions': [transaction_to_dict(t) for t in transactions]
+    })
+
 @app.route('/api/upload_statement', methods=['POST'])
 @token_required
 def upload_statement():
@@ -1118,37 +1136,96 @@ def upload_statement():
     if file.filename == '':
         return jsonify({'error': "No selected file"}), 400
         
-    if file and file.filename.endswith('.csv'):
+    import os
+    ext = os.path.splitext(file.filename)[1].lower()
+    allowed_exts = {'.csv', '.pdf', '.png', '.jpg', '.jpeg'}
+    
+    if ext not in allowed_exts:
+        return jsonify({'error': f"Invalid format {ext}. Supported: PDF, Image, CSV."}), 400
+        
+    if ext == '.csv':
         try:
             content = file.read().decode('utf-8')
             new_transactions = statement_processor.detect_and_parse_csv(content, uid)
-            
-            if not new_transactions:
-                return jsonify({'error': "No valid transactions found in file."}), 400
-                
-            # Fetch existing data to merge/save
-            user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=uid)
-            
-            # Simple deduplication: Check for same amount, name, and date
-            existing_sigs = {(t.amount, t.name, t.date) for t in transactions}
-            added_count = 0
-            for nt in new_transactions:
-                if (nt.amount, nt.name, nt.date) not in existing_sigs:
-                    transactions.append(nt)
-                    added_count += 1
-            
-            save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=uid)
-            
-            return jsonify({
-                'success': True, 
-                'message': f"Successfully imported {added_count} new transactions.",
-                'transactions': [transaction_to_dict(t) for t in transactions]
-            })
+            if new_transactions:
+                return process_extracted_transactions(new_transactions, uid)
+            file.seek(0) # Fallback to AI if parsing returns empty
         except Exception as e:
-            logging.error(f"Upload error: {e}")
-            return jsonify({'error': f"Failed to process file: {str(e)}"}), 500
+            file.seek(0)
+            
+    # AI Fallback Path (PDFs, Images, and unrecognized CSVs)
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if not api_key:
+        return jsonify({'error': "Gemini Support is currently disabled (No API Key)."}), 500
+        
+    # ARCH-4: Rate Limiting specific to expensive AI features
+    if not check_rate_limit(request.uid, 'extract_statement', limit_per_hour=10):
+        return jsonify({'error': "Upload limit reached. Please try again later."}), 429
+        
+    import google.generativeai as genai
+    import tempfile
+    import json
+    import uuid
+    from models import Transaction
     
-    return jsonify({'error': "Invalid file format. Please upload a CSV."}), 400
+    genai.configure(api_key=api_key)
+    
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
+            file.save(temp_file.name)
+            temp_path = temp_file.name
+            
+        logging.info(f"Analyzing statement {temp_path} via Gemini Vision...")
+        uploaded_file = genai.upload_file(temp_path)
+        
+        system_instruction = "You are an extreme-precision document data extraction pipeline. You must extract every individual transaction line item from the provided bank or credit card statement. Return ONLY a valid JSON Array of objects. Each object MUST have these exact 4 keys: 'date' (string, YYYY-MM-DD), 'name' (string, the merchant or description), 'amount' (float, MUST be negative (-) for purchases/withdrawals, and positive (+) for deposits/payments/refunds!), and 'category' (string, best guess or 'Other'). Do NOT include markdown blocks like ```json."
+        
+        prompt = "Extract all transactions from this statement. Output a raw JSON Array, nothing else."
+        
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_instruction,
+            generation_config={"response_mime_type": "application/json"}
+        )
+        
+        response = model.generate_content([uploaded_file, prompt])
+        
+        os.remove(temp_path)
+        try:
+            genai.delete_file(uploaded_file.name)
+        except Exception:
+            pass
+            
+        parsed_array = json.loads(response.text)
+        
+        if not isinstance(parsed_array, list):
+            return jsonify({'error': "AI returned an invalid structure. Please try again."}), 500
+            
+        ai_transactions = []
+        for raw in parsed_array:
+            if not raw.get('name') or not raw.get('date'): continue
+            ai_transactions.append(Transaction(
+                id=str(uuid.uuid4()),
+                user_id=uid,
+                account_id="manual_ai_statement",
+                amount=float(raw.get('amount', 0)),
+                date=raw.get('date', '2026-01-01')[:10],
+                name=raw.get('name', 'Unknown'),
+                category=raw.get('category', 'Other'),
+                pending=False
+            ))
+            
+        if not ai_transactions:
+            return jsonify({'error': "No valid transactions could be extracted."}), 400
+            
+        return process_extracted_transactions(ai_transactions, uid)
+        
+    except Exception as e:
+        import traceback
+        logging.error(f"AI Extraction Error: {e} - {traceback.format_exc()}")
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'error': f"Failed to analyze statement: {str(e)}"}), 500
 
 @app.route('/api/extract-document', methods=['POST'])
 @token_required

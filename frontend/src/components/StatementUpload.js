@@ -14,13 +14,14 @@ const StatementUpload = ({ isOpen, onClose, onUploadSuccess }) => {
 
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
-        if (selectedFile && selectedFile.name.endsWith('.csv')) {
+        const allowedTypes = ['text/csv', 'application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+        if (selectedFile && (allowedTypes.includes(selectedFile.type) || selectedFile.name.endsWith('.csv'))) {
             setFile(selectedFile);
             setStatus('idle');
             setMessage('');
         } else {
             setFile(null);
-            setMessage('Please select a valid CSV file.');
+            setMessage('Please select a valid CSV, PDF, or Image file.');
             setStatus('error');
         }
     };
@@ -92,7 +93,7 @@ const StatementUpload = ({ isOpen, onClose, onUploadSuccess }) => {
                             type="file" 
                             ref={fileInputRef} 
                             onChange={handleFileChange} 
-                            accept=".csv" 
+                            accept=".csv, .pdf, .png, .jpg, .jpeg" 
                             className="hidden" 
                         />
                         
@@ -109,8 +110,8 @@ const StatementUpload = ({ isOpen, onClose, onUploadSuccess }) => {
                                 <div className="bg-gray-100 p-4 rounded-2xl mb-4 group-hover:bg-blue-100 transition-colors">
                                     <Upload className="text-gray-400 group-hover:text-blue-500 transition-colors" size={32} />
                                 </div>
-                                <p className="font-bold text-gray-700">Click to Select CSV</p>
-                                <p className="text-sm text-gray-400 mt-2">Only Apple Card CSV statements are currently supported.</p>
+                                <p className="font-bold text-gray-700">Click to Select File</p>
+                                <p className="text-sm text-gray-400 mt-2">Upload any Bank Statement (CSV, PDF, or Image)</p>
                             </div>
                         )}
                     </div>
@@ -149,12 +150,12 @@ const StatementUpload = ({ isOpen, onClose, onUploadSuccess }) => {
                             {status === 'uploading' ? (
                                 <>
                                     <Loader2 className="animate-spin" size={20} />
-                                    <span>Uploading...</span>
+                                    <span>{file?.name.endsWith('.csv') ? 'Importing...' : 'AI Analyzing Text...'}</span>
                                 </>
                             ) : (
                                 <>
                                     <Upload size={20} />
-                                    <span>Import Transactions</span>
+                                    <span>{file?.name.endsWith('.csv') ? 'Import Selected File' : 'Extract with Gemini AI'}</span>
                                 </>
                             )}
                         </button>
