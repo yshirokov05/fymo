@@ -382,27 +382,47 @@ def wipe_user_subcollections(user_id):
         checks = user_ref.collection('outstanding_checks').limit(500).get()
     
     logging.info(f"Wiped subcollections for user {user_id}")
-
-
-def save_feedback(user_id, email, topic, content, severity):
-    """Saves user feedback to a dedicated collection."""
+def save_feedback(uid, email, feedback_data):
+    """Saves user feedback to a dedicated collection, with a local fallback for dev."""
     db = get_db()
-    if not db: return False
+    
+    # Enrich feedback data
+    feedback_data.update({
+        'uid': uid,
+        'email': email,
+        'timestamp': datetime.utcnow().isoformat() # Use ISO string for local or server timestamp for Firestore
+    })
+    
+    if not db: 
+        logging.warning("save_feedback: Firestore DB not initialized. Falling back to local 'feedback_log.json'.")
+        try:
+            import json
+            log_path = 'feedback_log.json'
+            logs = []
+            if os.path.exists(log_path):
+                with open(log_path, 'r') as f:
+                    logs = json.load(f)
+            logs.append(feedback_data)
+            with open(log_path, 'w') as f:
+                json.dump(logs, f, indent=4)
+            return True
+        except Exception as e:
+            logging.error(f"Failed to save feedback to local log: {e}")
+            return False
     
     try:
+        logging.info(f"Saving feedback to Firestore for UID: {uid}")
+        # Use server timestamp for Firestore instead of the ISO string set above
+        from firebase_admin import firestore
+        feedback_data['timestamp'] = firestore.SERVER_TIMESTAMP
         feedback_ref = db.collection('feedback').document()
-        feedback_ref.set({
-            'user_id': user_id,
-            'email': email,
-            'topic': topic,
-            'content': content,
-            'severity': severity,
-            'timestamp': datetime.now().isoformat()
-        })
-        logging.info(f"Feedback saved from {user_id}")
+        feedback_ref.set(feedback_data)
+        logging.info("Feedback saved to Firestore successfully.")
         return True
     except Exception as e:
-        logging.error(f"Failed to save feedback: {e}")
+        import traceback
+        logging.error(f"Failed to save feedback to Firestore: {e}")
+        logging.error(traceback.format_exc())
         return False
 
 def save_ai_insight(user_id, topic, detail):

@@ -1,4 +1,5 @@
 import os
+import re
 import plaid
 from plaid.api import plaid_api
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
@@ -258,7 +259,6 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                     interest_rate = float(purchase_apr.get('annual_percentage_rate', 0)) / 100.0
                 
                 # Naming cleanup: avoid 'Ultimate Rewards' as the primary display name
-                import re
                 display_name = acc['name']
                 official_name = acc.get('official_name') or acc['name']
                 mask = acc.get('mask')

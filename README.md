@@ -20,10 +20,15 @@ Financial Headquarters is a premium, privacy-first personal finance platform des
 
 ---
 
+- [x] **Performance Optimizations**: Parallelized institution syncs, 300s backend timeout, and localized `yfinance` metadata timeouts for a smoother user experience.
+- [x] **AI Analyst Updates**: Fixed context-aware "Morning Brief" hang and localized tax estimation logic.
+
+---
+
 ## 📈 Project Metrics
-- **Lines of Code (LOC)**: 21,780
-- **Total Files**: 89
-- **Build Status**: Production (v1.2.0)
+- **Lines of Code (LOC)**: 22,150
+- **Total Files**: 92
+- **Build Status**: Production (v1.2.1)
 
 
 ## 🚀 Technical Architecture

@@ -9,10 +9,8 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
     const [showAllTransactions, setShowAllTransactions] = useState(false);
     const [analysisSearch, setAnalysisSearch] = useState('');
     const [categoryUpdatePending, setCategoryUpdatePending] = useState(null);
-    const [isUpdatingPrefs, setIsUpdatingPrefs] = useState(false);
 
     const handleUpdateSubscriptionPrefs = async (newIgnored, newManual) => {
-        setIsUpdatingPrefs(true);
         try {
             const token = await currentUser.getIdToken();
             await axios.post('/api/user/subscription_preferences', {
@@ -28,7 +26,6 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             console.error(err);
             alert("Failed to update preferences");
         } finally {
-            setIsUpdatingPrefs(false);
         }
     };
 
@@ -111,9 +108,10 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             .filter(t => {
                 const tCat = getTransactionCategory(t);
                 // Important: Don't count "Ignore" or "Debit Card" in the budget totals if they are meant to be excluded
-                return tCat.toLowerCase() === category.toLowerCase() && tCat !== 'Ignore' && t.date >= startOfMonth;
+                // Use trim() and case-insensitive comparison for safety
+                return tCat.trim().toLowerCase() === category.trim().toLowerCase() && tCat !== 'Ignore' && t.date >= startOfMonth;
             })
-            .reduce((sum, t) => sum + (t.amount > 0 ? t.amount : 0), 0);
+            .reduce((sum, t) => sum + t.amount, 0); // Include both positive (expenses) and negative (refunds)
     };
 
     const getNormalizedMonthlyLimit = (limit_amount, period) => {

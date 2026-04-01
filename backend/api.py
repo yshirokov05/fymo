@@ -1,10 +1,11 @@
 # API Version: 1.1.1 - Defensive Plaid Sync & 400 Fix
+import re
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from price_service import get_current_price, get_multiple_prices, validate_ticker
 from calculations import calculate_net_worth
 from models import User, Income, Asset, Debt, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency, HourlyType, PlaidItem, Budget, Transaction, Paystub, IncomeType, FilingStatus, USState, TaxTreatment, DebtType, EmploymentType
-from firestore_db import get_user_data, save_user_data, get_db, wipe_user_subcollections
+from firestore_db import get_user_data, save_user_data, get_db, wipe_user_subcollections, save_feedback
 from auth import token_required, auth_required
 import uuid
 import plaid_service
@@ -14,6 +15,7 @@ from datetime import datetime, timedelta
 import logging
 import firestore_db
 import statement_processor
+from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
 # SEC-4: Restrict CORS
@@ -645,20 +647,30 @@ def plaid_sync():
     try:
         all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs, all_new_incomes = [], [], [], [], [], []
         synced_ids_total = []
-        for pi in plaid_items:
-            if not pi.access_token:
-                logging.warning(f"Skipping institution {pi.institution_name} due to missing or invalid access token.")
-                continue
-            res = plaid_service.sync_plaid_data(pi.access_token, request.uid, custom_rules)
-            new_assets, new_ra, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids = res
-            all_new_assets.extend(new_assets)
-            all_new_ra.extend(new_ra)
-            all_new_transactions.extend(new_transactions)
-            all_new_debts.extend(new_debts)
-            all_new_paystubs.extend(new_paystubs)
-            all_new_incomes.extend(new_incomes)
-            synced_ids_total.extend(synced_account_ids)
-            pi.last_sync = datetime.now().isoformat()
+        active_plaid_items = [pi for pi in plaid_items if pi.access_token]
+        if not active_plaid_items:
+             logging.warning(f"No active plaid items for user {request.uid}")
+             return jsonify({'error': "Accounts require re-connection."}), 400
+
+        with ThreadPoolExecutor(max_workers=min(len(active_plaid_items), 10)) as executor:
+            future_to_pi = {executor.submit(plaid_service.sync_plaid_data, pi.access_token, request.uid, custom_rules): pi for pi in active_plaid_items}
+            
+            for future in future_to_pi:
+                pi = future_to_pi[future]
+                try:
+                    res = future.result()
+                    new_assets, new_ra, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids = res
+                    all_new_assets.extend(new_assets)
+                    all_new_ra.extend(new_ra)
+                    all_new_transactions.extend(new_transactions)
+                    all_new_debts.extend(new_debts)
+                    all_new_paystubs.extend(new_paystubs)
+                    all_new_incomes.extend(new_incomes)
+                    synced_ids_total.extend(synced_account_ids)
+                    pi.last_sync = datetime.now().isoformat()
+                    logging.info(f"Successfully synced institution {pi.institution_name}")
+                except Exception as e:
+                    logging.error(f"Failed to sync institution {pi.institution_name}: {e}")
         
         # REPLACEMENT LOGIC: Purge any existing assets or debts that belong to the accounts we just synced.
         # This ensures that sold positions (like RDDT) are removed, as they won't appear in the fresh sync.
@@ -713,7 +725,6 @@ def plaid_sync():
                 # Preserve manual NAME override
                 # If the previous name is NOT the same as the fresh sync name,
                 # we only preserve it if the old name DOESN'T look like a generated one.
-                import re
                 if prev_debt.name != nd.name:
                     # Treat generic or reward-heavy names as generated
                     generic_names = ['credit card', 'chase credit card', 'chase']
@@ -1454,11 +1465,21 @@ def submit_feedback():
     if not topic or not content:
         return jsonify({'error': "Missing topic or content"}), 400
         
-    success = firestore_db.save_feedback(request.uid, email, topic, content, severity)
+    # Rate limit: 5 feedback submissions per hour
+    if not check_rate_limit(request.uid, 'submit_feedback', limit_per_hour=5):
+        return jsonify({'error': "You have sent too much feedback recently. Please wait a while."}), 429
+        
+    success = firestore_db.save_feedback(
+        uid=request.uid, 
+        email=email, 
+        feedback_data={
+            'topic': topic,
+            'content': content,
+            'severity': severity
+        }
+    )
     if success:
         return jsonify({'success': True})
     else:
         return jsonify({'error': "Failed to save feedback"}), 500
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)

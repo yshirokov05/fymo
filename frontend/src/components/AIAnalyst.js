@@ -105,7 +105,7 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                         <Activity className="mr-3 text-blue-600" size={32} />
                         AI Analyst
                     </h2>
-                    <p className="text-gray-500 text-sm mt-1">Your brutal, data-driven financial strategist.</p>
+                    <p className="text-gray-500 text-sm mt-1">Personalized financial insights and strategy.</p>
                 </div>
                 {!isPremium && (
                     <div className="px-3 py-1 bg-red-50 text-red-600 rounded-full text-xs font-bold uppercase tracking-wider border border-red-100 flex items-center">

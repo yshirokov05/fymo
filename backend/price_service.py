@@ -56,18 +56,25 @@ def get_current_price(ticker_symbol):
             daily_change_usd = 0.0
             daily_change_percent = 0.0
 
-        # Fetch sector/industry info
-        info = ticker.info
-        sector = info.get('sector')
-        if not sector:
-            # Fallback for ETFs and Mutual Funds
-            sector = info.get('category') or info.get('fund_family') or info.get('quoteType', 'Other').replace('_', ' ').capitalize()
-            
+        # Fetch sector/industry info (Optimized with timeout to prevent hangs)
+        sector = 'Other'
+        try:
+            # Ticker.info is notoriously slow; we isolate it to prevent blocking the entire sync
+            with ThreadPoolExecutor(max_workers=1) as sub_executor:
+                info_future = sub_executor.submit(lambda: ticker.info)
+                info = info_future.result(timeout=2.0)
+                sector = info.get('sector')
+                if not sector:
+                    # Fallback for ETFs and Mutual Funds
+                    sector = info.get('category') or info.get('fund_family') or info.get('quoteType', 'Other').replace('_', ' ').capitalize()
+        except Exception:
+            logging.warning(f"Timeout or error fetching metadata for {ticker_symbol}. Using 'Other'.")
+
         result = {
             'current_price': round(current_price, 2),
             'daily_change_usd': round(daily_change_usd, 2),
             'daily_change_percent': round(daily_change_percent, 2),
-            'sector': sector
+            'sector': sector or 'Other'
         }
         
         # Update Cache

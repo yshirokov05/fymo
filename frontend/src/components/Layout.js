@@ -60,7 +60,6 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                             <span className="font-medium">{item.label}</span>
                         </button>
                     ))}
-                    
                     <div className="pt-4 mt-4 border-t border-gray-800">
                         <button
                             onClick={onOpenFeedback}
@@ -103,7 +102,6 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                                     <span className="font-semibold text-lg">{item.label}</span>
                                 </button>
                             ))}
-                            
                             <div className="pt-4 mt-4 border-t border-gray-800">
                                 <button
                                     onClick={() => {

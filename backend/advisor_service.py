@@ -263,9 +263,9 @@ def generate_health_brief(financial_data):
     
     try:
         model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
-        response = model.generate_content("Generate my morning brief.", request_options={"timeout": 15})
-        response.resolve()
+        # 25s timeout to stay within frontend's 30s envelope
+        response = model.generate_content("Generate my morning brief.", request_options={"timeout": 25})
         return response.text.strip()
     except Exception as e:
         logging.error(f"Morning Brief Error: {e}")
-        return "**Liquidity Check:** System Unavailable\n**Tax Preparedness:** System Unavailable\n**Goal Progress:** System Unavailable"
+        return "**Liquidity Check:** Analysis timed out.\n**Tax Preparedness:** Analysis timed out.\n**Goal Progress:** Analysis timed out. Please refresh to retry."

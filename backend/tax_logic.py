@@ -340,3 +340,18 @@ def calculate_fica_tax(income, filing_status='single', year=2026):
     add_medicare_tax = max(0, income - threshold) * add_medicare_rate
 
     return ss_tax + medicare_tax + add_medicare_tax
+
+def calculate_taxes(state_name, incomes, filing_status='single', year=2026):
+    """
+    Bridge function for the AI Advisor to get quick tax estimates.
+    """
+    total_gross = sum(float(getattr(i, 'amount', 0)) for i in incomes if not getattr(i, 'is_net', False))
+    fed = calculate_federal_tax(total_gross, filing_status, year)
+    state = calculate_state_tax(total_gross, state_name, filing_status, year)
+    fica = calculate_fica_tax(total_gross, filing_status, year)
+    return {
+        "federal_tax": fed,
+        "state_tax": state,
+        "fica_tax": fica,
+        "total_tax": fed + state + fica
+    }

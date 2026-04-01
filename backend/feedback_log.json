@@ -1,0 +1,26 @@
+[
+    {
+        "rating": 5,
+        "category": "General",
+        "message": "Final verification. This definitely should work now!",
+        "context": {
+            "url": "http://localhost:3001/",
+            "view": "earnings"
+        },
+        "uid": "guest",
+        "email": "unknown",
+        "timestamp": "2026-03-18T01:09:03.454202"
+    },
+    {
+        "rating": 5,
+        "category": "General",
+        "message": "Final verification. This definitely should work now!",
+        "context": {
+            "url": "http://localhost:3001/",
+            "view": "earnings"
+        },
+        "uid": "guest",
+        "email": "unknown",
+        "timestamp": "2026-03-18T01:09:59.364151"
+    }
+]
