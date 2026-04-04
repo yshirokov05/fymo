@@ -289,9 +289,10 @@ def get_net_worth():
             return jsonify({'error': "Too many requests. Please wait a while."}), 429
 
         if request.uid == "guest":
-            user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, _, outstanding_checks = get_user_data(user_id="demo_user")
+            user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, _, outstanding_checks, _ = get_user_data(user_id="demo_user")
+            ignored_flexible = []
         else:
-            user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+            user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
         
         tickers = [a.ticker for a in assets]
         price_map = get_multiple_prices(tickers)
@@ -415,8 +416,8 @@ def initialize_sample_data():
         ))
 
     # Save everything
-    user, _, _, _, _, _, plaid_items, _, _, _, custom_rules, _, _, outstanding_checks = get_user_data(user_id=uid)
-    save_user_data(user, [sample_income], sample_assets, sample_debts, [], [], plaid_items=plaid_items, budgets=sample_budgets, transactions=sample_transactions, outstanding_checks=outstanding_checks, user_id=uid)
+    user, _, _, _, _, _, plaid_items, _, _, _, custom_rules, _, _, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
+    save_user_data(user, [sample_income], sample_assets, sample_debts, [], [], plaid_items=plaid_items, budgets=sample_budgets, transactions=sample_transactions, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
 
     # Return the new state
     tickers = [a.ticker for a in sample_assets]
@@ -642,7 +643,7 @@ def plaid_sync():
     if not check_rate_limit(request.uid, 'plaid_sync', limit_per_hour=50):
         return jsonify({'error': "Plaid sync limit reached. Please wait an hour."}), 429
 
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     if not plaid_items: return jsonify({'error': "No linked accounts found."}), 404
     try:
         all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs, all_new_incomes = [], [], [], [], [], []
@@ -874,6 +875,7 @@ def plaid_sync():
             has_completed_onboarding=has_completed_onboarding, 
             custom_categories=custom_categories, 
             outstanding_checks=outstanding_checks, 
+            ignored_flexible=ignored_flexible, # Persist ignore list
             user_id=request.uid
         )
         
@@ -1015,7 +1017,7 @@ def set_access_token():
         plaid_items = [pi for pi in plaid_items if pi.institution_name != institution_name]
         plaid_items.append(PlaidItem(access_token=access_token, item_id=item_id, institution_name=institution_name, last_sync=datetime.now().isoformat()))
         
-        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=request.uid)
+        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=request.uid)
         
         price_map = get_multiple_prices([a.ticker for a in assets])
         
@@ -1354,7 +1356,7 @@ def update_transaction_category(transaction_id):
     if not new_category:
         return jsonify({'error': "Missing category"}), 400
 
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
 
     # 1. Update the specific transaction
     target_txn = next((t for t in transactions if t.id == transaction_id), None)
@@ -1378,14 +1380,14 @@ def update_transaction_category(transaction_id):
             if t.name.lower() == merchant_name.lower():
                 t.category = new_category
 
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=request.uid)
+    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=request.uid)
     return jsonify({'message': "Category updated", 'category': new_category})
 
 @app.route('/api/transactions/<transaction_id>', methods=['DELETE'])
 @token_required
 def delete_transaction(transaction_id):
     try:
-        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
         
         # Filter out the transaction to delete
         new_transactions = [t for t in transactions if t.id != transaction_id]
@@ -1393,7 +1395,7 @@ def delete_transaction(transaction_id):
         if len(new_transactions) == len(transactions):
             return jsonify({"error": "Transaction not found"}), 404
             
-        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=new_transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=request.uid)
+        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=new_transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=request.uid)
         
         return jsonify({"message": "Transaction deleted successfully"}), 200
     except Exception as e:
@@ -1410,7 +1412,7 @@ def remove_institution():
         
     data = request.get_json()
     institution_name = data.get('institution_name')
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     
     target_item = next((pi for pi in plaid_items if pi.institution_name == institution_name), None)
     if not target_item:
@@ -1450,7 +1452,7 @@ def remove_institution():
     # Filter Retirement Accounts
     retirement_accounts = [ra for ra in retirement_accounts if ra.id not in removed_account_ids]
 
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=request.uid)
+    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=request.uid)
     return jsonify({'success': True})
 
 @app.route('/api/feedback', methods=['POST'])

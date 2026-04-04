@@ -76,14 +76,14 @@ def get_user_data(user_id="default_user"):
     """Fetches user financial state with robust error handling and subcollection support."""
     db = get_db()
     if db is None:
-        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], []
+        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
     
     user_ref = db.collection('users').document(user_id)
     doc = user_ref.get()
     
     if not doc.exists:
         logging.info(f"User document {user_id} not found.")
-        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], []
+        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
     
     data = doc.to_dict()
     
@@ -95,8 +95,12 @@ def get_user_data(user_id="default_user"):
         has_completed_onboarding=data.get('has_completed_onboarding', False),
         custom_categories=data.get('custom_categories', []),
         ignored_subscription_merchants=data.get('ignored_subscription_merchants', []),
-        manual_subscription_merchants=data.get('manual_subscription_merchants', [])
+        manual_subscription_merchants=data.get('manual_subscription_merchants', []),
+        ignored_flexible=data.get('ignored_flexible', [])
     )
+    
+    custom_categories = data.get('custom_categories', [])
+    ignored_flexible = data.get('ignored_flexible', [])
     
     incomes = [
         Income(
@@ -218,11 +222,12 @@ def get_user_data(user_id="default_user"):
     paystubs.sort(key=lambda p: p.date, reverse=True)
     outstanding_checks.sort(key=lambda c: c.date_written, reverse=True)
         
-    return user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, user.has_completed_onboarding, user.custom_categories, outstanding_checks
+    return user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, user.has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible
 
 def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, 
                    plaid_items=None, budgets=None, transactions=None, paystubs=None, custom_rules=None, 
-                   has_completed_onboarding=None, custom_categories=None, outstanding_checks=None, user_id="default_user"):
+                   has_completed_onboarding=None, custom_categories=None, outstanding_checks=None, 
+                   ignored_flexible=None, user_id="default_user"):
     """Saves state to Firestore using subcollections for transactions/paystubs and encrypting Plaid tokens."""
     if plaid_items is None: plaid_items = []
     if budgets is None: budgets = []
@@ -230,12 +235,22 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
     if paystubs is None: paystubs = []
     if custom_rules is None: custom_rules = []
     if outstanding_checks is None: outstanding_checks = []
+    if ignored_flexible is None: ignored_flexible = getattr(user, 'ignored_flexible', [])
     
     db = get_db()
     if db is None: return
     user_ref = db.collection('users').document(user_id)
     
+    def commit_batch(current_batch, count):
+        if count > 0:
+            current_batch.commit()
+            return db.batch(), 0
+        return current_batch, count
+
     batch = db.batch()
+    op_count = 0
+    
+    # 1. Transactions subcollection
     for t in transactions:
         t_ref = user_ref.collection('transactions').document(t.id)
         batch.set(t_ref, {
@@ -247,7 +262,11 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
             'pending': t.pending,
             'pending_transaction_id': getattr(t, 'pending_transaction_id', None)
         })
+        op_count += 1
+        if op_count >= 450:
+            batch, op_count = commit_batch(batch, op_count)
     
+    # 2. Paystubs subcollection
     for p in paystubs:
         p_ref = user_ref.collection('paystubs').document(p.id)
         batch.set(p_ref, {
@@ -258,14 +277,22 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
             'employer': p.employer,
             'is_net_primary': p.is_net_primary
         })
-        
+        op_count += 1
+        if op_count >= 450:
+            batch, op_count = commit_batch(batch, op_count)
+            
+    # 3. Custom Rules subcollection
     for r in custom_rules:
         r_ref = user_ref.collection('custom_rules').document(r.id)
         batch.set(r_ref, {
             'merchant_name': r.merchant_name,
             'category': r.category
         })
-        
+        op_count += 1
+        if op_count >= 450:
+            batch, op_count = commit_batch(batch, op_count)
+            
+    # 4. Outstanding Checks subcollection
     for c in outstanding_checks:
         c_ref = user_ref.collection('outstanding_checks').document(c.id)
         batch.set(c_ref, {
@@ -275,8 +302,13 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
             'status': c.status.name,
             'plaid_transaction_id': c.plaid_transaction_id
         })
+        op_count += 1
+        if op_count >= 450:
+            batch, op_count = commit_batch(batch, op_count)
     
-    batch.commit()
+    # Final commit for remaining operations
+    if op_count > 0:
+        batch.commit()
     
     transactions.sort(key=lambda t: t.date, reverse=True)
     paystubs.sort(key=lambda p: p.date, reverse=True)
@@ -343,7 +375,8 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
         'has_completed_onboarding': has_completed_onboarding if has_completed_onboarding is not None else user.has_completed_onboarding,
         'custom_categories': custom_categories if custom_categories is not None else user.custom_categories,
         'ignored_subscription_merchants': getattr(user, 'ignored_subscription_merchants', []),
-        'manual_subscription_merchants': getattr(user, 'manual_subscription_merchants', [])
+        'manual_subscription_merchants': getattr(user, 'manual_subscription_merchants', []),
+        'ignored_flexible': ignored_flexible
     }
     user_ref.set(data, merge=True)
     logging.info(f"Successfully saved encrypted state for {user_id}")
@@ -489,3 +522,95 @@ def get_user_memories(user_id):
     except Exception as e:
         logging.error(f"Failed to fetch user memories: {e}")
         return []
+
+def get_user_summary_for_brief(user_id):
+    """
+    Optimized version of get_user_data specifically for the AI Health Brief.
+    Fetches only essential context and the most recent 100 transactions to prevent timeouts.
+    """
+    db = get_db()
+    if not db:
+        logging.error(f"get_user_summary_for_brief: DB connection failed for user {user_id}")
+        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
+
+    try:
+        user_ref = db.collection('users').document(user_id)
+        doc = user_ref.get()
+        if not doc.exists:
+            logging.warning(f"get_user_summary_for_brief: User doc not found for {user_id}")
+            return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
+        
+        data = doc.to_dict()
+        
+        # Build shallow user object
+        user = User(
+            filing_status=safe_enum(FilingStatus, data.get('filing_status'), FilingStatus.SINGLE),
+            state=safe_enum(USState, data.get('state'), USState.CA)
+        )
+
+        # Parse essential lists (shallowly)
+        incomes = [Income(amount=inc['amount'], income_type=safe_enum(IncomeType, inc.get('income_type'), IncomeType.ANNUAL_SALARY), year=inc.get('year', 2026)) for inc in data.get('incomes', [])]
+        
+        assets = [Asset(ticker=ass['ticker'], shares=ass['shares'], cost_basis=ass['cost_basis'], asset_type=safe_enum(AssetType, ass.get('asset_type'), AssetType.STOCK)) for ass in data.get('assets', [])]
+        
+        debts = [Debt(name=dbt['name'], initial_amount=dbt['initial_amount'], amount_paid=dbt['amount_paid'], interest_rate=dbt.get('interest_rate')) for dbt in data.get('debts', [])]
+        
+        retirement_accounts = [RetirementAccount(id=ra.get('id'), name=ra['name'], account_type=safe_enum(AccountType, ra.get('account_type'), AccountType.TRADITIONAL_IRA)) for ra in data.get('retirement_accounts', [])]
+        
+        insurances = [Insurance(name=ins['name'], amount=ins['amount'], insurance_type=ins.get('insurance_type', 'Auto')) for ins in data.get('insurances', [])]
+
+        # Optimization: Fetch ONLY the most recent 100 transactions
+        transactions = []
+        txn_docs = user_ref.collection('transactions').order_by('date', direction=firestore.Query.DESCENDING).limit(100).get()
+        for t_doc in txn_docs:
+            t = t_doc.to_dict()
+            transactions.append(Transaction(id=t_doc.id, user_id=user_id, amount=t['amount'], date=t['date'], name=t['name'], category=t.get('category'), pending=t.get('pending', False)))
+
+        # Optimization: Fetch only pending checks
+        outstanding_checks = []
+        check_docs = user_ref.collection('outstanding_checks').where('status', '==', 'PENDING').get()
+        for c_doc in check_docs:
+            c = c_doc.to_dict()
+            outstanding_checks.append(OutstandingCheck(id=c_doc.id, amount=c['amount'], payee=c['payee'], status=CheckStatus.PENDING))
+
+        # Placeholder for other data not strictly needed for brief or already shallow
+        plaid_items = []
+        # Parse additional metadata for AI Context
+        budgets_data = data.get('budgets', [])
+        budgets = [Budget(
+            id=b.get('id', 'legacy'),
+            category=b.get('category', 'Other'),
+            limit_amount=float(b.get('limit_amount', 0)),
+            period=b.get('period', 'MONTHLY')
+        ) for b in budgets_data]
+        
+        custom_categories = data.get('custom_categories', [])
+        ignored_flexible = data.get('ignored_flexible', [])
+        has_completed_onboarding = data.get('has_completed_onboarding', False)
+        
+        plaid_items = []
+        paystubs = []
+        custom_rules = []
+
+        return user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible
+
+    except Exception as e:
+        import traceback
+        logging.error(f"Failed to fetch user summary for brief: {e}")
+        logging.error(traceback.format_exc())
+        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
+
+def update_user_fields(user_id, fields_dict):
+    """
+    Performs a partial update of top-level fields for a user document.
+    Much faster than full save_user_data for non-relational fields.
+    """
+    db = get_db()
+    if db is None: return False
+    try:
+        user_ref = db.collection('users').document(user_id)
+        user_ref.update(fields_dict)
+        return True
+    except Exception as e:
+        logging.error(f"Failed to update user fields for {user_id}: {e}")
+        return False

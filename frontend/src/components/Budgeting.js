@@ -1,14 +1,25 @@
 import React, { useState } from 'react';
 import Card from './Card';
 import axios from 'axios';
-import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, CreditCard, X, Search, BarChart2, Star } from 'lucide-react';
+import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, CreditCard, X, Search, BarChart2, Star, ChevronLeft, ChevronRight, Calendar, RefreshCw, TrendingUp, DollarSign, Activity } from 'lucide-react';
+import { useToast } from './Toast';
 
-const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCategories = [], onSaveCustomCategories, fetchData, ignoredSubscriptions = [], manualSubscriptions = [], setIgnoredSubscriptions, setManualSubscriptions }) => {
+const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCategories = [], onSaveCustomCategories, fetchData, ignoredSubscriptions = [], manualSubscriptions = [], setIgnoredSubscriptions, setManualSubscriptions, ignoredFlexible = [], onUpdateIgnoredFlexible }) => {
+    const { showToast } = useToast();
+    const [newCategory, setNewCategory] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [editedBudgets, setEditedBudgets] = useState([...budgets]);
     const [showAllTransactions, setShowAllTransactions] = useState(false);
     const [analysisSearch, setAnalysisSearch] = useState('');
     const [categoryUpdatePending, setCategoryUpdatePending] = useState(null);
+    const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
+    const [isSavingCategory, setIsSavingCategory] = useState(false);
+    
+    // Default to current month/year: "2026-04"
+    const [selectedMonth, setSelectedMonth] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
 
     const handleUpdateSubscriptionPrefs = async (newIgnored, newManual) => {
         try {
@@ -24,7 +35,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             if (setManualSubscriptions) setManualSubscriptions(newManual);
         } catch (err) {
             console.error(err);
-            alert("Failed to update preferences");
+            showToast("Failed to update preferences", "error");
         } finally {
         }
     };
@@ -75,6 +86,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
     };
 
     const handleCategoryChange = async (t, newCategory, createRule = false) => {
+        setIsUpdatingCategory(true);
         try {
             const token = await currentUser.getIdToken();
             const res = await axios.put(`/api/transactions/${t.id}/category`, {
@@ -85,33 +97,91 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.status === 200) {
-                setCategoryUpdatePending(null);
+                // IMPORTANT: Fetch first, THEN clear pending to avoid the "snap-back" glitch
                 if (fetchData) {
                     await fetchData();
                 } else {
                     window.location.reload();
                 }
+                setCategoryUpdatePending(null);
             }
         } catch (err) {
             console.error(err);
-            alert("Failed to update category: " + (err.response?.data?.error || err.message));
+            showToast("Failed to update category: " + (err.response?.data?.error || err.message), "error");
+        } finally {
+            setIsUpdatingCategory(false);
         }
     };
 
     const getSpentForCategory = (category, period) => {
-        // Find beginning of the current month
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        // Find beginning and end of the SELECTED month
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
+        const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
         
-        // Filter to only transactions that occurred within the current month matching the category
         return transactions
             .filter(t => {
                 const tCat = getTransactionCategory(t);
-                // Important: Don't count "Ignore" or "Debit Card" in the budget totals if they are meant to be excluded
-                // Use trim() and case-insensitive comparison for safety
-                return tCat.trim().toLowerCase() === category.trim().toLowerCase() && tCat !== 'Ignore' && t.date >= startOfMonth;
+                // Fix: Compare only the date part of ISO strings (YYYY-MM-DD)
+                const tDatePart = t.date.split('T')[0];
+                return tCat.trim().toLowerCase() === category.trim().toLowerCase() && 
+                       tCat !== 'Ignore' && 
+                       tDatePart >= startOfMonth && 
+                       tDatePart <= endOfMonth;
             })
-            .reduce((sum, t) => sum + t.amount, 0); // Include both positive (expenses) and negative (refunds)
+            .reduce((sum, t) => sum + t.amount, 0);
+    };
+
+    // Helper: get previous month spending for a category (for context display)
+    const getPrevMonthSpent = (category) => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const prevDate = new Date(year, month - 2, 1);
+        const startOfPrev = new Date(prevDate.getFullYear(), prevDate.getMonth(), 1).toISOString().split('T')[0];
+        const endOfPrev = new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 0).toISOString().split('T')[0];
+        
+        return transactions
+            .filter(t => {
+                const tCat = getTransactionCategory(t);
+                const tDatePart = t.date.split('T')[0];
+                return tCat.trim().toLowerCase() === category.trim().toLowerCase() && 
+                       tCat !== 'Ignore' && 
+                       tDatePart >= startOfPrev && 
+                       tDatePart <= endOfPrev;
+            })
+            .reduce((sum, t) => sum + t.amount, 0);
+    };
+
+    // Flexible Spending: categories with spending but no hard budget
+    const getFlexibleSpending = () => {
+        const budgetedCategories = new Set(budgets.map(b => b.category.trim().toLowerCase()));
+        const ignoredSet = new Set(ignoredFlexible.map(c => c.trim().toLowerCase()));
+        const categorySpend = {};
+        
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
+        const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
+        
+        transactions.forEach(t => {
+            if (t.amount <= 0) return;
+            const cat = getTransactionCategory(t);
+            if (cat === 'Ignore') return;
+            
+            if (budgetedCategories.has(cat.toLowerCase())) return; 
+            if (ignoredSet.has(cat.toLowerCase())) return; 
+
+            // Fix: Compare only the date part (YYYY-MM-DD)
+            const tDatePart = t.date.split('T')[0];
+            if (tDatePart >= startOfMonth && tDatePart <= endOfMonth) {
+                categorySpend[cat] = (categorySpend[cat] || 0) + t.amount;
+            }
+        });
+        
+        const results = Object.entries(categorySpend)
+            .map(([name, amount]) => ({ name, amount }))
+            .sort((a, b) => b.amount - a.amount);
+            
+        console.log(`FLEX-DEBUG [${selectedMonth}]: Spending found: ${results.length} categories. Ignored list: ${ignoredFlexible.length}. Budgeted list: ${budgetedCategories.size}`);
+        return results;
     };
 
     const getNormalizedMonthlyLimit = (limit_amount, period) => {
@@ -144,12 +214,13 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
     };
 
     const getMonthlyAnalysis = () => {
-        const now = new Date();
-        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const startOfThisMonth = new Date(year, month - 1, 1);
+        const startOfLastMonth = new Date(year, month - 2, 1);
+        const endOfLastMonth = new Date(year, month - 1, 0);
 
-        const thisMonthStr = startOfThisMonth.toISOString().split('T')[0];
+        const thisMonthStartStr = startOfThisMonth.toISOString().split('T')[0];
+        const thisMonthEndStr = new Date(year, month, 0).toISOString().split('T')[0];
         const lastMonthStartStr = startOfLastMonth.toISOString().split('T')[0];
         const lastMonthEndStr = endOfLastMonth.toISOString().split('T')[0];
 
@@ -167,7 +238,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
 
             if (!results[cat]) results[cat] = { name: cat, current: 0, previous: 0 };
             
-            if (t.date >= thisMonthStr) {
+            if (t.date >= thisMonthStartStr && t.date <= thisMonthEndStr) {
                 results[cat].current += t.amount;
             } else if (t.date >= lastMonthStartStr && t.date <= lastMonthEndStr) {
                 results[cat].previous += t.amount;
@@ -243,8 +314,39 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-gray-800">Expenditure Dashboard</h2>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div className="flex items-center space-x-4">
+                    <h2 className="text-3xl font-bold text-gray-800">Expenditure Dashboard</h2>
+                    
+                    <div className="flex items-center bg-white border border-gray-100 rounded-xl p-1 shadow-sm">
+                        <button 
+                            onClick={() => {
+                                const [y, m] = selectedMonth.split('-').map(Number);
+                                const d = new Date(y, m - 2, 1);
+                                setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+                            }}
+                            className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                        <div className="px-4 flex items-center space-x-2">
+                            <Calendar size={16} className="text-blue-500" />
+                            <span className="font-bold text-gray-700 min-w-[120px] text-center">
+                                {new Date(selectedMonth + '-02').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                            </span>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                const [y, m] = selectedMonth.split('-').map(Number);
+                                const d = new Date(y, m, 1);
+                                setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+                            }}
+                            className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors"
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+                </div>
                 <div className="flex items-center space-x-3">
                     {!isEditing ? (
                         <button 
@@ -344,7 +446,8 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
 
             <div className="flex items-center space-x-2 pb-2">
                 <BarChart2 className="text-blue-600" size={20} />
-                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Flexible Spending Budgets</h3>
+                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Hard Budgets</h3>
+                <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">Strict Spending Limits</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -353,6 +456,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                     const normalizedLimit = getNormalizedMonthlyLimit(budget.limit_amount, budget.period || 'Monthly');
                     const percent = Math.min(100, (spent / normalizedLimit) * 100) || 0;
                     const isOver = spent > normalizedLimit;
+                    const prevSpent = getPrevMonthSpent(budget.category);
 
                     return (
                         <Card key={budget.id || index} className="relative overflow-hidden group">
@@ -394,7 +498,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{budget.period || 'Monthly'}</span>
                                                 {(budget.period === 'Monthly' || !budget.period) && (
                                                     <span className="text-[10px] text-gray-300 font-medium">
-                                                        ({new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} - {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})
+                                                        ({new Date(selectedMonth + '-02').toLocaleDateString(undefined, {month: 'short'})} 1st - {new Date(selectedMonth.split('-')[0], selectedMonth.split('-')[1], 0).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})
                                                     </span>
                                                 )}
                                             </div>
@@ -428,46 +532,187 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                     <>
                                         <span className="text-2xl font-black text-gray-900">${spent.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
                                         <span className="text-gray-400 text-sm">of ${budget.limit_amount.toLocaleString()}</span>
-                                        </>
-                                    )}
-                                </div>
+                                    </>
+                                )}
+                            </div>
     
-                                <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2 overflow-hidden">
-                                    <div 
-                                        className={`h-full transition-all duration-1000 ${isOver ? 'bg-red-500' : percent > 80 ? 'bg-amber-500' : 'bg-blue-500'}`} 
-                                        style={{ width: `${percent}%` }}
-                                    ></div>
-                                </div>
+                            <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2 overflow-hidden">
+                                <div 
+                                    className={`h-full transition-all duration-1000 ${isOver ? 'bg-red-500' : percent > 80 ? 'bg-amber-500' : 'bg-blue-500'}`} 
+                                    style={{ width: `${percent}%` }}
+                                ></div>
+                            </div>
                                 
-                                <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                                    <span className={isOver ? 'text-red-500' : 'text-gray-400'}>
-                                        {isOver ? 'Over Limit' : `${percent.toFixed(0)}% Used`}
-                                    </span>
-                                    <span className="text-gray-400">
-                                        ${Math.max(0, normalizedLimit - spent).toLocaleString(undefined, {maximumFractionDigits: 0})} Left
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+                                <span className={isOver ? 'text-red-500' : 'text-gray-400'}>
+                                    {isOver ? 'Over Limit' : `${percent.toFixed(0)}% Used`}
+                                </span>
+                                <span className="text-gray-400">
+                                    ${Math.max(0, normalizedLimit - spent).toLocaleString(undefined, {maximumFractionDigits: 0})} Left
+                                </span>
+                            </div>
+                            {/* Previous month context */}
+                            {!isEditing && prevSpent > 0 && (
+                                <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between">
+                                    <span className="text-[10px] text-gray-400 font-medium">Last month</span>
+                                    <span className={`text-[10px] font-bold ${prevSpent > normalizedLimit ? 'text-red-500' : 'text-gray-500'}`}>
+                                        ${prevSpent.toLocaleString(undefined, {maximumFractionDigits: 0})}
                                     </span>
                                 </div>
-                            </Card>
-                        );
-                    })}
+                            )}
+                        </Card>
+                    );
+                })}
                 {!isEditing && budgets.length === 0 && (
                     <div className="col-span-full py-12 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                         <PieChart className="mx-auto text-gray-300 mb-4" size={48} />
-                        <h3 className="text-lg font-bold text-gray-800">No Budgets Set</h3>
-                        <p className="text-gray-500 text-sm max-w-xs mx-auto mt-1">
-                            Add a budget category to start tracking your monthly spending.
+                        <h3 className="text-lg font-bold text-gray-800">No Hard Budgets Set</h3>
+                        <p className="text-gray-500 text-sm max-w-xs mx-auto mt-1 mb-4">
+                            Add a budget to set strict spending limits for categories like Eating Out or Entertainment.
                         </p>
-                        <button 
-                            onClick={handleAddBudget}
-                            className="mt-4 text-blue-600 font-bold text-sm hover:underline"
-                        >
-                            + Create Your First Budget
-                        </button>
+                        <div className="flex flex-col items-center space-y-4">
+                            <button 
+                                onClick={handleAddBudget}
+                                className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all transform hover:-translate-y-0.5 active:scale-95"
+                            >
+                                + Create Your First Budget
+                            </button>
+                            {(() => {
+                                // Logic to suggest carrying over if spending exists
+                                const anySpending = transactions.length > 0;
+                                if (anySpending) {
+                                    return (
+                                        <button 
+                                            onClick={() => {
+                                                const counts = {};
+                                                transactions.forEach(t => {
+                                                    const cat = getTransactionCategory(t);
+                                                    if (cat !== 'Uncategorized' && cat !== 'Ignore') {
+                                                        counts[cat] = (counts[cat] || 0) + t.amount;
+                                                    }
+                                                });
+                                                const suggested = Object.entries(counts)
+                                                    .sort((a,b) => b[1] - a[1])
+                                                    .slice(0, 5)
+                                                    .map(([cat, amt]) => ({
+                                                        id: Date.now().toString() + Math.random(),
+                                                        category: cat,
+                                                        limit_amount: Math.ceil(amt / 100) * 100,
+                                                        period: 'Monthly'
+                                                    }));
+                                                setEditedBudgets(suggested);
+                                                setIsEditing(true);
+                                            }}
+                                            className="text-gray-500 font-bold text-sm hover:text-blue-600 transition-colors flex items-center"
+                                        >
+                                            <TrendingUp size={14} className="mr-1" />
+                                            Build from March suggested budgets
+                                        </button>
+                                    );
+                                }
+                            })()}
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* Spending Analysis Section */}
+            {/* Flexible Spending Section — interactive, shows unbudgeted categories */}
+            {(() => {
+                const flexibleSpending = getFlexibleSpending();
+                if (flexibleSpending.length === 0) return null;
+                return (
+                    <div className="flex flex-col mb-8">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center">
+                                <TrendingUp size={24} className="mr-2 text-emerald-600" />
+                                FLEXIBLE SPENDING
+                                <span className="ml-3 px-2 py-0.5 bg-gray-50 text-gray-400 text-[10px] rounded-full font-medium border border-gray-100 flex items-center">
+                                    No Budget Set — Tracking Only
+                                </span>
+                            </h3>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-4 font-medium leading-relaxed max-w-2xl">
+                            These categories have spending this month but don't have a hard budget. Use these to track variable costs without a strict limit. You can set a budget or hide them anytime.
+                            <span className="ml-2 text-[8px] text-gray-300 font-mono">v1.5.2-FINAL-UI</span>
+                        </p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                            {flexibleSpending.map(item => {
+                                const prevSpent = getPrevMonthSpent(item.name);
+                                const diff = prevSpent > 0 ? ((item.amount - prevSpent) / prevSpent) * 100 : 0;
+                                const suggestedLimit = Math.ceil(item.amount / 50) * 50 || 50;
+
+                                return (
+                                    <Card key={item.name} className="p-4 border-l-4 border-l-emerald-500 hover:shadow-xl transition-all duration-300 group relative">
+                                        <div className="absolute top-2 right-2 flex items-center space-x-1.5 z-20">
+                                            <button 
+                                                onClick={() => {
+                                                    setAnalysisSearch(item.name);
+                                                    const el = document.getElementById('recent-transactions');
+                                                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                                }}
+                                                className="p-1.5 text-gray-500 hover:text-blue-600 bg-white/95 rounded-full shadow-lg border border-gray-100 transition-all hover:scale-110 flex items-center justify-center"
+                                                title="View History"
+                                            >
+                                                <Activity size={14} />
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    if (window.confirm(`Stop tracking "${item.name}" as flexible spending?`)) {
+                                                        onUpdateIgnoredFlexible([...ignoredFlexible, item.name]);
+                                                    }
+                                                }}
+                                                className="p-1.5 text-gray-500 hover:text-red-600 bg-white/95 rounded-full shadow-lg border border-gray-100 transition-all hover:scale-110 flex items-center justify-center"
+                                                title="Hide from dashboard"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div>
+                                                <h4 className="font-bold text-gray-900 flex items-center">
+                                                    {categories.find(c => c.name === item.name)?.icon || <DollarSign size={16} />}
+                                                    <span className="ml-2">{item.name}</span>
+                                                </h4>
+                                                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">This Month</div>
+                                            </div>
+                                            <div className="flex space-x-1">
+                                                <button
+                                                    onClick={() => {
+                                                        // Pre-fill a budget with this category and a suggested limit based on current spending
+                                                        const suggestedLimit = Math.ceil(item.amount / 50) * 50; // Round up to nearest 50
+                                                        setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: item.name, limit_amount: suggestedLimit, period: 'Monthly' }]);
+                                                        setIsEditing(true);
+                                                    }}
+                                                    className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center space-x-1 shadow-sm font-bold"
+                                                    title="Set as Hard Budget"
+                                                >
+                                                    <Plus size={14} />
+                                                    <span className="text-[10px]">Set Budget</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="text-2xl font-black text-gray-900">
+                                            ${item.amount.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                                        </div>
+                                        {prevSpent > 0 && (
+                                            <div className="mt-2 flex items-center space-x-2 text-[10px]">
+                                                <span className="text-gray-400">vs last month: ${prevSpent.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                                <span className={`font-bold px-1.5 py-0.5 rounded-full ${
+                                                    diff > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                                }`}>
+                                                    {diff > 0 ? '+' : ''}{diff.toFixed(0)}%
+                                                </span>
+                                            </div>
+                                        )}
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
+
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
@@ -558,6 +803,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                     onClick={() => {
                                         if (window.confirm(`Delete category "${cat}"?`)) {
                                             onSaveCustomCategories(customCategories.filter(c => c !== cat));
+                                            showToast(`Category "${cat}" removed`, "info");
                                         }
                                     }}
                                     className="hover:text-red-500 transition-colors"
@@ -572,33 +818,48 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                     <div className="flex space-x-2">
                         <input 
                             type="text" 
-                            id="new-category-input"
-                            placeholder="Add category (e.g. Nails)" 
-                            className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-                            onKeyPress={(e) => {
-                                if (e.key === 'Enter' && e.target.value) {
-                                    onSaveCustomCategories([...customCategories, e.target.value]);
-                                    e.target.value = '';
+                             value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                            disabled={isSavingCategory}
+                            placeholder={isSavingCategory ? "Saving..." : "Add category (e.g. Nails)"} 
+                            className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isSavingCategory ? 'bg-gray-50 opacity-60' : 'bg-white'}`}
+                            onKeyPress={async (e) => {
+                                if (e.key === 'Enter' && newCategory.trim() && !isSavingCategory) {
+                                    setIsSavingCategory(true);
+                                    await onSaveCustomCategories([...customCategories, newCategory.trim()]);
+                                    setNewCategory('');
+                                    setIsSavingCategory(false);
                                 }
                             }}
                         />
                         <button 
-                            onClick={() => {
-                                const input = document.getElementById('new-category-input');
-                                if (input.value) {
-                                    onSaveCustomCategories([...customCategories, input.value]);
-                                    input.value = '';
+                            disabled={isSavingCategory || !newCategory.trim()}
+                            onClick={async () => {
+                                if (newCategory.trim()) {
+                                    setIsSavingCategory(true);
+                                    try {
+                                        await onSaveCustomCategories([...customCategories, newCategory.trim()]);
+                                        setNewCategory('');
+                                        showToast(`Category "${newCategory}" added!`, "success");
+                                    } catch (err) {
+                                        console.error(err);
+                                        showToast("Failed to add category: " + (err.response?.data?.error || err.message), "error");
+                                    } finally {
+                                        setIsSavingCategory(false);
+                                    }
+                                } else {
+                                    showToast("Please enter a category name", "error");
                                 }
                             }}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-sm active:scale-95"
+                            className={`bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-sm active:scale-95 ${isSavingCategory || !newCategory.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-700'}`}
                         >
-                            Add
+                            {isSavingCategory ? '...' : 'Add'}
                         </button>
                     </div>
                 </div>
             </div>
 
-            <Card title="Recent Transactions" className="mt-8">
+            <Card title="Recent Transactions" className="mt-8" id="recent-transactions">
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
@@ -652,16 +913,22 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                         </p>
                                                         <div className="flex flex-col space-y-2">
                                                             <button 
+                                                                disabled={isUpdatingCategory}
                                                                 onClick={() => handleCategoryChange(t, categoryUpdatePending.newCategory, true)}
-                                                                className="w-full bg-blue-600 text-white text-xs font-black py-3 rounded-xl hover:bg-blue-700 transition-all shadow-md active:scale-[0.98]"
+                                                                className={`w-full text-white text-xs font-black py-3 rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center space-x-2
+                                                                    ${isUpdatingCategory ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
                                                             >
-                                                                Update All Future
+                                                                {isUpdatingCategory && <RefreshCw size={14} className="animate-spin" />}
+                                                                <span>Update All Future</span>
                                                             </button>
                                                             <button 
+                                                                disabled={isUpdatingCategory}
                                                                 onClick={() => handleCategoryChange(t, categoryUpdatePending.newCategory, false)}
-                                                                className="w-full bg-white border border-gray-200 text-gray-700 text-xs font-black py-3 rounded-xl hover:bg-gray-50 transition-all active:scale-[0.98]"
+                                                                className={`w-full bg-white border border-gray-200 text-gray-700 text-xs font-black py-3 rounded-xl hover:bg-gray-50 transition-all active:scale-[0.98] flex items-center justify-center space-x-2
+                                                                    ${isUpdatingCategory ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                             >
-                                                                Just This One
+                                                                {isUpdatingCategory && <RefreshCw size={14} className="animate-spin" />}
+                                                                <span>Just This One</span>
                                                             </button>
                                                         </div>
                                                         <button 
@@ -702,7 +969,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                                     headers: { Authorization: `Bearer ${token}` }
                                                                 });
                                                                 fetchData();
-                                                            } catch (err) { alert("Failed to delete"); }
+                                                            } catch (err) { showToast("Failed to delete", "error"); }
                                                         }
                                                     }}
                                                     className="text-gray-300 hover:text-red-500"

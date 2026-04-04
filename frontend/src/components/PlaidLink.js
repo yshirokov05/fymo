@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
+import { useToast } from './Toast';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { CreditCard, RefreshCw, AlertCircle } from 'lucide-react';
 
 const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
     const { currentUser } = useAuth();
+    const { showToast } = useToast();
     const [linkToken, setLinkToken] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState(null);
@@ -30,7 +32,7 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
                 setIsGenerating(false);
                 setError("Connection timed out. Please check if Plaid keys are set up in the backend.");
             }
-        }, 10000);
+        }, 45000);
 
         try {
             const token = await currentUser.getIdToken();
@@ -68,12 +70,15 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            if (onPlaidSuccess) onPlaidSuccess(response.data);
+            if (onPlaidSuccess) {
+                onPlaidSuccess(response.data);
+                showToast("Account connected successfully!", "success");
+            }
         } catch (error) {
             console.error('Error exchanging public token:', error);
-            alert("Failed to connect account: " + (error.response?.data?.error || error.message));
+            showToast("Failed to connect account: " + (error.response?.data?.error || error.message), "error");
         }
-    }, [currentUser, onPlaidSuccess]);
+    }, [currentUser, onPlaidSuccess, showToast]);
 
     const config = {
         token: linkToken,

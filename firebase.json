@@ -29,7 +29,8 @@
         "source": "/api/**",
         "run": {
           "serviceId": "api-func",
-          "region": "us-west2"
+          "region": "us-west2",
+          "timeoutSeconds": 300
         }
       },
       {

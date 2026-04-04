@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useToast } from './Toast';
 import { X, Send, AlertTriangle, MessageSquare, Lightbulb } from 'lucide-react';
 
 const FeedbackModal = ({ isOpen, onClose, userEmail, uid }) => {
+  const { showToast } = useToast();
   const [topic, setTopic] = useState('BUG');
   const [content, setContent] = useState('');
   const [severity, setSeverity] = useState('LOW');
@@ -22,6 +24,7 @@ const FeedbackModal = ({ isOpen, onClose, userEmail, uid }) => {
       });
       if (response.data.success) {
         setSubmitted(true);
+        showToast("Feedback submitted! Thank you.", "success");
         setTimeout(() => {
           setSubmitted(false);
           setContent('');
@@ -29,7 +32,7 @@ const FeedbackModal = ({ isOpen, onClose, userEmail, uid }) => {
         }, 2000);
       }
     } catch (error) {
-      alert("Failed to submit feedback: " + (error.response?.data?.error || error.message));
+      showToast("Failed to submit feedback: " + (error.response?.data?.error || error.message), "error");
     } finally {
       setIsSubmitting(false);
     }

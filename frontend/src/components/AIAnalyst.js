@@ -8,12 +8,13 @@ import ReactMarkdown from 'react-markdown';
 const AIAnalyst = ({ isPremium, onUpgrade }) => {
     const { currentUser } = useAuth();
     const [brief, setBrief] = useState('');
+    const [newsBrief, setNewsBrief] = useState('');
     const [isLoadingBrief, setIsLoadingBrief] = useState(true);
+    const [isLoadingNews, setIsLoadingNews] = useState(false);
     const [retryCount, setRetryCount] = useState(0);
     
-    const [messages, setMessages] = useState([
-        { role: 'assistant', content: "Good morning! I'm your AI Analyst. I've reviewed your latest transactions, checks, and tax projections. How can I assist you with your goals today?" }
-    ]);
+    const [messages, setMessages] = useState([]);
+    const [briefType, setBriefType] = useState('morning');
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef(null);
@@ -27,45 +28,90 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
     }, [messages]);
 
     useEffect(() => {
+        const hour = new Date().getHours();
+        let greeting = "Good morning!";
+        let type = "morning";
+
+        if (hour >= 12 && hour < 17) {
+            greeting = "Good afternoon!";
+            type = "afternoon";
+        } else if (hour >= 17 && hour < 22) {
+            greeting = "Good evening!";
+            type = "evening";
+        } else if (hour >= 22 || hour < 5) {
+            greeting = "Good night!";
+            type = "night";
+        }
+
+        setBriefType(type);
+        setMessages([
+            { role: 'assistant', content: `${greeting} I'm your AI Analyst. I've reviewed your latest transactions, checks, and market conditions. How can I assist you with your goals?` }
+        ]);
+    }, []);
+
+    useEffect(() => {
         const fetchBrief = async () => {
             setIsLoadingBrief(true);
+            setIsLoadingNews(false);
+            setNewsBrief('');
             
-            // Controller for request timeout
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 25000); 
+            const timeoutId = setTimeout(() => {
+                console.warn("[v2.1] AI Analyst: Request timed out at 120s mark. Forcing abort.");
+                controller.abort();
+            }, 120000); 
 
             try {
-                let headers = { signal: controller.signal };
-                if (currentUser) {
-                    const token = await currentUser.getIdToken();
-                    headers = { ...headers, Authorization: `Bearer ${token}` };
-                } else {
-                    return;
-                }
-
-                const response = await axios.get('/api/health_brief', {
-                    headers: headers,
-                    signal: controller.signal
+                if (!currentUser) return;
+                const token = await currentUser.getIdToken();
+                
+                // Stage 1: Fetch Overview
+                const overviewRes = await axios.get('/api/health_brief?section=overview', {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                    timeout: 60000 // Increased to 60s for cold starts
                 });
-                setBrief(response.data.brief);
+                setBrief(overviewRes.data.brief);
+                if (overviewRes.data.brief_type) setBriefType(overviewRes.data.brief_type);
+                setIsLoadingBrief(false);
+
+                // Stage 2: Fetch News (only if Stage 1 finished successfully)
+                setIsLoadingNews(true);
+                const newsRes = await axios.get('/api/health_brief?section=news', {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                    timeout: 45000 
+                });
+                setNewsBrief(newsRes.data.brief);
             } catch (error) {
                 console.error("Failed to fetch brief:", error);
-                if (error.name === 'AbortError' || error.message?.includes('timeout')) {
-                    setBrief("The analysis is taking longer than expected. The server might be under heavy load. Please try again.");
-                } else {
-                    setBrief("Unable to generate your morning brief at this time. Please check your connection.");
+                
+                let errorMsg = "Unable to generate your brief at this time. Please check your connection.";
+                if (error.name === 'AbortError' || error.name === 'CanceledError' || error.message?.includes('timeout') || error.message?.includes('aborted')) {
+                    errorMsg = "The analysis timed out. We've increased the limit, but your data may be too large. Please try again in 30 seconds.";
+                } else if (error.response?.status === 500) {
+                    errorMsg = "The AI Analyst encountered a server error. We've logged this for review.";
+                } else if (error.response?.data?.error) {
+                    errorMsg = error.response.data.error;
                 }
+                
+                setBrief(errorMsg);
             } finally {
                 clearTimeout(timeoutId);
                 setIsLoadingBrief(false);
+                setIsLoadingNews(false);
             }
         };
         
         if (isPremium && currentUser) {
             fetchBrief();
-        } else {
-            setIsLoadingBrief(false);
         }
+        
+        return () => {
+            // Optional: Component unmount cleanup
+            // We don't want to abort EVERY time if it's just a minor re-render, 
+            // but for safety, we'll let existing requests finish unless component is truly gone.
+        };
     }, [currentUser, isPremium, retryCount]);
 
     const handleRetryBrief = () => setRetryCount(prev => prev + 1);
@@ -114,12 +160,18 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                 )}
             </div>
 
-            {/* Morning Brief Section */}
+            {/* AI Brief Section */}
             {isPremium && (
                 <Card className="flex-none p-6 border-l-4 border-l-blue-600 bg-white shadow-md">
                     <div className="flex items-center space-x-2 border-b border-gray-100 pb-4 mb-4">
-                        <Coffee className="text-amber-600" size={24} />
-                        <h3 className="text-xl font-bold text-gray-800">The Morning Brief</h3>
+                        {briefType === 'morning' && <Coffee className="text-amber-600" size={24} />}
+                        {briefType === 'afternoon' && <Sparkles className="text-blue-500" size={24} />}
+                        {briefType === 'evening' && <Activity className="text-indigo-600" size={24} />}
+                        {briefType === 'night' && <div className="text-gray-800"><Bot size={24} /></div>}
+                        
+                        <h3 className="text-xl font-bold text-gray-800 capitalize">
+                            The {briefType} Brief
+                        </h3>
                     </div>
                     {isLoadingBrief ? (
                         <div className="flex items-center space-x-3 text-gray-500">
@@ -129,6 +181,19 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                     ) : (
                         <div className="prose prose-blue max-w-none text-gray-700 leading-relaxed font-medium">
                             <ReactMarkdown>{brief}</ReactMarkdown>
+                            
+                            {/* Stage 2: News Section */}
+                            {isLoadingNews ? (
+                                <div className="mt-4 flex items-center space-x-3 text-blue-500 bg-blue-50 py-2 px-3 rounded-lg border border-blue-100">
+                                    <Loader2 className="animate-spin" size={16} />
+                                    <span className="text-sm font-bold uppercase tracking-tight animate-pulse">Reading the headlines...</span>
+                                </div>
+                            ) : newsBrief ? (
+                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                    <ReactMarkdown>{newsBrief}</ReactMarkdown>
+                                </div>
+                            ) : null}
+
                             {brief.includes("timed out") && (
                                 <button 
                                     onClick={handleRetryBrief}

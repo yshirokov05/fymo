@@ -16,6 +16,7 @@ from models import Asset, AssetType, RetirementAccount, AccountType, Transaction
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 load_dotenv()
 
@@ -171,49 +172,76 @@ def categorize_transaction(name, plaid_categories, custom_rules=None):
 
 def sync_plaid_data(access_token, user_id, custom_rules=None):
     """
-    Fetches account balances, investment holdings, and transactions from Plaid.
-    Returns new_assets, new_retirement_accounts, new_transactions, new_debts.
+    Fetches account balances, investment holdings, and transactions from Plaid in parallel.
+    Returns list of assets, retirement accounts, transactions, debts, paystubs, and incomes.
     """
     try:
         logging.info(f"Syncing data for user: {user_id}")
-        # 1. Get Accounts (for Cash/Bank balances)
-        accounts_request = AccountsGetRequest(access_token=access_token)
-        accounts_response = client.accounts_get(accounts_request).to_dict()
-        synced_account_ids = [acc['account_id'] for acc in accounts_response.get('accounts', [])]
-        logging.info(f"Retrieved {len(accounts_response.get('accounts', []))} accounts from Plaid.")
         
-        # 2. Get Investment Holdings
-        holdings_response = {'holdings': [], 'securities': []}
-        try:
-            holdings_request = InvestmentsHoldingsGetRequest(access_token=access_token)
-            holdings_response = client.investments_holdings_get(holdings_request).to_dict()
-        except Exception as e:
-            logging.warning(f"Note: Investments product may not be supported for this item: {e}")
+        # Define fetchers for parallel execution
+        def fetch_accounts():
+            return client.accounts_get(AccountsGetRequest(access_token=access_token)).to_dict()
 
-        # 3. Get Transactions (Last 30 days for budgeting)
-        trans_response = {'transactions': []}
-        try:
-            end_date = datetime.now().date()
-            start_date = end_date - timedelta(days=30)
-            trans_request = TransactionsGetRequest(
-                access_token=access_token,
-                start_date=start_date,
-                end_date=end_date,
-            )
-            trans_response = client.transactions_get(trans_request).to_dict()
-        except Exception as e:
-            logging.warning(f"Note: Transactions product may not be supported for this item: {e}")
-        
-        # 4. Get Liabilities (for Credit Card interest rates)
+        def fetch_holdings():
+            try:
+                return client.investments_holdings_get(InvestmentsHoldingsGetRequest(access_token=access_token)).to_dict()
+            except Exception as e:
+                logging.warning(f"Investments holdings not supported or failed: {e}")
+                return {'holdings': [], 'securities': []}
+
+        def fetch_transactions():
+            try:
+                end_date = datetime.now().date()
+                start_date = end_date - timedelta(days=30)
+                return client.transactions_get(TransactionsGetRequest(
+                    access_token=access_token,
+                    start_date=start_date,
+                    end_date=end_date,
+                )).to_dict()
+            except Exception as e:
+                logging.warning(f"Transactions not supported or failed: {e}")
+                return {'transactions': []}
+
+        def fetch_liabilities():
+            try:
+                return client.liabilities_get(LiabilitiesGetRequest(access_token=access_token)).to_dict()
+            except Exception as e:
+                logging.warning(f"Liabilities not supported or failed: {e}")
+                return {'liabilities': {}}
+
+        # Execute Plaid requests in parallel
+        results = {}
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_key = {
+                executor.submit(fetch_accounts): 'accounts',
+                executor.submit(fetch_holdings): 'holdings',
+                executor.submit(fetch_transactions): 'transactions',
+                executor.submit(fetch_liabilities): 'liabilities'
+            }
+            for future in as_completed(future_to_key):
+                key = future_to_key[future]
+                try:
+                    results[key] = future.result()
+                except Exception as exc:
+                    logging.error(f"Plaid {key} fetch failed for user {user_id}: {exc}")
+                    results[key] = {}
+
+        accounts_response = results.get('accounts', {'accounts': []})
+        holdings_response = results.get('holdings', {'holdings': [], 'securities': []})
+        trans_response = results.get('transactions', {'transactions': []})
+        liab_response = results.get('liabilities', {'liabilities': {}})
+
+        if not accounts_response.get('accounts'):
+            logging.error(f"No accounts returned for user {user_id}")
+            return [], [], [], [], [], [], []
+
+        synced_account_ids = [acc['account_id'] for acc in accounts_response.get('accounts', [])]
+
         credit_liabilities = {}
-        try:
-            liab_request = LiabilitiesGetRequest(access_token=access_token)
-            liab_response = client.liabilities_get(liab_request).to_dict()
-            # Map by account_id for easy lookup
-            for credit in liab_response.get('liabilities', {}).get('credit', []):
-                credit_liabilities[credit['account_id']] = credit
-        except Exception as e:
-            logging.warning(f"Note: Liabilities product may not be supported for this item: {e}")
+        for credit in liab_response.get('liabilities', {}).get('credit', []):
+            credit_liabilities[credit['account_id']] = credit
+
+        logging.info(f"Retrieved {len(accounts_response['accounts'])} accounts from Plaid.")
         
         new_assets = []
         new_retirement_accounts = []

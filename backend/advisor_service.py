@@ -27,6 +27,54 @@ def search_current_deals(query: str) -> str:
         "results": f"General search results for '{query}': Average costs align with standard market rates for 2026."
     })
 
+_news_cache = {"timestamp": 0, "content": ""}
+NEWS_CACHE_TTL = 900 # 15 minutes
+
+def get_market_news():
+    """
+    Fetches the latest financial and economic headlines using yfinance for major market indices.
+    Parallelizes calls to reduce latency and caches results for 15 minutes.
+    """
+    import yfinance as yf
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    # Check cache
+    if time.time() - _news_cache["timestamp"] < NEWS_CACHE_TTL:
+        return _news_cache["content"]
+
+    indices = ['SPY', 'QQQ', 'BTC-USD']
+    news_items = []
+    
+    def fetch_ticker_news(symbol):
+        try:
+            ticker = yf.Ticker(symbol)
+            return symbol, ticker.news[:2]
+        except Exception as e:
+            logging.warning(f"Failed to fetch news for {symbol}: {e}")
+            return symbol, []
+
+    try:
+        logging.info("Fetching market news in parallel for AI Brief...")
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_symbol = {executor.submit(fetch_ticker_news, s): s for s in indices}
+            # Use as_completed with a global timeout for the entire batch
+            for future in as_completed(future_to_symbol, timeout=3): 
+                symbol, headlines = future.result()
+                for h in headlines:
+                    news_items.append(f"[{symbol}] {h.get('title')} - {h.get('publisher')}")
+        
+        content = "\n".join(news_items) if news_items else "No major market headlines detected."
+        
+        # Update cache
+        _news_cache["timestamp"] = time.time()
+        _news_cache["content"] = content
+        
+        return content
+    except Exception as e:
+        logging.error(f"Parallel news fetch error: {e}")
+        return _news_cache["content"] if _news_cache["content"] else "Market news currently unavailable."
+
 def get_period_comparison(transactions, days=30):
     """
     Aggregates spending into categories for a specific window of days.
@@ -214,58 +262,111 @@ def extract_user_memory(user_prompt, existing_memory_str):
         logging.error(f"Memory Extraction Error: {e}")
         return None
 
-def generate_health_brief(financial_data):
+def _sanitize_for_ai(text):
+    """Removes non-printable or illegal characters that might crash gRPC headers."""
+    if not text: return ""
+    return "".join(char for char in str(text) if char.isprintable() or char in "\n\r\t")
+
+def generate_overview(financial_data, brief_type="morning"):
     """
-    Generates a 3-bullet 'Brutally Honest' status report covering:
-    1. Liquidity Check
-    2. Tax Preparedness
-    3. Goal Progress
+    Stage 1: Generates the core financial health bullets (Liquidity, Protection, Goals).
+    Fast and data-heavy from local context.
     """
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key: return "API Key missing."
     
     genai.configure(api_key=api_key)
     
-    outstanding_checks = financial_data.get('outstanding_checks', [])
-    tax_data = financial_data.get('tax_projections', {})
-    transactions = financial_data.get('transactions', [])[:50]
-    memory_str = financial_data.get('contextual_memory', "No specific goals tracked.")
+    transactions = financial_data.get('transactions', [])[:15]
     net_worth = financial_data.get('real_time_net_worth', 0)
-    
-    # Calculate a rough 30-day spend
     recent_spend = sum(t.get('amount', 0) for t in transactions if not t.get('pending') and t.get('amount', 0) > 0)
     
     insurances = financial_data.get('insurances', [])
     insurance_summary = ", ".join([f"{i.get('insurance_type', 'Policy')} ({i.get('name', '')})" for i in insurances]) if insurances else "No policies recorded."
 
+    brief_descriptions = {
+        "morning": "a high-energy 'Morning Brief' focused on planning, liquidity, and upcoming events.",
+        "afternoon": "an 'Mid-Day Update' reflecting on morning spending and goal tracking.",
+        "evening": "an 'Evening Review' summarizing the day's financial wins or losses and reviewing protection.",
+        "night": "a 'Nightly Audit' for a calm review of the balance sheet and trajectory."
+    }
+    current_persona = brief_descriptions.get(brief_type, brief_descriptions["morning"])
+
     system_instruction = f"""
-    You are the FHQ AI Analyst preparing a 'Morning Brief' for the user.
-    Provide a 'Brutally Honest', hard-hitting 3-bullet status report based EXACTLY on these categories:
-    **Liquidity Check:** (Are the pending checks going to bounce? Is cash flow tight?)
-    **Insurance & Protection:** (Are they adequately protected based on their policies? Note any gaps.)
-    **Goal Progress:** (Are they on track for their goals based on spending?)
+    You are the FHQ AI Analyst preparing {current_persona}.
+    Provide a 'Brutally Honest' report with:
     
-    CONTEXT DATA:
+    1. Three concise bullet points (1-2 sentences each) covering:
+       - **Liquidity Check:** (Pending checks or recent spend impact on cash.)
+       - **Insurance & Protection:** (Gaps in coverage.)
+       - **Goal Progress:** (Are they on track?)
+    
+    CONTEXT:
     - Net Worth: ${net_worth:,.2f}
-    - Memories/Goals: {memory_str}
-    - Outstanding Checks: {json.dumps(outstanding_checks)}
-    - Recent Spend Detected: ${recent_spend:,.2f}
-    - Debts (Analyze CC Names for Benefits/APR): {json.dumps(financial_data.get('debts', []))}
-    - Insurance Profile: {insurance_summary}
-    - Tax Profile: {json.dumps(tax_data)[:500]}
+    - Recent Spend: ${recent_spend:,.2f}
+    - Debts (Analyze APR): {json.dumps(financial_data.get('debts', []))[:500]}
+    - Insurance: {insurance_summary}
     
     RULES:
-    1. Keep each bullet point to 1-3 highly concise sentences. 
-    2. Be honest, direct, and slightly cynical.
-    3. Credit Cards: Briefly mention any notable card benefits or high APR warnings if you recognize the card names in the Debt section.
-    4. Return ONLY the markdown formatted bullet points. Do not include any introductory text.
+    1. Be direct. No filler.
+    2. Respond within 450 characters.
     """
+    
+    system_instruction = _sanitize_for_ai(system_instruction)
     
     try:
         model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
-        # 25s timeout to stay within frontend's 30s envelope
-        response = model.generate_content("Generate my morning brief.", request_options={"timeout": 25})
+        response = model.generate_content(f"Generate my {brief_type} overview now.", request_options={"timeout": 12})
         return response.text.strip()
     except Exception as e:
-        logging.error(f"Morning Brief Error: {e}")
-        return "**Liquidity Check:** Analysis timed out.\n**Tax Preparedness:** Analysis timed out.\n**Goal Progress:** Analysis timed out. Please refresh to retry."
+        logging.error(f"Overview Generation Error: {e}")
+        return "**Liquidity Check:** Analysis timed out.\n**Insurance:** Analysis timed out.\n**Goal Progress:** Analysis timed out."
+
+def generate_market_intelligence(financial_data):
+    """
+    Stage 2: Generates market context connecting news to the user's profile.
+    Slow due to external news fetch.
+    """
+    api_key = os.getenv('GEMINI_API_KEY')
+    if not api_key: return "API Key missing."
+    
+    genai.configure(api_key=api_key)
+    
+    net_worth = financial_data.get('real_time_net_worth', 0)
+    market_news = get_market_news()
+
+    system_instruction = f"""
+    You are the FHQ AI Analyst. Provide a section titled `### Market Intelligence` with 2 concise sentences connecting the daily news to the user's financial profile.
+    
+    CONTEXT:
+    - Net Worth: ${net_worth:,.2f}
+    - Market News: {market_news}
+    
+    RULES:
+    1. Respond with ONLY the Market Intelligence section. 
+    2. No filler. Max 300 characters.
+    """
+    
+    system_instruction = _sanitize_for_ai(system_instruction)
+    
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+        response = model.generate_content("Connect market news to my profile.", request_options={"timeout": 12})
+        return response.text.strip()
+    except Exception as e:
+        logging.error(f"News Generation Error: {e}")
+        return "### Market Intelligence\nMarket news analysis is currently unavailable. Please try again later."
+
+def generate_health_brief(financial_data, brief_type="morning", section="all"):
+    """
+    Legacy wrapper / Single entry point for backward compatibility.
+    """
+    if section == "news":
+        return generate_market_intelligence(financial_data)
+    elif section == "overview":
+        return generate_overview(financial_data, brief_type)
+    else:
+        # 'all' combination
+        overview = generate_overview(financial_data, brief_type)
+        news = generate_market_intelligence(financial_data)
+        return f"{overview}\n\n{news}"

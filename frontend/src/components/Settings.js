@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X } from 'lucide-react';
 import PlaidLink from './PlaidLink';
 import axios from 'axios';
+import { useToast } from './Toast';
 
 const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, handlePlaidSync, onPlaidSuccess, isSyncing, syncMessage, customCategories = [], onSaveCustomCategories }) => {
     const { currentUser, logout } = useAuth();
+    const { showToast } = useToast();
     const [health, setHealth] = useState(null);
     const [plaidError, setPlaidError] = useState(null);
     const [updateToken, setUpdateToken] = useState(null);
@@ -22,7 +24,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
             });
             setUpdateToken(response.data.link_token);
         } catch (err) {
-            alert("Failed to start update mode: " + (err.response?.data?.error || err.message));
+            showToast("Failed to start update mode: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -37,9 +39,9 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchData();
-            alert("Institution disconnected successfully.");
+            showToast("Institution disconnected successfully.", "success");
         } catch (err) {
-            alert("Failed to remove institution: " + (err.response?.data?.error || err.message));
+            showToast("Failed to remove institution: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -52,9 +54,9 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                 headers: { Authorization: `Bearer ${token}` }
             });
             fetchData();
-            alert("Orphaned data cleared successfully!");
+            showToast("Orphaned data cleared successfully!", "success");
         } catch (err) {
-            alert("Failed to clear orphaned data: " + (err.response?.data?.error || err.message));
+            showToast("Failed to clear orphaned data: " + (err.response?.data?.error || err.message), "error");
         }
     };
 
@@ -63,14 +65,10 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
             currentUser.getIdToken().then(token => {
                 axios.get('/api/health', {
                     headers: { Authorization: `Bearer ${token}` }
-                }).then(res => setHealth(res.data)).catch(() => {});
-                
-                // Try a test token generation to see the error
-                axios.post('/api/create_link_token', {}, {
-                    headers: { Authorization: `Bearer ${token}` }
-                })
-                .then(() => setPlaidError("None - Backend is healthy"))
-                .catch(err => setPlaidError(err.response?.data?.error || err.message));
+                }).then(res => {
+                    setHealth(res.data);
+                    setPlaidError("None - Backend is healthy");
+                }).catch(() => {});
             });
         }
     }, [currentUser]);
@@ -148,9 +146,9 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                             await axios.post('/api/cancel_subscription', {}, {
                                                 headers: { Authorization: `Bearer ${token}` }
                                             });
-                                            alert("Subscription cancellation request received. Our team will process it shortly.");
+                                            showToast("Subscription cancellation request received. Our team will process it shortly.", "info");
                                             fetchData();
-                                        } catch (err) { alert("Error: " + (err.response?.data?.error || err.message)); }
+                                        } catch (err) { showToast("Error: " + (err.response?.data?.error || err.message), "error"); }
                                     }}
                                     className="text-xs font-bold text-red-600 hover:text-red-700 underline"
                                 >
@@ -303,8 +301,8 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                             headers: { Authorization: `Bearer ${token}` }
                                         });
                                         fetchData();
-                                        alert("Transactions cleared!");
-                                    } catch (err) { alert(err.message); }
+                                        showToast("Transactions cleared!", "success");
+                                    } catch (err) { showToast(err.message, "error"); }
                                 }}
                                 className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50"
                             >
@@ -343,8 +341,8 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                                 });
                                                 setResetConfirmation('');
                                                 fetchData();
-                                                alert("Account reset successful.");
-                                            } catch (err) { alert(err.message); }
+                                                showToast("Account reset successful.", "success");
+                                            } catch (err) { showToast(err.message, "error"); }
                                             setIsResetLoading(false);
                                         }}
                                         className={`px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-all ${

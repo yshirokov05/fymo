@@ -19,6 +19,7 @@ import Onboarding from './components/Onboarding';
 import FeedbackModal from './components/FeedbackModal';
 import StatementUpload from './components/StatementUpload';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider, useToast } from './components/Toast';
 import { RefreshCw, CreditCard, Upload } from 'lucide-react';
 
 export class ErrorBoundary extends React.Component {
@@ -57,6 +58,8 @@ export class ErrorBoundary extends React.Component {
 
 function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding }) {
   const { currentUser } = useAuth();
+  const { showToast } = useToast();
+  console.log("FHQ Dashboard v1.2.1 [Final Fix]");
   const [activeView, setActiveView] = useState('dashboard');
   const [netWorth, setNetWorth] = useState(0);
   const [assets, setAssets] = useState([]);
@@ -84,6 +87,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [customCategories, setCustomCategories] = useState([]);
   const [ignoredSubscriptionMerchants, setIgnoredSubscriptionMerchants] = useState([]);
   const [manualSubscriptionMerchants, setManualSubscriptionMerchants] = useState([]);
+  const [ignoredFlexibleCategories, setIgnoredFlexibleCategories] = useState([]);
   const [, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -94,6 +98,11 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const fetchData = async () => {
+    // Guard: Don't fetch until auth is resolved
+    if (!isGuest && !currentUser) {
+      return;
+    }
+    
     try {
         let headers = {};
         if (!isGuest && currentUser) {
@@ -103,9 +112,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             };
         }
         
+        // [v1.2.1] Stability Fix: Increased timeout to 45s for production cold starts
         const response = await axios.get('/api/net_worth', {
             ...headers,
-            timeout: 10000 // Force 10-second timeout
+            timeout: 45000 
         });
         setAssets(response.data.assets || []);
         setIncomes(response.data.incomes || []);
@@ -116,19 +126,19 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setBudgets(response.data.budgets || []);
         setPaystubs(response.data.paystubs || []);
         setOutstandingChecks(response.data.outstanding_checks || []);
-        setOutstandingChecks(response.data.outstanding_checks || []);
         setPlaidItems(response.data.plaid_items || []);
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
         
         // SEC-6: Robust premium check (Backend + Local Whitelist)
-        const isWhitelisted = ['yshirokov05@gmail.com', 'kirill.konoplianko@sjsu.edu'].includes(currentUser?.email?.toLowerCase());
+        const isWhitelisted = ['yshirokov05@gmail.com', 'kirill.konoplianko@sjsu.edu', 'stancovichsergio@gmail.com'].includes(currentUser?.email?.toLowerCase());
         setIsPremium(response.data.is_authorized || isWhitelisted);
         
         setHasCompletedOnboarding(response.data.has_completed_onboarding || false);
         setCustomCategories(response.data.custom_categories || []);
         setIgnoredSubscriptionMerchants(response.data.ignored_subscription_merchants || []);
         setManualSubscriptionMerchants(response.data.manual_subscription_merchants || []);
+        setIgnoredFlexibleCategories(response.data.ignored_flexible || []);
         
         const yearData = response.data.tax_details?.[selectedTaxYear] || {
             federal_tax: 0,
@@ -163,6 +173,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           setShowOnboarding(true);
         }
     } catch (error) {
+        console.error("fetchData error:", error);
         setError(error.message);
         setLoading(false);
     }
@@ -205,7 +216,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   }, [currentUser, isGuest]);
 
   useEffect(() => {
-    fetchData();
+    // Only fetch when auth is resolved (currentUser is set) or in guest mode
+    if (currentUser || isGuest) {
+      fetchData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, isGuest]);
 
@@ -261,7 +275,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setError(null);
     } catch (error) {
         const msg = error.response?.data?.error || error.message;
-        alert(msg);
+        showToast(msg, "error");
         setError(msg);
         setLoading(false);
     }
@@ -306,7 +320,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setError(null);
     } catch (error) {
         const msg = error.response?.data?.error || error.message;
-        alert(msg);
+        showToast(msg, "error");
         setError(msg);
         setLoading(false);
     }
@@ -337,23 +351,33 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
   const handlePlaidSync = async () => {
     setIsSyncing(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+
     try {
         const token = await currentUser.getIdToken(true);
         const response = await axios.post('/api/plaid_sync', {}, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
         handlePlaidSuccess(response.data);
         setIsSyncing(false);
         setSyncMessage({ type: 'success', text: '✅ Sync successful!' });
         setTimeout(() => setSyncMessage(null), 5000);
     } catch (error) {
-        const msg = error.response?.data?.error || error.message;
+        clearTimeout(timeoutId);
+        let msg = error.response?.data?.error || error.message;
+        if (error.name === 'CanceledError' || error.name === 'AbortError') {
+            msg = "Connection timed out. The server is taking too long to respond. Please try again in 1 minute.";
+        }
         setSyncMessage({ type: 'error', text: `❌ Sync failed: ${msg}` });
         setIsSyncing(false);
-        setTimeout(() => setSyncMessage(null), 5000);
+        setTimeout(() => setSyncMessage(null), 10000); // Leave error visible longer
     }
   };
+
 
   const handleSaveCustomCategories = async (cats) => {
       try {
@@ -366,8 +390,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           }
           const response = await axios.put('/api/portfolio', { custom_categories: cats }, headers);
           setCustomCategories(response.data.custom_categories || []);
+          showToast("Categories updated successfully!", "success");
       } catch (err) {
-          alert("Failed to save categories: " + err.message);
+          showToast("Failed to save categories: " + err.message, "error");
       }
   };
 
@@ -381,9 +406,30 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             };
         }
         const response = await axios.put('/api/portfolio', { budgets: newBudgets }, headers);
-        setBudgets(response.data.budgets || []);
+        // Handle both partial response (budget-only fast path) and full response
+        if (response.data.success && response.data.budgets) {
+            setBudgets(response.data.budgets);
+        } else {
+            setBudgets(response.data.budgets || []);
+        }
+        showToast("Budgets saved successfully!", "success");
     } catch (error) {
-        setError("Failed to save budgets: " + error.message);
+        showToast("Failed to save budgets: " + (error.response?.data?.error || error.message), "error");
+    }
+  };
+
+
+  const handleUpdateIgnoredFlexible = async (cats) => {
+    try {
+        let headers = {};
+        if (!isGuest && currentUser) {
+            const token = await currentUser.getIdToken();
+            headers = { headers: { Authorization: `Bearer ${token}` } };
+        }
+        const response = await axios.put('/api/portfolio', { ignored_flexible: cats }, headers);
+        setIgnoredFlexibleCategories(response.data.ignored_flexible || []);
+    } catch (error) {
+        showToast("Failed to update ignored categories", "error");
     }
   };
 
@@ -419,10 +465,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
         
-        alert(`Successfully set ${selectedTaxYear} income to $${parseFloat(amount).toLocaleString()}`);
+        showToast(`Successfully set ${selectedTaxYear} income to $${parseFloat(amount).toLocaleString()}`, "success");
     } catch (error) {
         console.error("Historical update error:", error);
-        setError("Failed to update historical income: " + (error.response?.data?.error || error.message));
+        const msg = error.response?.data?.error || error.message;
+        showToast("Failed to update historical income: " + msg, "error");
+        setError(msg);
     }
   };
 
@@ -453,7 +501,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setShowOnboarding(false);
         setLoading(false);
     } catch (error) {
-        alert("Failed to initialize sample data: " + (error.response?.data?.error || error.message));
+        showToast("Failed to initialize sample data: " + (error.response?.data?.error || error.message), "error");
         setLoading(false);
     }
   };
@@ -630,6 +678,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 manualSubscriptions={manualSubscriptionMerchants}
                 setIgnoredSubscriptions={setIgnoredSubscriptionMerchants}
                 setManualSubscriptions={setManualSubscriptionMerchants}
+                ignoredFlexible={ignoredFlexibleCategories}
+                onUpdateIgnoredFlexible={handleUpdateIgnoredFlexible}
               />
           );
       case 'advisor':
@@ -797,8 +847,10 @@ function App() {
 
 export default function Root() {
     return (
-        <AuthProvider>
-            <App />
-        </AuthProvider>
+        <ToastProvider>
+            <AuthProvider>
+                <App />
+            </AuthProvider>
+        </ToastProvider>
     );
 }

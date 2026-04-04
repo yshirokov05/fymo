@@ -96,15 +96,20 @@ def get_multiple_prices(tickers):
         
     results = {}
     
-    # Use ThreadPool for parallel I/O (yfinance calls)
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    # Reduced max_workers to be more Cloud Function friendly (less resource contention)
+    with ThreadPoolExecutor(max_workers=5) as executor:
         # map returns results in the same order as unique_tickers
         future_to_ticker = {executor.submit(get_current_price, t): t for t in unique_tickers}
         
+        # Hard cap at 12 seconds for the entire batch to avoid function timeout
+        start_time = time.time()
         for future in future_to_ticker:
             ticker = future_to_ticker[future]
+            elapsed = time.time() - start_time
+            remaining = max(0.1, 12 - elapsed)
+            
             try:
-                results[ticker] = future.result(timeout=5)
+                results[ticker] = future.result(timeout=remaining)
             except Exception as e:
                 logging.error(f"Parallel fetch error or timeout for {ticker}: {e}")
                 results[ticker] = None
