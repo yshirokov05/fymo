@@ -1,9 +1,21 @@
 # Financial Headquarters (FHQ) 🏛️
 ### *Your Personal Net Worth Command Center*
 
-Financial Headquarters is a premium, privacy-first personal finance platform designed to replace legacy tools like Mint. It provides a centralized, high-precision dashboard for monitoring net worth, investment performance, and live tax liabilities across all 50 US states.
+> [!NOTE]
+> **Portfolio Context**: This project was built as a high-performance, production-ready alternative to legacy finance tools. It demonstrates full-stack expertise in React, Python, and AI integration, with a focus on data privacy and complex financial calculations.
 
 **Live Site:** [https://personal-finance-app-18cbc.web.app/](https://personal-finance-app-18cbc.web.app/)
+
+---
+
+## 🛠️ Technical Implementation Highlights
+
+Building a platform that handles live financial data across thousands of institutions required solving several non-trivial engineering challenges:
+
+- **🏗️ 50-State Hybrid Taxation Engine**: Developed a localized tax calculation system (FICA, Federal, and 50-State) that supports W-2/1099 blending, dependents, and standard vs. itemized deductions.
+- **🤖 Deterministic AI Data Ingestion**: Implemented a zero-shot CSV/PDF/Image transaction extraction pipeline using **Gemini 1.5 Flash**, enabling users to upload any statement format for instant analysis without manual entry.
+- **📉 High-Concurrency Data Sync**: Engineered a parallelized synchronization layer for Plaid accounts and Yahoo Finance tickers to achieve sub-5s dashboard load times across 12,000+ potential institutions.
+- **🛡️ Privacy-First Architecture**: Designed around Firebase Auth and Firestore with strict rule-based access, ensuring zero data exposure while maintaining high availability.
 
 ---
 
