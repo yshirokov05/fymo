@@ -219,28 +219,15 @@ def is_user_authorized(uid, email=None):
     
     # 1. Check User Doc
     user_ref = db.collection('users').document(uid)
-    doc = user_ref.get()
-    if doc.exists:
-        data = doc.to_dict()
-        logging.info(f"Auth Data - User Doc: {data}")
-        
-        # SEC-7: Fallback authorize if email in doc matches whitelist
-        doc_email = data.get('email', '').lower().strip()
-        if doc_email and doc_email in WHITELISTED_EMAILS:
-            logging.info(f"Auth Success - Email in Doc matches whitelist: {doc_email}")
-            return True
-            
-        if data.get('is_authorized') or data.get('is_subscribed'):
-            return True
-    
-    # 2. Check Whitelist Collection by UID
+    # Check if UID is explicitly whitelisted
     whitelist_ref = db.collection('whitelist').document(uid)
-    if whitelist_ref.get().exists: 
+    if whitelist_ref.get().exists:
         logging.info(f"Auth Success - UID {uid} in whitelist collection")
         return True
-
-    # 3. Check Whitelist Collection by Email (robust fallback)
-    if email_for_check:
+        
+    # Check if Email is whitelisted (via separate document or query)
+    if email:
+        email_for_check = email.lower().strip()
         email_whitelist_query = db.collection('whitelist').where('email', '==', email_for_check).limit(1).get()
         if len(email_whitelist_query) > 0:
             logging.info(f"Auth Success - Email {email_for_check} found in whitelist collection")
@@ -249,9 +236,9 @@ def is_user_authorized(uid, email=None):
         # Also check if the document ID itself is the email
         email_doc_ref = db.collection('whitelist').document(email_for_check)
         if email_doc_ref.get().exists:
-            logging.info(f"Auth Success - Email {email_for_check} found as doc ID in whitelist collection")
+            logging.info(f"Auth Success - Email document {email_for_check} found")
             return True
-    
+
     logging.warning(f"Auth Failed - UID: {uid}, Email: {email}")
     return False
 
