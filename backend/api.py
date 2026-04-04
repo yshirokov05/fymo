@@ -193,32 +193,15 @@ def safe_enum(enum_class, value, default):
         return default
 
 def is_user_authorized(uid, email=None):
+    """
+    Checks if a user is authorized based on Firestore 'whitelist' collection.
+    Real emails are no longer hardcoded for security and professionalism.
+    """
     if uid == "guest": return False
     
-    # HARDCODED WHITELIST (Add family/special users here)
-    WHITELISTED_EMAILS = [
-        "yshirokov05@gmail.com",
-        "samanthagorvad@gmail.com",
-        "yurievf@gmail.com",
-        "schirokova.n@gmail.com",
-        "tonysanchez990@gmail.com",
-        "maxwell.hawthorne9@gmail.com",
-        "evfvadim@gmail.com",
-        "kirill.konoplianko@sjsu.edu"
-    ]
-    
-    email_for_check = email.lower().strip() if email else None
-    logging.info(f"Auth Check - UID: {uid}, Email: {email}, CheckEmail: {email_for_check}")
-
-    if email_for_check and email_for_check in WHITELISTED_EMAILS:
-        logging.info(f"Auth Success - Hardcoded Whitelisted Email: {email_for_check}")
-        return True
-
     db = get_db()
     if not db: return False
     
-    # 1. Check User Doc
-    user_ref = db.collection('users').document(uid)
     # Check if UID is explicitly whitelisted
     whitelist_ref = db.collection('whitelist').document(uid)
     if whitelist_ref.get().exists:
