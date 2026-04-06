@@ -1,98 +1,151 @@
-# Financial Headquarters (FHQ) 🏛️
-### *Your Personal Net Worth Command Center*
+# Financial Headquarters (FHQ)
+### Your Personal Net Worth Command Center
 
-> [!NOTE]
-> **Portfolio Context**: This project was built as a high-performance, production-ready alternative to legacy finance tools. It demonstrates full-stack expertise in React, Python, and AI integration, with a focus on data privacy and complex financial calculations.
+**Live Site:** [https://personal-finance-app-18cbc.web.app](https://personal-finance-app-18cbc.web.app)
+**Version:** v1.2.1 (Production) | **Build:** ![deploy](https://github.com/yshirokov05/Personal-Finance-App-PFA/actions/workflows/deploy.yml/badge.svg)
 
-**Live Site:** [https://personal-finance-app-18cbc.web.app/](https://personal-finance-app-18cbc.web.app/)
-
----
-
-## 🛠️ Technical Implementation Highlights
-
-Building a platform that handles live financial data across thousands of institutions required solving several non-trivial engineering challenges:
-
-- **🏗️ 50-State Hybrid Taxation Engine**: Developed a localized tax calculation system (FICA, Federal, and 50-State) that supports W-2/1099 blending, dependents, and standard vs. itemized deductions.
-- **🤖 Deterministic AI Data Ingestion**: Implemented a zero-shot CSV/PDF/Image transaction extraction pipeline using **Gemini 1.5 Flash**, enabling users to upload any statement format for instant analysis without manual entry.
-- **📉 High-Concurrency Data Sync**: Engineered a parallelized synchronization layer for Plaid accounts and Yahoo Finance tickers to achieve sub-5s dashboard load times across 12,000+ potential institutions.
-- **🛡️ Privacy-First Architecture**: Designed around Firebase Auth and Firestore with strict rule-based access, ensuring zero data exposure while maintaining high availability.
+FHQ is an all-in-one personal finance platform. Connect your bank accounts, track your net worth in real time, get AI-powered financial advice, estimate your tax liability across all 50 states, and understand your debt and investment outlook — all in one place.
 
 ---
 
-## 💎 Premium Features
-- **🤖 AI Financial Advisor**: Personalized wealth guidance powered by **Google Gemini**, with access to your real-time data.
-- **🏦 Automated Financial Sync**: Production-ready integration with 12,000+ institutions via **Plaid**.
-- **📈 Investment Tracking**: Live stock and bond price monitoring via `yfinance` with intelligent fallbacks.
-- **⚖️ 50-State Tax Engine**: High-accuracy tax liability estimation (2026 codes) for Federal, State, and FICA. Supports W-2/1099 and dependents.
-- **📊 Smart Budgeting**: Automated transaction categorization and real-time budget tracking.
-- 💰 **Earned Income (YTD)**: Track actual paystubs against projected annual income for precise planning. Includes Gross/Net toggle.
-- 📸 **Universal AI Statement Ingestion**: Upload any bank statement (PDF, Image, CSV) for automated transaction extraction via Gemini 1.5 Flash. Zero-shot transaction parsing for non-Plaid users.
-- 🛡️ **AI Insurance Audit**: Upload policies (Auto, Home, Health) to automatically extract coverage limits and get personalized AI risk assessments and benefit summaries.
-- 📝 **Outstanding Check Tracker**: Keep track of written checks that haven't cleared yet with "Safe-to-Spend" balance logic.
+## Features
+
+### Core Dashboard
+- **Net Worth Tracker** — Real-time total across assets, debts, and investments
+- **Asset Allocation** — Visual sector breakdown (Technology, Financials, Real Estate, Cash, etc.)
+- **Live Investment Prices** — Stock and bond pricing via Yahoo Finance with automatic fallbacks
+
+### Bank Integration
+- **Plaid Sync** — Connect 12,000+ US financial institutions with one click
+- **Automatic Categorization** — Transactions sorted into budget categories automatically
+- **Smart Deduplication** — Pending-to-cleared transaction matching prevents double-counting
+- **Universal Statement Upload** — Upload any bank statement (PDF, CSV, image) for AI-powered transaction extraction — no Plaid required
+
+### AI Features
+- **AI Financial Advisor** — Contextual financial guidance powered by Google Gemini 1.5 Flash, with access to your real account data
+- **Morning Brief** — Time-aware financial health summary with market news
+- **AI Insurance Audit** — Upload insurance policies (auto, health, life) for automated coverage extraction and risk assessment
+- **AI Document Extraction** — Upload paystubs, tax forms, or statements for instant structured data extraction
+
+### Tax Engine
+- **50-State Tax Calculator** — Federal + state + FICA estimates with 2025/2026 bracket data
+- **All Filing Statuses** — Single, MFJ, MFS, Head of Household, Qualifying Widow
+- **W-2 + 1099 Blending** — Self-employment income, Schedule C deductions, quarterly estimates
+- **Historical Income Entry** — Multi-year tax analysis
+
+### Financial Planning
+- **Debt Spiral** — See the true cost of minimum payments using Average Daily Balance method
+- **Wealth Gap** — Roth vs. Brokerage tax-drag comparison with capital gains impact
+- **Cost of Waiting** — Compound interest visualization for investment start ages (20/30/40)
+- **Outstanding Check Tracker** — Track uncleared checks with Safe-to-Spend balance logic
+
+### Account Management
+- **Income (YTD)** — Paystub entry with gross/net toggle and tax-withheld tracking
+- **Retirement Accounts** — 401k, Roth IRA, Traditional IRA, SEP-IRA with contribution tracking
+- **Insurance Tracking** — Auto, health, life, umbrella with deductible and coverage limits
+- **Budget Manager** — Monthly/quarterly/annual budgets with subscription filtering
 
 ---
 
-- [x] **Performance Optimizations**: Parallelized institution syncs, 300s backend timeout, and localized `yfinance` metadata timeouts for a smoother user experience.
-- [x] **AI Analyst Updates**: Fixed context-aware "Morning Brief" hang and localized tax estimation logic.
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Tailwind CSS, Recharts, Lucide Icons |
+| Backend | Python 3.12, Flask, Firebase Cloud Functions (Gen 2) |
+| Database | Google Firestore (NoSQL) |
+| Auth | Firebase Authentication (email/password + Google OAuth) |
+| AI | Google Gemini 1.5 Flash |
+| Bank Sync | Plaid Production API |
+| Pricing | Yahoo Finance (yfinance) |
+| Mobile | iOS + Android via Capacitor |
+| CI/CD | GitHub Actions → Firebase Hosting + Functions |
 
 ---
 
-## 📈 Project Metrics
-- **Lines of Code (LOC)**: 22,150
-- **Total Files**: 92
-- **Build Status**: Production (v1.2.1)
+## Getting Started (Developers)
 
-
-## 🚀 Technical Architecture
-- **Frontend**: React 19, Tailwind CSS, Lucide Icons, Recharts.
-- **Backend**: Python 3.12, Flask, Firebase Cloud Functions (Gen 2).
-- **AI**: Google Gemini 1.5 Flash API.
-- **Database**: Google Firestore (NoSQL).
-- **Integrations**: Plaid Production API, Yahoo Finance API.
-
----
-
-## 🛠️ Getting Started (For Developers)
-
-### 1. Prerequisites
+### Prerequisites
 - Node.js v18+
 - Python 3.12
-- Firebase CLI (`npm install -g firebase-tools`)
+- Firebase CLI: `npm install -g firebase-tools`
 
-### 2. Installation
+### Setup
+
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/financial-headquarters.git
+# Clone
+git clone https://github.com/yshirokov05/Personal-Finance-App-PFA.git
+cd Personal-Finance-App-PFA
 
-# Frontend Setup
+# Frontend
 cd frontend
 npm install
-npm start
+npm start          # Dev server at http://localhost:3000
 
-# Backend Setup
+# Backend (separate terminal)
 cd backend
 python -m venv venv
-.\venv\Scripts\activate  # Windows
+source venv/bin/activate     # Mac/Linux
+.\venv\Scripts\activate      # Windows
 pip install -r requirements.txt
 ```
 
-### 3. Environment Configuration
-Required Firebase Secrets:
-- `PLAID_CLIENT_ID`
-- `PLAID_SECRET`
-- `PLAID_ENV` (production/sandbox)
-- `PLAID_REDIRECT_URI`
-- `GEMINI_API_KEY`
+### Environment Variables
+
+Firebase Secrets required (set via Firebase Console → Project Settings → Secret Manager):
+
+| Secret | Description |
+|--------|-------------|
+| `PLAID_CLIENT_ID` | Plaid dashboard client ID |
+| `PLAID_SECRET` | Plaid production/sandbox secret |
+| `PLAID_ENV` | `production` or `sandbox` |
+| `PLAID_REDIRECT_URI` | OAuth redirect URI for Plaid Link |
+| `GEMINI_API_KEY` | Google AI Studio API key |
+| `FERNET_KEY` | Encryption key for Plaid tokens at rest |
+
+### Deploy
+
+```bash
+cd frontend
+npm run deploy     # Builds React app and deploys to Firebase
+```
+
+Or push to `main` — GitHub Actions deploys automatically.
 
 ---
 
-## 📅 Roadmap & Progress
-We are currently in **Beta (v1.1.0)**.
-- [x] Phase 1: Core Tax & Net Worth Engine
-- [x] Phase 2: Production Plaid Integration
-- [x] Phase 3: AI Advisor & Budget Tracking
-- [x] Phase 5: Universal AI Statement Ingestion & Insurance Audit
-- [/] Phase 6: Market Launch & Stripe Billing (In Progress)
+## Architecture
+
+```
+Browser / Mobile App
+        │
+        ▼
+Firebase Hosting (React SPA)
+        │
+        ▼
+/api/** → Firebase Cloud Functions (Python 3.12 / Flask)
+        │
+        ├── Firestore (user data, transactions, budgets)
+        ├── Plaid API (bank account sync)
+        ├── Google Gemini (AI advisor, document extraction)
+        └── Yahoo Finance (live price data)
+```
+
+**Security model:** Each user's data lives in their own Firestore document, keyed by Firebase UID. Firestore rules deny all cross-user access. Plaid tokens are encrypted at rest with Fernet symmetric encryption.
 
 ---
-**License**: All rights reserved. Built as a solo project by Yury Shirokov.
+
+## Roadmap
+
+- [x] Phase 1 — Core Tax & Net Worth Engine
+- [x] Phase 2 — Production Plaid Integration
+- [x] Phase 3 — AI Advisor & Budget Tracking
+- [x] Phase 4 — Performance & AI Stability (parallel sync, deduplication, advisor optimization)
+- [x] Phase 5 — Universal AI Statement Ingestion & Insurance Audit
+- [ ] Phase 6 — Stripe Billing & Market Launch
+
+---
+
+## License
+
+All rights reserved. © Yury Shirokov.
