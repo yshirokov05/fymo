@@ -151,9 +151,14 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             .reduce((sum, t) => sum + t.amount, 0);
     };
 
-    // Flexible Spending: categories with spending but no hard budget
+    // Flexible Spending: explicit $0 limit budgets + categories with spending but no hard budget
     const getFlexibleSpending = () => {
-        const budgetedCategories = new Set(budgets.map(b => b.category.trim().toLowerCase()));
+        const currentBudgets = isEditing ? editedBudgets : budgets;
+        const hardBudgetedCategories = new Set(currentBudgets.filter(b => b.limit_amount > 0).map(b => b.category.trim().toLowerCase()));
+        
+        const explicitFlexibleBudgets = currentBudgets.filter(b => b.limit_amount === 0 || !b.limit_amount);
+        const explicitFlexibleCategoryNames = new Set(explicitFlexibleBudgets.map(b => b.category.trim().toLowerCase()));
+
         const ignoredSet = new Set(ignoredFlexible.map(c => c.trim().toLowerCase()));
         const categorySpend = {};
         
@@ -161,13 +166,18 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
         const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
         
+        // Seed explicitly tracked categories
+        explicitFlexibleBudgets.forEach(b => {
+             categorySpend[b.category] = 0;
+        });
+
         transactions.forEach(t => {
             if (t.amount <= 0) return;
             const cat = getTransactionCategory(t);
             if (cat === 'Ignore') return;
             
-            if (budgetedCategories.has(cat.toLowerCase())) return; 
-            if (ignoredSet.has(cat.toLowerCase())) return; 
+            if (hardBudgetedCategories.has(cat.toLowerCase())) return; 
+            if (ignoredSet.has(cat.toLowerCase()) && !explicitFlexibleCategoryNames.has(cat.toLowerCase())) return; 
 
             // Fix: Compare only the date part (YYYY-MM-DD)
             const tDatePart = t.date.split('T')[0];
@@ -177,10 +187,10 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         });
         
         const results = Object.entries(categorySpend)
-            .map(([name, amount]) => ({ name, amount }))
+            .map(([name, amount]) => ({ name, amount, isExplicit: explicitFlexibleCategoryNames.has(name.toLowerCase()) }))
             .sort((a, b) => b.amount - a.amount);
             
-        console.log(`FLEX-DEBUG [${selectedMonth}]: Spending found: ${results.length} categories. Ignored list: ${ignoredFlexible.length}. Budgeted list: ${budgetedCategories.size}`);
+        console.log(`FLEX-DEBUG [${selectedMonth}]: Spending found: ${results.length} categories. Ignored list: ${ignoredFlexible.length}. Hard Budgets: ${hardBudgetedCategories.size}`);
         return results;
     };
 
@@ -619,7 +629,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             {/* Flexible Spending Section — interactive, shows unbudgeted categories */}
             {(() => {
                 const flexibleSpending = getFlexibleSpending();
-                if (flexibleSpending.length === 0) return null;
+                // We keep showing the Tracker button even if empty
                 return (
                     <div className="flex flex-col mb-8">
                         <div className="flex items-center justify-between mb-2">
@@ -630,12 +640,30 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                     No Budget Set — Tracking Only
                                 </span>
                             </h3>
+                            <button
+                                onClick={() => {
+                                    setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: 'Other', limit_amount: 0, period: 'Monthly' }]);
+                                    setIsEditing(true);
+                                    // Scroll to edit view if needed, but the view becomes editing mode instantly
+                                }}
+                                className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center"
+                                title="Explicitly track a category"
+                            >
+                                <Plus size={16} className="mr-1" />
+                                Add Tracker
+                            </button>
                         </div>
                         <p className="text-xs text-gray-500 mb-4 font-medium leading-relaxed max-w-2xl">
                             These categories have spending this month but don't have a hard budget. Use these to track variable costs without a strict limit. You can set a budget or hide them anytime.
                             <span className="ml-2 text-[8px] text-gray-300 font-mono">v1.5.2-FINAL-UI</span>
                         </p>
                         
+                        {flexibleSpending.length === 0 ? (
+                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                <p className="text-gray-500 text-sm font-medium">No flexible spending tracked this month.</p>
+                                <p className="text-gray-400 text-xs mt-1">Click "Add Tracker" to track categories without a fixed budget limit.</p>
+                            </div>
+                        ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {flexibleSpending.map(item => {
                                 const prevSpent = getPrevMonthSpent(item.name);
@@ -643,7 +671,12 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 const suggestedLimit = Math.ceil(item.amount / 50) * 50 || 50;
 
                                 return (
-                                    <Card key={item.name} className="p-4 border-l-4 border-l-emerald-500 hover:shadow-xl transition-all duration-300 group relative">
+                                    <Card key={item.name} className={`p-4 border-l-4 hover:shadow-xl transition-all duration-300 group relative ${item.isExplicit ? 'border-l-indigo-500 bg-indigo-50/10' : 'border-l-emerald-500'}`}>
+                                        {item.isExplicit && (
+                                            <div className="absolute top-0 right-1/2 translate-x-1/2 -mt-2 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm">
+                                                Manually Tracked
+                                            </div>
+                                        )}
                                         <div className="absolute top-2 right-2 flex items-center space-x-1.5 z-20">
                                             <button 
                                                 onClick={() => {
@@ -658,25 +691,38 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             </button>
                                             <button 
                                                 onClick={() => {
-                                                    if (window.confirm(`Stop tracking "${item.name}" as flexible spending?`)) {
-                                                        onUpdateIgnoredFlexible([...ignoredFlexible, item.name]);
+                                                    if (item.isExplicit) {
+                                                        if (window.confirm(`Delete explicit tracking for "${item.name}"?`)) {
+                                                            const newBudgets = budgets.filter(b => b.category.toLowerCase() !== item.name.toLowerCase() || b.limit_amount > 0);
+                                                            onSaveBudgets(newBudgets);
+                                                            // If currently editing, also update editedBudgets
+                                                            if (isEditing) {
+                                                                setEditedBudgets(editedBudgets.filter(b => b.category.toLowerCase() !== item.name.toLowerCase() || b.limit_amount > 0));
+                                                            }
+                                                        }
+                                                    } else {
+                                                        if (window.confirm(`Stop tracking "${item.name}" as flexible spending?`)) {
+                                                            onUpdateIgnoredFlexible([...ignoredFlexible, item.name]);
+                                                        }
                                                     }
                                                 }}
                                                 className="p-1.5 text-gray-500 hover:text-red-600 bg-white/95 rounded-full shadow-lg border border-gray-100 transition-all hover:scale-110 flex items-center justify-center"
-                                                title="Hide from dashboard"
+                                                title={item.isExplicit ? "Delete Tracker" : "Hide from dashboard"}
                                             >
                                                 <X size={14} />
                                             </button>
                                         </div>
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div>
-                                                <h4 className="font-bold text-gray-900 flex items-center">
-                                                    {categories.find(c => c.name === item.name)?.icon || <DollarSign size={16} />}
-                                                    <span className="ml-2">{item.name}</span>
+                                        <div className="flex items-center justify-between mb-3 gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-bold text-gray-900 flex items-center min-w-0">
+                                                    <div className="shrink-0">
+                                                        {categories.find(c => c.name === item.name)?.icon || <DollarSign size={16} />}
+                                                    </div>
+                                                    <span className="ml-2 truncate" title={item.name}>{item.name}</span>
                                                 </h4>
                                                 <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">This Month</div>
                                             </div>
-                                            <div className="flex space-x-1">
+                                            <div className="flex space-x-1 shrink-0">
                                                 <button
                                                     onClick={() => {
                                                         // Pre-fill a budget with this category and a suggested limit based on current spending
@@ -709,6 +755,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 );
                             })}
                         </div>
+                        )}
                     </div>
                 );
             })()}

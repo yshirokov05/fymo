@@ -292,6 +292,7 @@ def get_net_worth():
         net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
         net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
         net_worth_data['manual_subscription_merchants'] = getattr(user, 'manual_subscription_merchants', [])
+        net_worth_data['ignored_flexible'] = ignored_flexible
         return jsonify(net_worth_data)
     except Exception as e:
         import traceback
@@ -580,6 +581,9 @@ def update_portfolio():
                 plaid_transaction_id=c.get('plaid_transaction_id')
             ))
 
+    if 'ignored_flexible' in data:
+        ignored_flexible = data['ignored_flexible']
+
     if data.get('clear_all_transactions'):
         transactions = []
         
@@ -603,7 +607,7 @@ def update_portfolio():
         # Actually, let's just keep the active institution's transactions if we can.
         # This is complex, so let's stick to Assets and Debts which are the main "ghost" issues.
 
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=uid)
+    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
 
     price_map = get_multiple_prices([a.ticker for a in assets])
     
@@ -619,6 +623,7 @@ def update_portfolio():
     net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
     net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
     net_worth_data['is_authorized'] = is_user_authorized(uid, getattr(request, 'email', None))
+    net_worth_data['ignored_flexible'] = ignored_flexible
     return jsonify(net_worth_data)
 
 @app.route('/api/plaid_sync', methods=['POST'])

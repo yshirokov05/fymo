@@ -25,15 +25,16 @@
     "Moved Custom Categories settings to the Budget Tracker for better intuitiveness",
     "Integrated Gemini 1.5 Flash OCR for Tax Documents and Checks",
     "Enhanced AI Advisor with Period-over-Period (PoP) insights and persistent habit tracking",
-    "Implemented automated detection of Dividends and Capital Gains during Plaid Sync"
+    "Implemented automated detection of Dividends and Capital Gains during Plaid Sync",
+    "Overhauled Flexible Spending UX: Added manual 'Trackers' via $0 budgets and fixed ignored_flexible persistence bug"
   ],
   "pending_issues": [
     "Integrate Stripe for premium subscriptions",
     "Implement Market Launch & User Growth Strategy"
   ],
-  "last_updated": "2026-03-31T05:50:00Z",
+  "last_updated": "2026-04-06T13:10:00Z",
   "last_deploy": {
-    "timestamp": "2026-03-31T05:51:00Z",
+    "timestamp": "2026-04-06T13:12:00Z",
     "project": "personal-finance-app-18cbc",
     "url": "https://personal-finance-app-18cbc.web.app",
     "status": "success"
