@@ -12,7 +12,7 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
         shares = float(asset.shares or 0)
         cost_basis = float(asset.cost_basis or 0)
         
-        is_cash_ticker = asset.ticker in ['CUR:USD', 'CASH', 'USD']
+        is_cash_ticker = asset.ticker in ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX']
         if asset.asset_type in [AssetType.CASH, AssetType.HOUSING, AssetType.SAVINGS, AssetType.CHECKING, AssetType.HIGH_YIELD_SAVINGS] or is_cash_ticker:
             total_assets_market_value += shares
         else:

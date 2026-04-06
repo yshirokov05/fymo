@@ -4,6 +4,66 @@ import json
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
+
+# --- Universal Model Discovery & Selection ---
+_BEST_MODEL_CACHE = None
+
+def _get_model(model_name='gemini-1.5-flash', system_instruction=None, generation_config=None, tools=None):
+    """
+    Returns a verified GenerativeModel, falling back to discovery if 404 occurs.
+    """
+    global _BEST_MODEL_CACHE
+    
+    # helper internal function to test a model's validity
+    def _is_valid(m):
+        try:
+            m.count_tokens("test")
+            return True
+        except Exception as e:
+            if "404" in str(e) or "not found" in str(e) or "invalid" in str(e).lower():
+                return False
+            # If it's a transient error (quota), assume valid for discovery purposes
+            return True
+
+    # Try cached best first
+    if _BEST_MODEL_CACHE:
+        try:
+            m = genai.GenerativeModel(model_name=_BEST_MODEL_CACHE, system_instruction=system_instruction, generation_config=generation_config, tools=tools)
+            if _is_valid(m): return m
+        except: pass
+
+    # Try requested model
+    try:
+        m = genai.GenerativeModel(model_name=model_name, system_instruction=system_instruction, generation_config=generation_config, tools=tools)
+        if _is_valid(m): return m
+    except: pass
+
+    logging.warning(f"Model discovery triggered...")
+    try:
+        # Discover all models supporting generation
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        
+        preferences = ['models/gemini-1.5-flash', 'models/gemini-1.5-pro', 'models/gemini-pro', 'models/gemini-1.0-pro']
+        for pref in preferences:
+            if pref in available_models:
+                m = genai.GenerativeModel(model_name=pref, system_instruction=system_instruction, generation_config=generation_config, tools=tools)
+                if _is_valid(m):
+                    _BEST_MODEL_CACHE = pref
+                    return m
+        
+        # Last resort: take the first one that works
+        for optional in available_models:
+            m = genai.GenerativeModel(model_name=optional, system_instruction=system_instruction)
+            if _is_valid(m):
+                _BEST_MODEL_CACHE = optional
+                return m
+    except Exception as e:
+        logging.error(f"Discovery error: {e}")
+
+    # Final absolute fallback
+    return genai.GenerativeModel(model_name='gemini-pro', system_instruction=system_instruction)
 
 # --- Define Tools (Function Calling) ---
 def search_current_deals(query: str) -> str:
@@ -37,7 +97,6 @@ def get_market_news():
     """
     import yfinance as yf
     import time
-    from concurrent.futures import ThreadPoolExecutor, as_completed
     
     # Check cache
     if time.time() - _news_cache["timestamp"] < NEWS_CACHE_TTL:
@@ -52,7 +111,7 @@ def get_market_news():
             return symbol, ticker.news[:2]
         except Exception as e:
             logging.warning(f"Failed to fetch news for {symbol}: {e}")
-            return symbol, []
+            return symbol, str(e)
 
     try:
         logging.info("Fetching market news in parallel for AI Brief...")
@@ -61,8 +120,9 @@ def get_market_news():
             # Use as_completed with a global timeout for the entire batch
             for future in as_completed(future_to_symbol, timeout=3): 
                 symbol, headlines = future.result()
-                for h in headlines:
-                    news_items.append(f"[{symbol}] {h.get('title')} - {h.get('publisher')}")
+                if isinstance(headlines, list):
+                    for h in headlines:
+                        news_items.append(f"[{symbol}] {h.get('title')} - {h.get('publisher')}")
         
         content = "\n".join(news_items) if news_items else "No major market headlines detected."
         
@@ -73,7 +133,7 @@ def get_market_news():
         return content
     except Exception as e:
         logging.error(f"Parallel news fetch error: {e}")
-        return _news_cache["content"] if _news_cache["content"] else "Market news currently unavailable."
+        return str(e)
 
 def get_period_comparison(transactions, days=30):
     """
@@ -105,13 +165,15 @@ def get_financial_advice(user_prompt, financial_data):
     Provides personalized financial advice based on user data, with RAG context injection and Tool Calling.
     Now includes Period-over-Period (PoP) analysis.
     """
-    api_key = os.getenv('GEMINI_API_KEY')
-    if not api_key:
-        return "I'm sorry, but the Gemini API Key is missing. I cannot provide advice at this time."
-
-    genai.configure(api_key=api_key)
+    raw_api_key = os.getenv('GEMINI_API_KEY', '')
+    # Super Deep Clean: Keep ONLY alphanumeric and hyphens/underscores common in API keys.
+    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
     
+    if not api_key:
+        return "I'm sorry, but the Gemini API Key is missing or malformed. I cannot provide advice at this time."
+
     try:
+        genai.configure(api_key=api_key)
         transactions = financial_data.get('transactions', [])
         
         # 1. Calculate Period-over-Period (PoP) Metrics
@@ -196,8 +258,8 @@ def get_financial_advice(user_prompt, financial_data):
         5. Conciseness: Keep the response under 300 words unless deeply complex.
         """
 
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+        model = _get_model(
+            model_name='gemini-pro',
             system_instruction=system_instruction,
             tools=[search_current_deals]
         )
@@ -206,9 +268,7 @@ def get_financial_advice(user_prompt, financial_data):
         response = chat.send_message(user_prompt, request_options={"timeout": 30}) # Higher timeout for interactive
         return response.text
     except Exception as e:
-        import traceback
-        logging.error(f"Advisor Service Error: {e} - Traceback: {traceback.format_exc()}")
-        return "I encountered an error while analyzing your data. Please try again later."
+        return str(e)
 
 def extract_user_memory(user_prompt, existing_memory_str):
     """
@@ -217,7 +277,8 @@ def extract_user_memory(user_prompt, existing_memory_str):
     permanent financial facts, goals, or habits from the user's message.
     Returns a dict matching the UserMemory schema if a new fact is found, else None.
     """
-    api_key = os.getenv('GEMINI_API_KEY')
+    raw_api_key = os.getenv('GEMINI_API_KEY', '')
+    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
     if not api_key: return None
     
     genai.configure(api_key=api_key)
@@ -241,8 +302,8 @@ def extract_user_memory(user_prompt, existing_memory_str):
     """
     
     try:
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+        model = _get_model(
+            model_name='gemini-pro',
             system_instruction=system_instruction,
             generation_config=genai.types.GenerationConfig(
                 response_mime_type="application/json",
@@ -272,7 +333,9 @@ def generate_overview(financial_data, brief_type="morning"):
     Stage 1: Generates the core financial health bullets (Liquidity, Protection, Goals).
     Fast and data-heavy from local context.
     """
-    api_key = os.getenv('GEMINI_API_KEY')
+    import re
+    raw_api_key = os.getenv('GEMINI_API_KEY', '')
+    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
     if not api_key: return "API Key missing."
     
     genai.configure(api_key=api_key)
@@ -315,19 +378,20 @@ def generate_overview(financial_data, brief_type="morning"):
     system_instruction = _sanitize_for_ai(system_instruction)
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
-        response = model.generate_content(f"Generate my {brief_type} overview now.", request_options={"timeout": 12})
+        model = _get_model(system_instruction=system_instruction)
+        response = model.generate_content(f"Generate my {brief_type} overview now.", request_options={"timeout": 20})
         return response.text.strip()
     except Exception as e:
-        logging.error(f"Overview Generation Error: {e}")
-        return "**Liquidity Check:** Analysis timed out.\n**Insurance:** Analysis timed out.\n**Goal Progress:** Analysis timed out."
+        return str(e)
 
 def generate_market_intelligence(financial_data):
     """
     Stage 2: Generates market context connecting news to the user's profile.
     Slow due to external news fetch.
     """
-    api_key = os.getenv('GEMINI_API_KEY')
+    import re
+    raw_api_key = os.getenv('GEMINI_API_KEY', '')
+    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
     if not api_key: return "API Key missing."
     
     genai.configure(api_key=api_key)
@@ -350,23 +414,40 @@ def generate_market_intelligence(financial_data):
     system_instruction = _sanitize_for_ai(system_instruction)
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
-        response = model.generate_content("Connect market news to my profile.", request_options={"timeout": 12})
+        model = _get_model(system_instruction=system_instruction)
+        response = model.generate_content("Connect market news to my profile.", request_options={"timeout": 20})
         return response.text.strip()
     except Exception as e:
-        logging.error(f"News Generation Error: {e}")
-        return "### Market Intelligence\nMarket news analysis is currently unavailable. Please try again later."
+        return str(e)
 
 def generate_health_brief(financial_data, brief_type="morning", section="all"):
     """
     Legacy wrapper / Single entry point for backward compatibility.
+    Now parallelized to reduce latency.
     """
+    from concurrent.futures import ThreadPoolExecutor
+    
     if section == "news":
         return generate_market_intelligence(financial_data)
     elif section == "overview":
         return generate_overview(financial_data, brief_type)
-    else:
-        # 'all' combination
-        overview = generate_overview(financial_data, brief_type)
-        news = generate_market_intelligence(financial_data)
-        return f"{overview}\n\n{news}"
+    
+    # Run both in parallel for the "all" view
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_overview = executor.submit(generate_overview, financial_data, brief_type)
+        future_news = executor.submit(generate_market_intelligence, financial_data)
+        
+        # Wait for both with a shared ceiling
+        try:
+            overview = future_overview.result(timeout=25)
+            news = future_news.result(timeout=25)
+        except Exception as e:
+            logging.error(f"Parallel Timeout/Error: {e}")
+            overview = future_overview.result() if future_overview.done() else "Analysis timed out."
+            news = future_news.result() if future_news.done() else "Market Intelligence unavailable."
+        
+        return {
+            "brief": overview,
+            "news": news,
+            "brief_type": brief_type
+        }

@@ -10,13 +10,19 @@ import uuid
 
 # SEC-2: Encryption for Plaid tokens at rest
 # In production, set FERNET_KEY in your environment/Secret Manager
-_FERNET_KEY = os.environ.get('FERNET_KEY')
+# Deep sanitise to remove any internal or trailing newlines (\n or \r)
+_RAW_FERNET_KEY = os.environ.get('FERNET_KEY', '')
+_FERNET_KEY = _RAW_FERNET_KEY.replace('\n', '').replace('\r', '').strip()
+
 if not _FERNET_KEY:
     logging.critical("CRITICAL: FERNET_KEY not set in environment! Encryption/Decryption will fail.")
-    # We do NOT generate a new key here, as it would make existing data unreadable.
     _cipher_suite = None
 else:
-    _cipher_suite = Fernet(_FERNET_KEY.encode())
+    try:
+        _cipher_suite = Fernet(_FERNET_KEY.encode())
+    except Exception as e:
+        logging.critical(f"CRITICAL: Failed to initialize Fernet with provided key: {e}. Encryption will be disabled.")
+        _cipher_suite = None
 
 def encrypt_token(token: Optional[str]) -> Optional[str]:
     if not token:

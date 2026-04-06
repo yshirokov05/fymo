@@ -14,16 +14,13 @@ from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
 from models import Asset, AssetType, RetirementAccount, AccountType, Transaction, Debt, Paystub, TaxTreatment, DebtType, Income, IncomeType
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-load_dotenv()
-
-PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID', '').strip()
-PLAID_SECRET = os.getenv('PLAID_SECRET', '').strip()
-PLAID_ENV = os.getenv('PLAID_ENV', 'sandbox').strip()
-PLAID_REDIRECT_URI = os.getenv('PLAID_REDIRECT_URI', '').strip() # Required for Production OAuth
+PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID', '').replace('\n', '').replace('\r', '').strip()
+PLAID_SECRET = os.getenv('PLAID_SECRET', '').replace('\n', '').replace('\r', '').strip()
+PLAID_ENV = os.getenv('PLAID_ENV', 'sandbox').replace('\n', '').replace('\r', '').strip()
+PLAID_REDIRECT_URI = os.getenv('PLAID_REDIRECT_URI', '').replace('\n', '').replace('\r', '').strip() # Required for Production OAuth
 
 host = plaid.Environment.Sandbox
 if PLAID_ENV == 'development':
@@ -390,7 +387,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 ))
 
         securities = {s['security_id']: s for s in holdings_response['securities']}
-        CASH_TICKERS = ['VMFXX', 'SPAXX', 'FDRXX', 'TMSXX', 'CUR:USD', 'CASH', 'USD', 'SWVXX', 'VBTIX']
+        CASH_TICKERS = ['VMFXX', 'SPAXX', 'FDRXX', 'TMSXX', 'CUR:USD', 'CASH', 'USD', 'SWVXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX']
         market_value_per_account: dict[str, float] = {}
         margin_from_holdings_per_account: dict[str, float] = {} # Track identified debt to avoid double counting
         
@@ -538,7 +535,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                     new_assets.append(Asset(
                         ticker="CASH",
                         shares=cash_amt, cost_basis=1.0,
-                        asset_type=AssetType.STOCK,
+                        asset_type=AssetType.CASH,
                         plaid_account_id=f"cash_bal_{acc_id}",
                         institution_name=acc['name'],
                         official_name=acc.get('official_name') or acc['name'],

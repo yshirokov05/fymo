@@ -19,7 +19,7 @@ def force_recategorize():
     user_id = 'default_user' # Assuming default_user for now based on previous requests
     
     print(f"Fetching user data for {user_id}...")
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id)
     
     updated_count = 0
     print(f"Found {len(transactions)} cached transactions. Re-evaluating categories...")
@@ -39,7 +39,7 @@ def force_recategorize():
             
     if updated_count > 0:
         print(f"Saving {updated_count} updated transactions back to DB...")
-        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=user_id)
+        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=user_id)
         print("Save complete!")
     else:
         print("No transactions needed updating based on the new logic.")

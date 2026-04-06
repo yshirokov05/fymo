@@ -143,7 +143,7 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
     };
 
     return (
-        <div className="max-w-5xl mx-auto h-[calc(100vh-8rem)] flex flex-col space-y-6">
+        <div className="max-w-5xl mx-auto flex flex-col space-y-8 pb-12">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -160,55 +160,57 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                 )}
             </div>
 
-            {/* AI Brief Section */}
+            {/* AI Brief Section - Self-contained scroll so it doesn't push chat off screen */}
             {isPremium && (
-                <Card className="flex-none p-6 border-l-4 border-l-blue-600 bg-white shadow-md">
-                    <div className="flex items-center space-x-2 border-b border-gray-100 pb-4 mb-4">
-                        {briefType === 'morning' && <Coffee className="text-amber-600" size={24} />}
-                        {briefType === 'afternoon' && <Sparkles className="text-blue-500" size={24} />}
-                        {briefType === 'evening' && <Activity className="text-indigo-600" size={24} />}
-                        {briefType === 'night' && <div className="text-gray-800"><Bot size={24} /></div>}
-                        
-                        <h3 className="text-xl font-bold text-gray-800 capitalize">
-                            The {briefType} Brief
-                        </h3>
-                    </div>
-                    {isLoadingBrief ? (
-                        <div className="flex items-center space-x-3 text-gray-500">
-                            <Loader2 className="animate-spin" size={20} />
-                            <span className="font-medium animate-pulse">Analyzing liquidity, goals, and taxes...</span>
-                        </div>
-                    ) : (
-                        <div className="prose prose-blue max-w-none text-gray-700 leading-relaxed font-medium">
-                            <ReactMarkdown>{brief}</ReactMarkdown>
+                <div className="flex-none max-h-[40%] overflow-y-auto custom-scrollbar rounded-xl shadow-lg border border-blue-50">
+                    <Card className="p-5 border-l-4 border-l-blue-600 bg-white shadow-none">
+                        <div className="flex items-center space-x-2 border-b border-gray-100 pb-4 mb-4">
+                            {briefType === 'morning' && <Coffee className="text-amber-600" size={24} />}
+                            {briefType === 'afternoon' && <Sparkles className="text-blue-500" size={24} />}
+                            {briefType === 'evening' && <Activity className="text-indigo-600" size={24} />}
+                            {briefType === 'night' && <div className="text-gray-800"><Bot size={24} /></div>}
                             
-                            {/* Stage 2: News Section */}
-                            {isLoadingNews ? (
-                                <div className="mt-4 flex items-center space-x-3 text-blue-500 bg-blue-50 py-2 px-3 rounded-lg border border-blue-100">
-                                    <Loader2 className="animate-spin" size={16} />
-                                    <span className="text-sm font-bold uppercase tracking-tight animate-pulse">Reading the headlines...</span>
-                                </div>
-                            ) : newsBrief ? (
-                                <div className="mt-4 pt-4 border-t border-gray-100">
-                                    <ReactMarkdown>{newsBrief}</ReactMarkdown>
-                                </div>
-                            ) : null}
-
-                            {brief.includes("timed out") && (
-                                <button 
-                                    onClick={handleRetryBrief}
-                                    className="mt-4 text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-md hover:bg-blue-100 transition-colors font-bold uppercase tracking-wider flex items-center"
-                                >
-                                    <Activity size={12} className="mr-1" /> Retry Analysis
-                                </button>
-                            )}
+                            <h3 className="text-xl font-bold text-gray-800 capitalize">
+                                The {briefType} Brief
+                            </h3>
                         </div>
-                    )}
-                </Card>
+                        {isLoadingBrief ? (
+                            <div className="flex items-center space-x-3 text-gray-500">
+                                <Loader2 className="animate-spin" size={20} />
+                                <span className="font-medium animate-pulse">Analyzing liquidity, goals, and taxes...</span>
+                            </div>
+                        ) : (
+                            <div className="prose prose-blue max-w-none text-gray-700 leading-relaxed font-medium">
+                                <ReactMarkdown>{brief}</ReactMarkdown>
+                                
+                                {/* Stage 2: News Section */}
+                                {isLoadingNews ? (
+                                    <div className="mt-4 flex items-center space-x-3 text-blue-500 bg-blue-50 py-2 px-3 rounded-lg border border-blue-100">
+                                        <Loader2 className="animate-spin" size={16} />
+                                        <span className="text-sm font-bold uppercase tracking-tight animate-pulse">Reading the headlines...</span>
+                                    </div>
+                                ) : newsBrief ? (
+                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                        <ReactMarkdown>{newsBrief}</ReactMarkdown>
+                                    </div>
+                                ) : null}
+
+                                {typeof brief === 'string' && (brief.includes("timed out") || brief.includes("Error") || brief.includes("404")) && (
+                                    <button 
+                                        onClick={handleRetryBrief}
+                                        className="mt-4 text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-md hover:bg-blue-100 transition-colors font-bold uppercase tracking-wider flex items-center"
+                                    >
+                                        <Activity size={12} className="mr-1" /> Retry Analysis
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </Card>
+                </div>
             )}
 
-            {/* Interactive Chat Section */}
-            <Card className="flex-1 flex flex-col p-0 overflow-hidden border-none shadow-xl bg-white relative">
+            {/* Interactive Chat Section - Fixed height with internal scrolling for messages */}
+            <Card className="flex-none flex flex-col p-0 overflow-hidden border-none shadow-xl bg-white relative h-[650px] shadow-blue-100/50 mb-8">
                 <div className={`flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50 ${!isPremium ? 'max-h-[300px] overflow-hidden' : ''}`}>
                     {messages.map((m, i) => (
                         <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -257,8 +259,35 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                     <div ref={messagesEndRef} />
                 </div>
 
+                {/* Suggested Prompts */}
+                {isPremium && !isLoading && messages.length < 3 && (
+                    <div className="px-4 py-2 bg-white flex flex-wrap gap-2">
+                        {[
+                            "Analyze my liquidity",
+                            "Review my insurance coverage",
+                            "Check my progress toward 2026 goals",
+                            "How much can I safely invest today?"
+                        ].map((prompt, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => {
+                                    setInput(prompt);
+                                    // Auto-send if user clicks
+                                    handleSend({ preventDefault: () => {}, target: { value: prompt } });
+                                }}
+                                className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                            >
+                                {prompt}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {/* Input Area */}
-                <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-100 flex items-center space-x-4">
+                <form 
+                    onSubmit={handleSend} 
+                    className="p-4 bg-white border-t border-gray-100 flex items-center space-x-4"
+                >
                     <input
                         type="text"
                         value={input}

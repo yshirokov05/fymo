@@ -613,7 +613,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             <h2 className="text-3xl font-bold text-gray-800">Investment Portfolio</h2>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                <div className="flex justify-between items-center mb-6">
-                  <p className="text-gray-600">Total Asset Value: <span className="font-bold text-blue-600">${assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0).toLocaleString()}</span></p>
+                  <p className="text-gray-600">Total Asset Value: <span className="font-bold text-blue-600">${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0))}</span></p>
                   <button onClick={() => openEditModal('investments')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Manage Assets</button>
                </div>
                <Dashboard assets={assets} debts={[]} netWorth={0} hideSummary />

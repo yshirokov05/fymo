@@ -22,7 +22,7 @@ const AssetTable = ({ assets }) => {
         const cashSavingsTypes = ['SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS', 'CASH'];
         const investmentTypes = ['STOCK', 'BOND'];
         const housingTypes = ['HOUSING'];
-        const cashTickers = ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX'];
+        const cashTickers = ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'];
 
         allAssets.forEach(asset => {
             const isCashTicker = cashTickers.includes(asset.ticker);
@@ -74,7 +74,7 @@ const AssetTable = ({ assets }) => {
 
     const renderAssetRow = (asset, isSubRow = false) => {
         const isLiquidAsset = ['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'].includes(asset.asset_type) || 
-                             ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX'].includes(asset.ticker);
+                             ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker);
         const isHousing = asset.asset_type === 'HOUSING';
 
         const marketPrice = asset.marketPrice || asset.current_price || (asset.shares > 0 ? asset.cost_basis / asset.shares : 0) || 1.0;
@@ -96,7 +96,7 @@ const AssetTable = ({ assets }) => {
                             {hasMultipleAccounts && !isSubRow && (
                                 isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
                             )}
-                            {asset.asset_type}
+                            {isLiquidAsset ? 'CASH' : asset.asset_type}
                         </div>
                     </td>
                     <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 ${isSubRow ? 'pl-8 md:pl-12' : ''}`}>
@@ -162,7 +162,7 @@ const AssetTable = ({ assets }) => {
         const isLiquidGroup = groupName === 'Cash & Savings';
         
         const groupTotals = assetsInGroup.reduce((acc, asset) => {
-            const isCashTicker = ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX'].includes(asset.ticker);
+            const isCashTicker = ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker);
             const isLiquidAsset = ['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'].includes(asset.asset_type) || isCashTicker;
             const isHousing = asset.asset_type === 'HOUSING';
 
@@ -212,7 +212,7 @@ const AssetTable = ({ assets }) => {
                                 if (isLiquidGroup) {
                                     return (
                                         <tr key={asset.plaid_account_id || asset.ticker} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 uppercase tracking-tight">{asset.asset_type}</td>
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 uppercase tracking-tight">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
                                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900">{asset.ticker}</td>
                                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                                                 <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'} font-bold text-[10px]`}>

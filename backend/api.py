@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import logging
 import firestore_db
 import statement_processor
+import diagnostics_service
 from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
@@ -24,6 +25,11 @@ CORS(app, supports_credentials=True, resources={r"/api/*": {
     "allow_headers": ["Authorization", "Content-Type"],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }})
+
+@app.route('/api/diagnostics', methods=['GET'])
+def get_diagnostics():
+    """SEC-D: Returns health check and secret sanitization status."""
+    return jsonify(diagnostics_service.get_secret_diagnostics())
 
 # ARCH-4: Simple Firestore-based rate limiting
 def check_rate_limit(uid, action, limit_per_hour=20):
@@ -407,10 +413,22 @@ def initialize_sample_data():
 def update_portfolio():
     data = request.get_json()
     uid = "demo_user" if request.uid == "guest" else request.uid
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
 
     if 'retirement_accounts' in data:
-        retirement_accounts = [RetirementAccount(id=ra_data.get('id') or str(uuid.uuid4()), name=ra_data['name'], account_type=safe_enum(AccountType, ra_data['account_type'], AccountType.TRADITIONAL_IRA), contributions_2025=float(ra_data.get('contributions_2025', 0)), contributions_2026=float(ra_data.get('contributions_2026', 0))) for ra_data in data['retirement_accounts']]
+        try:
+            retirement_accounts = [
+                RetirementAccount(
+                    id=ra_data.get('id') or str(uuid.uuid4()), 
+                    name=ra_data.get('name', 'Unnamed Account'), 
+                    account_type=safe_enum(AccountType, ra_data.get('account_type'), AccountType.TRADITIONAL_IRA), 
+                    contributions_2025=float(ra_data.get('contributions_2025', 0)), 
+                    contributions_2026=float(ra_data.get('contributions_2026', 0))
+                ) for ra_data in data['retirement_accounts']
+            ]
+        except Exception as e:
+            logging.error(f"Error mapping retirement accounts: {e}, Data: {data.get('retirement_accounts')}")
+            return jsonify({'error': 'Invalid retirement account data format'}), 400
 
     if 'insurances' in data:
         insurances = [
@@ -615,6 +633,13 @@ def plaid_sync():
 
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     if not plaid_items: return jsonify({'error': "No linked accounts found."}), 404
+    
+    # 0. PRE-SYNC ORPHAN CLEANUP: Remove any cached assets that belong to institutions 
+    # that are no longer in the user's active Plaid item list.
+    active_institutions = {pi.institution_name for pi in plaid_items if pi.institution_name}
+    assets = [a for a in assets if not a.plaid_account_id or a.institution_name in active_institutions or not a.institution_name]
+    debts = [d for d in debts if not d.plaid_account_id or d.institution_name in active_institutions or not d.institution_name]
+    
     try:
         all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs, all_new_incomes = [], [], [], [], [], []
         synced_ids_total = []
@@ -643,10 +668,21 @@ def plaid_sync():
                 except Exception as e:
                     logging.error(f"Failed to sync institution {pi.institution_name}: {e}")
         
-        # REPLACEMENT LOGIC: Purge any existing assets or debts that belong to the accounts we just synced.
-        # This ensures that sold positions (like RDDT) are removed, as they won't appear in the fresh sync.
-        assets = [a for a in assets if not a.plaid_account_id or not any(a.plaid_account_id.startswith(sid) for sid in synced_ids_total)]
-        debts = [d for d in debts if not d.plaid_account_id or not any(d.plaid_account_id.startswith(sid) for sid in synced_ids_total)]
+        # REPLACEMENT LOGIC: Purge existing assets that belong to the institutions we successfully synced, 
+        # but are not present in the fresh sync payload (e.g., sold assets, closed accounts, or stale sandbox data).
+        synced_inst_names = {pi.institution_name for pi in active_plaid_items if pi.institution_name}
+        
+        def is_ghost_asset(asset):
+            if not asset.plaid_account_id: return False
+            # If the institution for this asset was just successfully synced, 
+            # and this specific asset's ID WAS NOT in the new list, it is a ghost.
+            if asset.institution_name in synced_inst_names:
+                # Use substring check for the account_id part within the plaid_account_id
+                return not any(sid in asset.plaid_account_id for sid in synced_ids_total)
+            return False
+
+        assets = [a for a in assets if not is_ghost_asset(a)]
+        debts = [d for d in debts if not is_ghost_asset(d)]
         
         # Add any newly discovered retirement accounts (matching by ID)
         existing_ra_ids = {ra.id for ra in retirement_accounts}
@@ -883,7 +919,7 @@ def onboarding_complete():
 def update_user_tax_info():
     data = request.get_json()
     uid = "demo_user" if request.uid == "guest" else request.uid
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
     
     if data.get('filing_status'): user.filing_status = safe_enum(FilingStatus, data['filing_status'], FilingStatus.SINGLE)
     if data.get('state'): user.state = safe_enum(USState, data['state'], USState.CA)
@@ -902,7 +938,7 @@ def update_subscription_preferences():
         uid = "demo_user" if request.uid == "guest" else request.uid
         print(f"DEBUG_SUBS: {uid} updating prefs: {data}")
         
-        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=uid)
+        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
         
         if 'ignored_subscription_merchants' in data:
             user.ignored_subscription_merchants = data['ignored_subscription_merchants']
@@ -958,7 +994,7 @@ def create_update_token():
     
     data = request.get_json()
     institution_name = data.get('institution_name')
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     
     target_item = next((item for item in plaid_items if item.institution_name == institution_name), None)
     if not target_item:
@@ -982,7 +1018,7 @@ def set_access_token():
     try:
         exchange_response = plaid_service.exchange_public_token(public_token)
         access_token, item_id = exchange_response['access_token'], exchange_response['item_id']
-        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+        user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
         
         plaid_items = [pi for pi in plaid_items if pi.institution_name != institution_name]
         plaid_items.append(PlaidItem(access_token=access_token, item_id=item_id, institution_name=institution_name, last_sync=datetime.now().isoformat()))
@@ -1042,7 +1078,7 @@ def ask_advisor():
     if len(user_prompt) > 2000:
         return jsonify({'error': "Prompt too long."}), 400
         
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     
     # 1. Fetch persistent semantic memory
     memory_string = get_contextual_memory(request.uid)
@@ -1080,7 +1116,7 @@ def ask_advisor():
 @app.route('/api/health_brief', methods=['GET'])
 @auth_required
 def get_health_brief():
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=request.uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     
     memory_string = get_contextual_memory(request.uid)
     
@@ -1115,7 +1151,7 @@ def get_health_brief():
     return jsonify({'brief': brief})
 
 def process_extracted_transactions(new_transactions, uid):
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks = get_user_data(user_id=uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
     
     existing_sigs = {(t.amount, t.name, t.date) for t in transactions}
     added_count = 0
@@ -1162,7 +1198,9 @@ def upload_statement():
             file.seek(0)
             
     # AI Fallback Path (PDFs, Images, and unrecognized CSVs)
-    api_key = os.environ.get('GEMINI_API_KEY')
+    import re
+    raw_api_key = os.environ.get('GEMINI_API_KEY', '')
+    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
     if not api_key:
         return jsonify({'error': "Gemini Support is currently disabled (No API Key)."}), 500
         
@@ -1190,11 +1228,18 @@ def upload_statement():
         
         prompt = "Extract all transactions from this statement. Output a raw JSON Array, nothing else."
         
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_instruction,
-            generation_config={"response_mime_type": "application/json"}
-        )
+        try:
+            model = genai.GenerativeModel(
+                model_name="gemini-pro",
+                system_instruction=system_instruction,
+                generation_config={"response_mime_type": "application/json"}
+            )
+        except Exception:
+            model = genai.GenerativeModel(
+                model_name="gemini-pro",
+                system_instruction=system_instruction,
+                generation_config={"response_mime_type": "application/json"}
+            )
         
         response = model.generate_content([uploaded_file, prompt])
         
@@ -1257,7 +1302,9 @@ def extract_document():
     if ext not in allowed_exts:
         return jsonify({'error': f"Invalid file type. Supported types: {', '.join(allowed_exts)}"}), 400
 
-    api_key = os.environ.get('GEMINI_API_KEY')
+    import re
+    raw_api_key = os.environ.get('GEMINI_API_KEY', '')
+    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
     if not api_key:
         return jsonify({'error': "API key not configured. Cannot process image."}), 500
         
@@ -1286,11 +1333,18 @@ def extract_document():
             system_instruction = "You are a precise financial document extraction API. Analyze the provided W-2 or paystub. Return ONLY a valid JSON object with the following keys: gross_income (float), net_income (float), pay_date (string, YYYY-MM-DD), federal_taxes_withheld (float), state_taxes_withheld (float), social_security_withheld (float), medicare_withheld (float), and employer_name (string). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
             prompt = "Extract the financial data from this document."
         
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_instruction,
-            generation_config={"response_mime_type": "application/json"}
-        )
+        try:
+            model = genai.GenerativeModel(
+                model_name="gemini-pro",
+                system_instruction=system_instruction,
+                generation_config={"response_mime_type": "application/json"}
+            )
+        except Exception:
+            model = genai.GenerativeModel(
+                model_name="gemini-pro",
+                system_instruction=system_instruction,
+                generation_config={"response_mime_type": "application/json"}
+            )
         
         response = model.generate_content([uploaded_file, prompt])
         
