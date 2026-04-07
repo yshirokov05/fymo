@@ -112,7 +112,7 @@ def get_user_data(user_id="default_user"):
         Income(
             income_type=safe_enum(IncomeType, inc.get('income_type'), IncomeType.ANNUAL_SALARY), 
             hourly_type=safe_enum(HourlyType, inc.get('hourly_type'), HourlyType.REPEATING), 
-            amount=inc['amount'], 
+            amount=inc.get('amount', 0),
             monthly_income=inc.get('monthly_income'), 
             hourly_wage=inc.get('hourly_wage'), 
             hours_worked=inc.get('hours_worked'), 
@@ -122,9 +122,9 @@ def get_user_data(user_id="default_user"):
         ) for inc in data.get('incomes', [])
     ]
     assets = [Asset(
-        ticker=ass['ticker'], 
-        shares=ass['shares'], 
-        cost_basis=ass['cost_basis'], 
+        ticker=ass.get('ticker', ''),
+        shares=ass.get('shares', 0),
+        cost_basis=ass.get('cost_basis', 0.0),
         total_gain=ass.get('total_gain'),
         asset_type=safe_enum(AssetType, ass.get('asset_type'), AssetType.STOCK), 
         retirement_account_id=ass.get('retirement_account_id'), 
@@ -134,9 +134,9 @@ def get_user_data(user_id="default_user"):
         tax_treatment=safe_enum(TaxTreatment, ass.get('tax_treatment'), TaxTreatment.TAXABLE)
     ) for ass in data.get('assets', [])]
     debts = [Debt(
-        name=dbt['name'], 
-        initial_amount=dbt['initial_amount'], 
-        amount_paid=dbt['amount_paid'], 
+        name=dbt.get('name', 'Unnamed Debt'),
+        initial_amount=dbt.get('initial_amount', 0),
+        amount_paid=dbt.get('amount_paid', 0),
         monthly_payment=dbt.get('monthly_payment'), 
         interest_rate=dbt.get('interest_rate'), 
         plaid_account_id=dbt.get('plaid_account_id'),
@@ -214,7 +214,7 @@ def get_user_data(user_id="default_user"):
     # Load Outstanding Checks
     outstanding_checks = []
     for c in data.get('outstanding_checks', []):
-        outstanding_checks.append(OutstandingCheck(id=c['id'], user_id=user_id, amount=c['amount'], payee=c['payee'], date_written=c['date_written'], status=safe_enum(CheckStatus, c.get('status'), CheckStatus.PENDING), plaid_transaction_id=c.get('plaid_transaction_id')))
+        outstanding_checks.append(OutstandingCheck(id=c.get('id', str(uuid.uuid4())), user_id=user_id, amount=c.get('amount', 0), payee=c.get('payee', ''), date_written=c.get('date_written', ''), status=safe_enum(CheckStatus, c.get('status'), CheckStatus.PENDING), plaid_transaction_id=c.get('plaid_transaction_id')))
         
     sub_checks = user_ref.collection('outstanding_checks').order_by('date_written', direction=firestore.Query.DESCENDING).get()
     existing_c_ids = {c.id for c in outstanding_checks}
