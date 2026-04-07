@@ -55,6 +55,7 @@ jobs:
       - name: Run backend tests
         run: |
           if [ -f test_tax_logic.py ]; then
+            pip install pytest -q
             python -m pytest test_tax_logic.py -v
           else
             echo "No backend tests found — skipping"
