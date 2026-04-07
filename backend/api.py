@@ -252,7 +252,7 @@ def create_checkout_session():
     if request.uid == 'guest':
         return jsonify({'error': 'Login required to subscribe.'}), 401
     try:
-        user, *_ = get_user_data(user_id=request.uid)[:1] + [None] * 14
+        user = get_user_data(user_id=request.uid)[0]
         email = getattr(request, 'email', None)
 
         # Reuse existing Stripe customer or create a new one
@@ -332,7 +332,7 @@ def cancel_subscription():
     if request.uid == 'guest':
         return jsonify({'error': 'Not authenticated.'}), 401
     try:
-        user, *_ = get_user_data(user_id=request.uid)[:1] + [None] * 14
+        user = get_user_data(user_id=request.uid)[0]
         subscription_id = getattr(user, 'stripe_subscription_id', None)
         if not subscription_id:
             return jsonify({'error': 'No active subscription found.'}), 404
