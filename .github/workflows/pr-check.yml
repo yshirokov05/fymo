@@ -25,7 +25,7 @@ jobs:
 
       # ── 3. Install & build frontend ──────────────────────────────────────────
       - name: Install frontend dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
         working-directory: ./frontend
 
       - name: Build frontend (dry run — no deploy)
