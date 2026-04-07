@@ -56,6 +56,7 @@ patsy==1.0.2
 peewee==3.19.0
 pillow==12.1.1
 plaid-python==38.3.0
+stripe>=8.0.0
 platformdirs==4.9.2
 proto-plus==1.27.1
 protobuf==5.29.6

@@ -128,6 +128,8 @@ class User:
     ignored_subscription_merchants: List[str] = field(default_factory=list)
     manual_subscription_merchants: List[str] = field(default_factory=list)
     ignored_flexible: List[str] = field(default_factory=list)
+    stripe_customer_id: Optional[str] = None
+    stripe_subscription_id: Optional[str] = None
 
 @dataclass
 class Income:

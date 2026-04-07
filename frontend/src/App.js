@@ -130,7 +130,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
         
-        setIsPremium(response.data.is_authorized || false);
+        setIsPremium(response.data.is_subscribed || response.data.is_authorized || false);
         
         setHasCompletedOnboarding(response.data.has_completed_onboarding || false);
         setCustomCategories(response.data.custom_categories || []);
@@ -323,7 +323,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setOutstandingChecks(data.outstanding_checks || []);
         setNetWorth(data.real_time_net_worth);
         setTaxDetails(data.tax_details || {});
-        setIsPremium(data.is_authorized || false);
+        setIsPremium(data.is_subscribed || data.is_authorized || false);
     } else {
         fetchData();
     }

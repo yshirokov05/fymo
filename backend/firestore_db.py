@@ -102,7 +102,9 @@ def get_user_data(user_id="default_user"):
         custom_categories=data.get('custom_categories', []),
         ignored_subscription_merchants=data.get('ignored_subscription_merchants', []),
         manual_subscription_merchants=data.get('manual_subscription_merchants', []),
-        ignored_flexible=data.get('ignored_flexible', [])
+        ignored_flexible=data.get('ignored_flexible', []),
+        stripe_customer_id=data.get('stripe_customer_id'),
+        stripe_subscription_id=data.get('stripe_subscription_id')
     )
     
     custom_categories = data.get('custom_categories', [])
@@ -382,7 +384,9 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
         'custom_categories': custom_categories if custom_categories is not None else user.custom_categories,
         'ignored_subscription_merchants': getattr(user, 'ignored_subscription_merchants', []),
         'manual_subscription_merchants': getattr(user, 'manual_subscription_merchants', []),
-        'ignored_flexible': ignored_flexible
+        'ignored_flexible': ignored_flexible,
+        'stripe_customer_id': getattr(user, 'stripe_customer_id', None),
+        'stripe_subscription_id': getattr(user, 'stripe_subscription_id', None)
     }
     user_ref.set(data, merge=True)
     logging.info(f"Successfully saved encrypted state for {user_id}")

@@ -1,5 +1,6 @@
 # API Version: 1.1.1 - Defensive Plaid Sync & 400 Fix
 import re
+import stripe
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from price_service import get_current_price, get_multiple_prices, validate_ticker
@@ -28,6 +29,11 @@ CORS(app, supports_credentials=True, resources={r"/api/*": {
     "allow_headers": ["Authorization", "Content-Type"],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }})
+
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY', '').strip()
+STRIPE_PRICE_ID = os.getenv('STRIPE_PRICE_ID', '').strip()
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '').strip()
+APP_URL = "https://personal-finance-app-18cbc.web.app"
 
 @app.route('/api/diagnostics', methods=['GET'])
 def get_diagnostics():
@@ -240,13 +246,102 @@ def get_auth_status():
     email = getattr(request, 'email', None)
     return jsonify({'uid': request.uid, 'email': email, 'is_authorized': is_user_authorized(request.uid, email)})
 
+@app.route('/api/create_checkout_session', methods=['POST'])
+@token_required
+def create_checkout_session():
+    if request.uid == 'guest':
+        return jsonify({'error': 'Login required to subscribe.'}), 401
+    try:
+        user, *_ = get_user_data(user_id=request.uid)[:1] + [None] * 14
+        email = getattr(request, 'email', None)
+
+        # Reuse existing Stripe customer or create a new one
+        customer_id = getattr(user, 'stripe_customer_id', None)
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=email,
+                metadata={'firebase_uid': request.uid}
+            )
+            customer_id = customer.id
+
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=['card'],
+            line_items=[{'price': STRIPE_PRICE_ID, 'quantity': 1}],
+            mode='subscription',
+            allow_promotion_codes=True,
+            success_url=f"{APP_URL}?session=success",
+            cancel_url=f"{APP_URL}?session=cancel",
+            client_reference_id=request.uid,
+        )
+        return jsonify({'url': session.url})
+    except Exception as e:
+        logging.error(f"Stripe checkout error for {request.uid}: {e}")
+        return jsonify({'error': 'Could not create checkout session.'}), 500
+
+
+@app.route('/api/stripe_webhook', methods=['POST'])
+def stripe_webhook():
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature', '')
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+    except stripe.error.SignatureVerificationError:
+        logging.warning("Stripe webhook signature verification failed.")
+        return jsonify({'error': 'Invalid signature'}), 400
+
+    db = get_db()
+    event_type = event['type']
+
+    if event_type == 'checkout.session.completed':
+        session = event['data']['object']
+        uid = session.get('client_reference_id')
+        if not uid:
+            return jsonify({'error': 'No client_reference_id'}), 400
+        customer_id = session.get('customer')
+        subscription_id = session.get('subscription')
+        user_ref = db.collection('users').document(uid)
+        user_ref.set({
+            'is_subscribed': True,
+            'stripe_customer_id': customer_id,
+            'stripe_subscription_id': subscription_id
+        }, merge=True)
+        db.collection('whitelist').document(uid).set({'stripe': True}, merge=True)
+        logging.info(f"Subscription activated for uid={uid}")
+
+    elif event_type == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        customer_id = subscription.get('customer')
+        # Find user by stripe_customer_id
+        users = db.collection('users').where('stripe_customer_id', '==', customer_id).limit(1).get()
+        for user_doc in users:
+            user_doc.reference.set({'is_subscribed': False, 'stripe_subscription_id': None}, merge=True)
+            db.collection('whitelist').document(user_doc.id).delete()
+            logging.info(f"Subscription cancelled for uid={user_doc.id}")
+
+    elif event_type == 'invoice.payment_failed':
+        invoice = event['data']['object']
+        logging.warning(f"Payment failed for customer={invoice.get('customer')}")
+
+    return jsonify({'status': 'ok'})
+
+
 @app.route('/api/cancel_subscription', methods=['POST'])
-@auth_required
+@token_required
 def cancel_subscription():
-    # In a real app, this would talk to Stripe. For now, we log it and return success.
-    logging.info(f"Subscription cancellation requested for user {request.uid}")
-    # Note: We don't actually flip the is_subscribed bit yet to allow manual review/retention
-    return jsonify({'success': True, 'message': 'Cancellation request received.'})
+    if request.uid == 'guest':
+        return jsonify({'error': 'Not authenticated.'}), 401
+    try:
+        user, *_ = get_user_data(user_id=request.uid)[:1] + [None] * 14
+        subscription_id = getattr(user, 'stripe_subscription_id', None)
+        if not subscription_id:
+            return jsonify({'error': 'No active subscription found.'}), 404
+        stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+        logging.info(f"Subscription set to cancel at period end for uid={request.uid}")
+        return jsonify({'success': True, 'message': 'Your subscription will cancel at the end of the current billing period.'})
+    except Exception as e:
+        logging.error(f"Cancel subscription error for {request.uid}: {e}")
+        return jsonify({'error': 'Could not cancel subscription.'}), 500
 
 @app.route('/api/health')
 def health_check():
@@ -285,6 +380,7 @@ def get_net_worth():
         net_worth_data['dependents'] = getattr(user, 'dependents', 0)
         net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in (outstanding_checks or [])]
         net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
+        net_worth_data['is_subscribed'] = getattr(user, 'is_subscribed', False)
         net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
         net_worth_data['manual_subscription_merchants'] = getattr(user, 'manual_subscription_merchants', [])
         net_worth_data['ignored_flexible'] = ignored_flexible
@@ -628,8 +724,8 @@ def plaid_sync():
         return jsonify({'error': "Access restricted."}), 403
         
     # ARCH-4: Rate Limiting
-    if not check_rate_limit(request.uid, 'plaid_sync', limit_per_hour=50):
-        return jsonify({'error': "Plaid sync limit reached. Please wait an hour."}), 429
+    if not check_rate_limit(request.uid, 'plaid_sync', limit_per_hour=5):
+        return jsonify({'error': "Sync limit reached. You can sync up to 5 times per hour."}), 429
 
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     if not plaid_items: return jsonify({'error': "No linked accounts found."}), 404

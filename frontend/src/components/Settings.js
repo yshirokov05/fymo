@@ -13,6 +13,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
     const [updateToken, setUpdateToken] = useState(null);
     const [resetConfirmation, setResetConfirmation] = useState('');
     const [isResetLoading, setIsResetLoading] = useState(false);
+    const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
 
     const handleFixConnection = async (institutionName) => {
         try {
@@ -239,22 +240,31 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                 <div className="p-6 border-2 border-blue-600 rounded-xl bg-blue-50 relative overflow-hidden shadow-lg">
                                     <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] px-3 py-1 font-black rounded-bl-lg uppercase tracking-tighter">Recommended</div>
                                     <h3 className="font-bold text-gray-900 text-lg mb-2 text-center">Premium Plan</h3>
-                                    <p className="text-3xl font-bold mb-4 text-center">$5.99 <span className="text-sm text-gray-500 font-normal">/ month</span></p>
+                                    <p className="text-3xl font-bold mb-4 text-center">$9.99 <span className="text-sm text-gray-500 font-normal">/ month</span></p>
                                     <ul className="space-y-2 mb-6 text-sm font-medium">
                                         <li className="flex items-center text-blue-800"><Check size={14} className="mr-2 text-green-600" /> Everything in Free</li>
                                         <li className="flex items-center text-blue-800"><Check size={14} className="mr-2 text-green-600" /> Automatic Bank Syncing</li>
                                         <li className="flex items-center text-blue-800"><Check size={14} className="mr-2 text-green-600" /> Investment Refreshing</li>
                                         <li className="flex items-center text-blue-800"><Check size={14} className="mr-2 text-green-600" /> Automated Debt Tracking</li>
                                     </ul>
-                                    <button 
-                                        onClick={() => {
-                                            const subject = encodeURIComponent("Access Request: Financial Headquarters");
-                                            const body = encodeURIComponent("Hi, I'd like to request premium access for my account. My email is: " + (currentUser?.email || ""));
-                                            window.location.href = `mailto:yshirokov05@gmail.com?subject=${subject}&body=${body}`;
+                                    <button
+                                        disabled={isCheckoutLoading}
+                                        onClick={async () => {
+                                            setIsCheckoutLoading(true);
+                                            try {
+                                                const token = await currentUser.getIdToken();
+                                                const res = await axios.post('/api/create_checkout_session', {}, {
+                                                    headers: { Authorization: `Bearer ${token}` }
+                                                });
+                                                window.location.href = res.data.url;
+                                            } catch (err) {
+                                                showToast('Could not start checkout. Please try again.', 'error');
+                                                setIsCheckoutLoading(false);
+                                            }
                                         }}
-                                        className="w-full py-3 bg-blue-600 text-white rounded-lg font-black hover:bg-blue-700 shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                                        className="w-full py-3 bg-blue-600 text-white rounded-lg font-black hover:bg-blue-700 shadow-xl transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        Request Early Access
+                                        {isCheckoutLoading ? 'Redirecting...' : 'Subscribe — $9.99/mo'}
                                     </button>
                                 </div>
                             </div>
