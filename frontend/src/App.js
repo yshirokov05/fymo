@@ -130,9 +130,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
         
-        // SEC-6: Robust premium check (Backend + Local Whitelist)
-        const isWhitelisted = ['yshirokov05@gmail.com', 'kirill.konoplianko@sjsu.edu', 'stancovichsergio@gmail.com'].includes(currentUser?.email?.toLowerCase());
-        setIsPremium(response.data.is_authorized || isWhitelisted);
+        setIsPremium(response.data.is_authorized || false);
         
         setHasCompletedOnboarding(response.data.has_completed_onboarding || false);
         setCustomCategories(response.data.custom_categories || []);
@@ -193,24 +191,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   }, [selectedTaxYear, taxDetails]);
 
   useEffect(() => {
-    if (currentUser?.email) {
-        const email = currentUser.email.toLowerCase();
-        const premiumEmails = [
-            'yshirokov05@gmail.com',
-            'kirill.konoplianko@sjsu.edu',
-            'samanthagorvad@gmail.com',
-            'schirokova.n@gmail.com',
-            'evfvadim@gmail.com',
-            'yurievf@gmail.com',
-            'tonysanchez990@gmail.com',
-            'maxwell.hawthorne9@gmail.com'
-        ];
-        if (premiumEmails.includes(email)) {
-            console.log("Premium Access detected, forcing premium state");
-            setIsPremium(true);
-        }
-    } else if (isGuest) {
-        // Force premium for guest mode to allow for demo testing
+    if (isGuest) {
+        // Force premium for guest/demo mode
         setIsPremium(true);
     }
   }, [currentUser, isGuest]);
@@ -341,9 +323,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setOutstandingChecks(data.outstanding_checks || []);
         setNetWorth(data.real_time_net_worth);
         setTaxDetails(data.tax_details || {});
-        const isAudit = window.location.search.includes('audit=true') || localStorage.getItem('audit_mode') === 'true';
-        const isWhitelisted = ['yshirokov05@gmail.com', 'kirill.konoplianko@sjsu.edu'].includes(currentUser?.email?.toLowerCase());
-        setIsPremium(data.is_authorized || isAudit || isWhitelisted || false);
+        setIsPremium(data.is_authorized || false);
     } else {
         fetchData();
     }

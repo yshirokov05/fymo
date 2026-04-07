@@ -19,9 +19,12 @@ import diagnostics_service
 from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
-# SEC-4: Restrict CORS
 CORS(app, supports_credentials=True, resources={r"/api/*": {
-    "origins": "*", 
+    "origins": [
+        "https://personal-finance-app-18cbc.web.app",
+        "https://personal-finance-app-18cbc.firebaseapp.com",
+        "http://localhost:3000"
+    ],
     "allow_headers": ["Authorization", "Content-Type"],
     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 }})
@@ -247,15 +250,7 @@ def cancel_subscription():
 
 @app.route('/api/health')
 def health_check():
-    plaid_configured = bool(plaid_service.PLAID_CLIENT_ID and plaid_service.PLAID_SECRET)
-    return jsonify({
-        'status': 'ok',
-        'plaid_configured': plaid_configured,
-        'environment': plaid_service.PLAID_ENV,
-        'has_fernet': bool(os.environ.get('FERNET_KEY')),
-        'has_gemini': bool(os.environ.get('GEMINI_API_KEY')),
-        'has_redirect_uri': bool(os.environ.get('PLAID_REDIRECT_URI'))
-    })
+    return jsonify({'status': 'ok'})
 @app.route('/api/net_worth', methods=['GET'])
 @token_required
 def get_net_worth():
@@ -298,7 +293,7 @@ def get_net_worth():
         import traceback
         logging.error(f"DASHBOARD ERROR: {str(e)}")
         logging.error(traceback.format_exc())
-        return jsonify({'error': f"Internal Server Error: {str(e)}"}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/initialize_sample_data', methods=['POST'])
 @token_required
@@ -909,7 +904,7 @@ def plaid_sync():
         import traceback
         logging.error(f"Sync error: {str(e)}")
         logging.error(traceback.format_exc())
-        return jsonify({'error': f"Synchronization error: {str(e)}"}), 500
+        return jsonify({'error': 'Synchronization error'}), 500
 
 @app.route('/api/user/onboarding_complete', methods=['PUT'])
 @token_required
@@ -1283,7 +1278,7 @@ def upload_statement():
         logging.error(f"AI Extraction Error: {e} - {traceback.format_exc()}")
         if 'temp_path' in locals() and os.path.exists(temp_path):
             os.remove(temp_path)
-        return jsonify({'error': f"Failed to analyze statement: {str(e)}"}), 500
+        return jsonify({'error': 'Failed to analyze statement'}), 500
 
 @app.route('/api/extract-document', methods=['POST'])
 @token_required
@@ -1369,7 +1364,7 @@ def extract_document():
         # Cleanup local file if it still exists
         if 'temp_path' in locals() and os.path.exists(temp_path):
             os.remove(temp_path)
-        return jsonify({'error': f"Failed to extract document: {str(e)}"}), 500
+        return jsonify({'error': 'Failed to extract document'}), 500
 
 @app.route('/api/transactions/<transaction_id>/category', methods=['PUT'])
 @auth_required
