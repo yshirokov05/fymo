@@ -1410,23 +1410,22 @@ def update_transaction_category(transaction_id):
 @app.route('/api/transactions/<transaction_id>', methods=['DELETE'])
 @token_required
 def delete_transaction(transaction_id):
+    if request.uid == "guest":
+        return jsonify({"error": "Unauthorized"}), 401
     try:
         user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
-        
-        # Filter out the transaction to delete
+
         new_transactions = [t for t in transactions if t.id != transaction_id]
-        
+
         if len(new_transactions) == len(transactions):
             return jsonify({"error": "Transaction not found"}), 404
-            
+
         save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=new_transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=request.uid)
-        
+
         return jsonify({"message": "Transaction deleted successfully"}), 200
     except Exception as e:
-        print(f"Error deleting transaction: {e}")
-        return jsonify({"error": str(e)}), 500
-    
-    return jsonify({'success': True, 'transactions': [transaction_to_dict(t) for t in transactions]})
+        logging.error(f"Error deleting transaction: {e}")
+        return jsonify({"error": "Failed to delete transaction"}), 500
 
 @app.route('/api/remove_institution', methods=['POST'])
 @auth_required
