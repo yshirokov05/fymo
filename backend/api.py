@@ -286,42 +286,48 @@ def stripe_webhook():
     sig_header = request.headers.get('Stripe-Signature', '')
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
-    except stripe.error.SignatureVerificationError:
-        logging.warning("Stripe webhook signature verification failed.")
+    except Exception as e:
+        logging.warning(f"Stripe webhook verification failed: {e}")
         return jsonify({'error': 'Invalid signature'}), 400
 
-    db = get_db()
-    event_type = event['type']
+    try:
+        db = get_db()
+        event_type = event['type']
+        logging.info(f"Stripe webhook received: {event_type}")
 
-    if event_type == 'checkout.session.completed':
-        session = event['data']['object']
-        uid = session.get('client_reference_id')
-        if not uid:
-            return jsonify({'error': 'No client_reference_id'}), 400
-        customer_id = session.get('customer')
-        subscription_id = session.get('subscription')
-        user_ref = db.collection('users').document(uid)
-        user_ref.set({
-            'is_subscribed': True,
-            'stripe_customer_id': customer_id,
-            'stripe_subscription_id': subscription_id
-        }, merge=True)
-        db.collection('whitelist').document(uid).set({'stripe': True}, merge=True)
-        logging.info(f"Subscription activated for uid={uid}")
+        if event_type == 'checkout.session.completed':
+            session = event['data']['object']
+            uid = session.get('client_reference_id')
+            if not uid:
+                logging.error("checkout.session.completed missing client_reference_id")
+                return jsonify({'error': 'No client_reference_id'}), 400
+            customer_id = session.get('customer')
+            subscription_id = session.get('subscription')
+            user_ref = db.collection('users').document(uid)
+            user_ref.set({
+                'is_subscribed': True,
+                'stripe_customer_id': customer_id,
+                'stripe_subscription_id': subscription_id
+            }, merge=True)
+            db.collection('whitelist').document(uid).set({'stripe': True}, merge=True)
+            logging.info(f"Subscription activated for uid={uid}")
 
-    elif event_type == 'customer.subscription.deleted':
-        subscription = event['data']['object']
-        customer_id = subscription.get('customer')
-        # Find user by stripe_customer_id
-        users = db.collection('users').where('stripe_customer_id', '==', customer_id).limit(1).get()
-        for user_doc in users:
-            user_doc.reference.set({'is_subscribed': False, 'stripe_subscription_id': None}, merge=True)
-            db.collection('whitelist').document(user_doc.id).delete()
-            logging.info(f"Subscription cancelled for uid={user_doc.id}")
+        elif event_type == 'customer.subscription.deleted':
+            subscription = event['data']['object']
+            customer_id = subscription.get('customer')
+            users = db.collection('users').where('stripe_customer_id', '==', customer_id).limit(1).get()
+            for user_doc in users:
+                user_doc.reference.set({'is_subscribed': False, 'stripe_subscription_id': None}, merge=True)
+                db.collection('whitelist').document(user_doc.id).delete()
+                logging.info(f"Subscription cancelled for uid={user_doc.id}")
 
-    elif event_type == 'invoice.payment_failed':
-        invoice = event['data']['object']
-        logging.warning(f"Payment failed for customer={invoice.get('customer')}")
+        elif event_type == 'invoice.payment_failed':
+            invoice = event['data']['object']
+            logging.warning(f"Payment failed for customer={invoice.get('customer')}")
+
+    except Exception as e:
+        logging.error(f"Stripe webhook handler error for {event.get('type')}: {e}")
+        return jsonify({'error': 'Webhook handler error'}), 500
 
     return jsonify({'status': 'ok'})
 
