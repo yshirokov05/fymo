@@ -1140,15 +1140,32 @@ def get_health_brief():
         'insurances': [get_insurance_to_dict(ins) for ins in insurances]
     }
     
+    section = request.args.get('section', 'all')
+
+    # Determine brief type from server-side hour
+    from datetime import datetime as _dt
+    _hour = _dt.now().hour
+    if 6 <= _hour < 12:
+        brief_type = "morning"
+    elif 12 <= _hour < 17:
+        brief_type = "afternoon"
+    elif 17 <= _hour < 22:
+        brief_type = "evening"
+    else:
+        brief_type = "night"
+
     try:
         import advisor_service
-        # Add a safety timeout wrapper if necessary, but advisor_service now has internal timeouts
-        brief = advisor_service.generate_health_brief(financial_data)
+        brief = advisor_service.generate_health_brief(financial_data, brief_type=brief_type, section=section)
     except Exception as e:
-        logging.error(f"Failed to generate morning brief: {e}")
+        logging.error(f"Failed to generate brief (section={section}): {e}")
         brief = "**Liquidity Check:** Analysis timed out.\n**Insurance:** Analysis timed out.\n**Goal Progress:** Analysis timed out. Please refresh to retry."
-    
-    return jsonify({'brief': brief})
+
+    # When section="all", advisor_service returns a dict with {brief, news, brief_type} already.
+    # For specific sections ("overview", "news"), it returns a plain string — wrap it uniformly.
+    if isinstance(brief, dict):
+        return jsonify(brief)
+    return jsonify({'brief': brief, 'brief_type': brief_type})
 
 def process_extracted_transactions(new_transactions, uid):
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
