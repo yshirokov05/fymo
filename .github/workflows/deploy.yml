@@ -61,11 +61,10 @@ jobs:
         run: venv/bin/python -m py_compile main.py api.py models.py firestore_db.py auth.py
         working-directory: ./backend
 
-      # ── 7. Deploy to Firebase (hosting + functions + firestore rules) ─────────
+      # ── 7. Deploy to Firebase (hosting + functions) ──────────────────────────
       - name: Deploy to Firebase
-        uses: w9jds/firebase-action@master
-        with:
-          args: deploy --only hosting,functions
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          PROJECT_ID: personal-finance-app-18cbc
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/gcp_key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp_key.json
+          npx firebase-tools@latest deploy --only hosting,functions --project personal-finance-app-18cbc
+        working-directory: .
