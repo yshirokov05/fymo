@@ -2,7 +2,13 @@
 ### Your Personal Net Worth Command Center
 
 **Live Site:** [https://personal-finance-app-18cbc.web.app](https://personal-finance-app-18cbc.web.app)
-**Version:** v1.2.1 (Production) | **Build:** ![deploy](https://github.com/yshirokov05/Personal-Finance-App-PFA/actions/workflows/deploy.yml/badge.svg)
+
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
+[![Flask](https://img.shields.io/badge/Flask-Python%203.12-000000?style=flat-square&logo=flask)](https://flask.palletsprojects.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-FFCA28?style=flat-square&logo=firebase)](https://firebase.google.com/)
+[![Plaid](https://img.shields.io/badge/Plaid-12%2C000%2B%20Institutions-00D64F?style=flat-square)](https://plaid.com/)
+[![Gemini](https://img.shields.io/badge/Gemini-1.5%20Flash-4285F4?style=flat-square&logo=google)](https://ai.google.dev/)
+**Build:** ![deploy](https://github.com/yshirokov05/Personal-Finance-App-PFA/actions/workflows/deploy.yml/badge.svg)
 
 FHQ is an all-in-one personal finance platform. Connect your bank accounts, track your net worth in real time, get AI-powered financial advice, estimate your tax liability across all 50 states, and understand your debt and investment outlook — all in one place.
 
@@ -47,6 +53,36 @@ FHQ is an all-in-one personal finance platform. Connect your bank accounts, trac
 
 ---
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  React 19 Frontend                      │
+│          (Tailwind CSS, Recharts, Lucide Icons)         │
+└────────────────────┬────────────────────────────────────┘
+                     │ REST + Firebase SDK
+┌────────────────────▼────────────────────────────────────┐
+│              Flask Backend (Python 3.12)                │
+│         Firebase Cloud Functions Gen 2 (us-west2)       │
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │  tax_logic   │  │plaid_service │  │  advisor_    │  │
+│  │  50-state    │  │  parallel    │  │  service     │  │
+│  │  engine      │  │  sync layer  │  │  (Gemini AI) │  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  │
+└───────────────┬──────────────┬──────────────────────────┘
+                │              │
+   ┌────────────▼──┐    ┌──────▼────────┐    ┌──────────────┐
+   │   Firestore   │    │   Plaid API   │    │ Yahoo Finance │
+   │  (user data,  │    │  (12k+ banks) │    │ (live prices) │
+   │  strict rules)│    └───────────────┘    └──────────────┘
+   └───────────────┘
+```
+
+**Security model:** Each user's data lives in their own Firestore document, keyed by Firebase UID. Firestore rules deny all cross-user access. Plaid tokens are encrypted at rest with Fernet symmetric encryption.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -79,7 +115,7 @@ cd Personal-Finance-App-PFA
 
 # Frontend
 cd frontend
-npm install
+npm install --legacy-peer-deps
 npm start          # Dev server at http://localhost:3000
 
 # Backend (separate terminal)
@@ -105,33 +141,11 @@ Firebase Secrets required (set via Firebase Console → Project Settings → Sec
 
 ### Deploy
 
+Push to `main` — GitHub Actions deploys automatically. For a manual deploy:
+
 ```bash
-cd frontend
-npm run deploy     # Builds React app and deploys to Firebase
+cd frontend && npm run deploy
 ```
-
-Or push to `main` — GitHub Actions deploys automatically.
-
----
-
-## Architecture
-
-```
-Browser / Mobile App
-        │
-        ▼
-Firebase Hosting (React SPA)
-        │
-        ▼
-/api/** → Firebase Cloud Functions (Python 3.12 / Flask)
-        │
-        ├── Firestore (user data, transactions, budgets)
-        ├── Plaid API (bank account sync)
-        ├── Google Gemini (AI advisor, document extraction)
-        └── Yahoo Finance (live price data)
-```
-
-**Security model:** Each user's data lives in their own Firestore document, keyed by Firebase UID. Firestore rules deny all cross-user access. Plaid tokens are encrypted at rest with Fernet symmetric encryption.
 
 ---
 
@@ -148,4 +162,4 @@ Firebase Hosting (React SPA)
 
 ## License
 
-All rights reserved. © Yury Shirokov.
+All rights reserved. © Yury Shirokov. v1.2.1 (Production)
