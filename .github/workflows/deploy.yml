@@ -51,12 +51,14 @@ jobs:
           cache-dependency-path: backend/requirements.txt
 
       - name: Install backend dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python3.12 -m venv venv
+          venv/bin/pip install -r requirements.txt
         working-directory: ./backend
 
       # ── 6. Basic backend syntax check ────────────────────────────────────────
       - name: Check Python syntax
-        run: python -m py_compile main.py api.py models.py firestore_db.py auth.py
+        run: venv/bin/python -m py_compile main.py api.py models.py firestore_db.py auth.py
         working-directory: ./backend
 
       # ── 7. Deploy to Firebase (hosting + functions + firestore rules) ─────────
