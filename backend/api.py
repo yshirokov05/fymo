@@ -1374,26 +1374,29 @@ def upload_statement():
             file.save(temp_file.name)
             temp_path = temp_file.name
             
-        logging.info(f"Analyzing statement {temp_path} via Gemini Vision...")
-        uploaded_file = genai.upload_file(temp_path)
-        
         system_instruction = "You are an extreme-precision document data extraction pipeline. You must extract every individual transaction line item from the provided bank or credit card statement. Return ONLY a valid JSON Array of objects. Each object MUST have these exact 4 keys: 'date' (string, YYYY-MM-DD), 'name' (string, the merchant or description), 'amount' (float, MUST be negative (-) for purchases/withdrawals, and positive (+) for deposits/payments/refunds!), and 'category' (string, best guess or 'Other'). Do NOT include markdown blocks like ```json."
-        
         prompt = "Extract all transactions from this statement. Output a raw JSON Array, nothing else."
-        
+
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             system_instruction=system_instruction,
             generation_config={"response_mime_type": "application/json"}
         )
 
-        response = model.generate_content([uploaded_file, prompt])
-
-        os.remove(temp_path)
-        try:
-            genai.delete_file(uploaded_file.name)
-        except Exception:
-            pass
+        if ext in {'.png', '.jpg', '.jpeg'}:
+            from PIL import Image as PILImage
+            pil_image = PILImage.open(temp_path)
+            response = model.generate_content([pil_image, prompt])
+            os.remove(temp_path)
+        else:  # PDF
+            logging.info(f"Uploading PDF statement to Gemini File API...")
+            uploaded_file = genai.upload_file(temp_path)
+            response = model.generate_content([uploaded_file, prompt])
+            os.remove(temp_path)
+            try:
+                genai.delete_file(uploaded_file.name)
+            except Exception:
+                pass
             
         parsed_array = json.loads(response.text)
         
@@ -1466,9 +1469,6 @@ def extract_document():
             file.save(temp_file.name)
             temp_path = temp_file.name
             
-        logging.info(f"Uploading file {temp_path} to Gemini for user {request.uid}...")
-        uploaded_file = genai.upload_file(temp_path)
-        
         if doc_type == 'check':
             system_instruction = "You are a precise financial document extraction API. Analyze the provided check image. Return ONLY a valid JSON object with the following keys: amount (float, just the numerical value), payee (string, who the check is written to), and date_written (string, format YYYY-MM-DD). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
             prompt = "Extract the check data from this image."
@@ -1478,21 +1478,29 @@ def extract_document():
         else:
             system_instruction = "You are a precise financial document extraction API. Analyze the provided W-2 or paystub. Return ONLY a valid JSON object with the following keys: gross_income (float), net_income (float), pay_date (string, YYYY-MM-DD), federal_taxes_withheld (float), state_taxes_withheld (float), social_security_withheld (float), medicare_withheld (float), and employer_name (string). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
             prompt = "Extract the financial data from this document."
-        
+
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
             system_instruction=system_instruction,
             generation_config={"response_mime_type": "application/json"}
         )
 
-        response = model.generate_content([uploaded_file, prompt])
-        
-        # Cleanup temp file and remote file
-        os.remove(temp_path)
-        try:
-            genai.delete_file(uploaded_file.name)
-        except Exception as delete_e:
-            logging.warning(f"Failed to delete remote Gemini file: {delete_e}")
+        # Use PIL inline for images (bypasses File API v1beta limitation)
+        # Use File API only for PDFs
+        if ext in {'.png', '.jpg', '.jpeg'}:
+            from PIL import Image as PILImage
+            pil_image = PILImage.open(temp_path)
+            response = model.generate_content([pil_image, prompt])
+            os.remove(temp_path)
+        else:  # PDF
+            logging.info(f"Uploading PDF {temp_path} to Gemini File API...")
+            uploaded_file = genai.upload_file(temp_path)
+            response = model.generate_content([uploaded_file, prompt])
+            os.remove(temp_path)
+            try:
+                genai.delete_file(uploaded_file.name)
+            except Exception as delete_e:
+                logging.warning(f"Failed to delete remote Gemini file: {delete_e}")
             
         result_json = json.loads(response.text)
         return jsonify({'success': True, 'data': result_json})
