@@ -246,6 +246,40 @@ def get_auth_status():
     email = getattr(request, 'email', None)
     return jsonify({'uid': request.uid, 'email': email, 'is_authorized': is_user_authorized(request.uid, email)})
 
+@app.route('/api/admin/migrate_whitelist_to_subscribed', methods=['POST'])
+@auth_required
+def migrate_whitelist_to_subscribed():
+    """One-time migration: stamps is_subscribed=True on users docs for all whitelist entries."""
+    if getattr(request, 'email', None) != 'yshirokov05@gmail.com':
+        return jsonify({'error': 'Forbidden'}), 403
+
+    db = get_db()
+    whitelist_docs = db.collection('whitelist').get()
+
+    results = {'updated': [], 'skipped': [], 'errors': []}
+
+    for doc in whitelist_docs:
+        doc_id = doc.id
+        try:
+            # UID-keyed doc (from Stripe) — doc ID is a Firebase UID (no @)
+            if '@' not in doc_id:
+                db.collection('users').document(doc_id).set({'is_subscribed': True}, merge=True)
+                results['updated'].append(doc_id)
+            else:
+                # Email-keyed doc — look up the UID via Firebase Auth
+                from firebase_admin import auth as fb_auth
+                try:
+                    user_record = fb_auth.get_user_by_email(doc_id)
+                    db.collection('users').document(user_record.uid).set({'is_subscribed': True}, merge=True)
+                    results['updated'].append(doc_id)
+                except fb_auth.UserNotFoundError:
+                    results['skipped'].append(f"{doc_id} (no Firebase Auth user)")
+        except Exception as e:
+            results['errors'].append(f"{doc_id}: {str(e)}")
+
+    logging.info(f"Whitelist migration complete: {results}")
+    return jsonify(results)
+
 @app.route('/api/create_checkout_session', methods=['POST'])
 @token_required
 def create_checkout_session():
