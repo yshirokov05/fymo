@@ -1381,21 +1381,14 @@ def upload_statement():
         
         prompt = "Extract all transactions from this statement. Output a raw JSON Array, nothing else."
         
-        try:
-            model = genai.GenerativeModel(
-                model_name="gemini-pro",
-                system_instruction=system_instruction,
-                generation_config={"response_mime_type": "application/json"}
-            )
-        except Exception:
-            model = genai.GenerativeModel(
-                model_name="gemini-pro",
-                system_instruction=system_instruction,
-                generation_config={"response_mime_type": "application/json"}
-            )
-        
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_instruction,
+            generation_config={"response_mime_type": "application/json"}
+        )
+
         response = model.generate_content([uploaded_file, prompt])
-        
+
         os.remove(temp_path)
         try:
             genai.delete_file(uploaded_file.name)
@@ -1486,19 +1479,12 @@ def extract_document():
             system_instruction = "You are a precise financial document extraction API. Analyze the provided W-2 or paystub. Return ONLY a valid JSON object with the following keys: gross_income (float), net_income (float), pay_date (string, YYYY-MM-DD), federal_taxes_withheld (float), state_taxes_withheld (float), social_security_withheld (float), medicare_withheld (float), and employer_name (string). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
             prompt = "Extract the financial data from this document."
         
-        try:
-            model = genai.GenerativeModel(
-                model_name="gemini-pro",
-                system_instruction=system_instruction,
-                generation_config={"response_mime_type": "application/json"}
-            )
-        except Exception:
-            model = genai.GenerativeModel(
-                model_name="gemini-pro",
-                system_instruction=system_instruction,
-                generation_config={"response_mime_type": "application/json"}
-            )
-        
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_instruction,
+            generation_config={"response_mime_type": "application/json"}
+        )
+
         response = model.generate_content([uploaded_file, prompt])
         
         # Cleanup temp file and remote file
