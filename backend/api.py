@@ -412,7 +412,7 @@ def get_net_worth():
         net_worth_data['plaid_items'] = [{'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in plaid_items]
         net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
         net_worth_data['transactions'] = [transaction_to_dict(t) for t in (transactions or [])]
-        net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
+        net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer, 'is_net_primary': getattr(p, 'is_net_primary', False)} for p in paystubs]
         net_worth_data['filing_status'] = user.filing_status.name
         net_worth_data['state'] = user.state.name
         net_worth_data['employment_type'] = getattr(user, 'employment_type', EmploymentType.W2).name
@@ -695,7 +695,7 @@ def update_portfolio():
 
     if 'paystubs' in data:
         uid_for_ids = "demo_user" if request.uid == "guest" else request.uid
-        paystubs = [Paystub(id=p.get('id', str(uuid.uuid4())), user_id=uid_for_ids, date=p['date'], gross_amount=float(p['gross_amount']), net_amount=float(p.get('net_amount', 0)), tax_withheld=float(p.get('tax_withheld', 0)), employer=p.get('employer')) for p in data['paystubs']]
+        paystubs = [Paystub(id=p.get('id', str(uuid.uuid4())), user_id=uid_for_ids, date=p['date'], gross_amount=float(p['gross_amount']), net_amount=float(p.get('net_amount', 0)), tax_withheld=float(p.get('tax_withheld', 0)), employer=p.get('employer'), is_net_primary=bool(p.get('is_net_primary', False))) for p in data['paystubs']]
 
     if 'outstanding_checks' in data:
         from models import OutstandingCheck, CheckStatus
@@ -1172,7 +1172,7 @@ def set_access_token():
         net_worth_data['plaid_items'] = [{'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in plaid_items]
         net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
         net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
-        net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
+        net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer, 'is_net_primary': getattr(p, 'is_net_primary', False)} for p in paystubs]
         net_worth_data['filing_status'] = user.filing_status.name
         net_worth_data['state'] = user.state.name
         net_worth_data['employment_type'] = getattr(user, 'employment_type', EmploymentType.W2).name

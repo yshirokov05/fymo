@@ -678,13 +678,15 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         const yearPaystubs = paystubs.filter(p => new Date(p.date).getFullYear() === selectedTaxYear);
         const totalPaystubsGross = yearPaystubs.reduce((acc, p) => acc + parseFloat(p.gross_amount || 0), 0);
         const totalAnnualIncome = incomes.filter(inc => inc.year === selectedTaxYear).reduce((acc, inc) => acc + inc.amount, 0) + totalPaystubsGross;
+        // Warn if any paystub is marked net-primary but has no withholding data
+        const hasNetPaystubsWithNoWithholding = yearPaystubs.some(p => p.is_net_primary && !(parseFloat(p.tax_withheld) > 0));
         return (
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
                     <h2 className="text-3xl font-bold text-gray-800">Tax Estimation</h2>
                     <YearSelector />
                 </div>
-                <TaxCalculator 
+                <TaxCalculator
                     initialFilingStatus={userTaxInfo.filing_status}
                     initialState={userTaxInfo.state}
                     initialEmploymentType={userTaxInfo.employment_type}
@@ -695,6 +697,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     estimatedStateTax={taxLiability.state}
                     estimatedFicaTax={taxLiability.fica}
                     totalWithheldFromPaystubs={taxLiability.withheld}
+                    netPaystubWarning={hasNetPaystubsWithNoWithholding}
                     totalIncome={totalAnnualIncome}
                     selectedYear={selectedTaxYear}
                     incomes={incomes}

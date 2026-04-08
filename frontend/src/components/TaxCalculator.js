@@ -24,21 +24,22 @@ const USStates = {
     WY: "Wyoming"
 };
 
-const TaxCalculator = ({ 
-    initialFilingStatus, 
-    initialState, 
+const TaxCalculator = ({
+    initialFilingStatus,
+    initialState,
     initialEmploymentType = 'W2',
     initialBusinessDeductions = 0,
     initialDependents = 0,
-    onSave, 
-    estimatedFederalTax, 
-    estimatedStateTax, 
-    estimatedFicaTax, 
-    totalIncome, 
+    onSave,
+    estimatedFederalTax,
+    estimatedStateTax,
+    estimatedFicaTax,
+    totalIncome,
     totalWithheldFromPaystubs,
-    selectedYear, 
-    incomes, 
-    onUpdateHistoricalIncome 
+    netPaystubWarning = false,
+    selectedYear,
+    incomes,
+    onUpdateHistoricalIncome
 }) => {
     const [filingStatus, setFilingStatus] = useState(initialFilingStatus);
     const [state, setState] = useState(initialState);
@@ -196,6 +197,16 @@ const TaxCalculator = ({
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Estimated Tax Liability ({selectedYear})</h3>
+
+                {netPaystubWarning && (
+                    <div className="mb-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+                        <span className="mt-0.5">⚠️</span>
+                        <span>
+                            Some paystubs were imported as <strong>net (take-home) amounts</strong> without withholding data, so the "Total Paid YTD" below may be $0 or understated. To see your actual remaining tax due, enter the withholding amount on each paystub, or upload a paystub PDF using the tool below to auto-extract it.
+                        </span>
+                    </div>
+                )}
+
                 <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
                         <p className="text-xs font-black text-blue-600 uppercase mb-1">Projected Total Liability</p>
@@ -203,7 +214,7 @@ const TaxCalculator = ({
                     </div>
                     <div className="p-4 bg-green-50 rounded-xl border border-green-100">
                         <p className="text-xs font-black text-green-600 uppercase mb-1">Total Paid YTD (Withholding)</p>
-                        <p className="text-2xl font-black text-gray-900">${(totalWithheldFromPaystubs || 0).toLocaleString()}</p>
+                        <p className="text-2xl font-black text-gray-900">${((totalWithheldFromPaystubs || 0) + taxesWithheld).toLocaleString()}</p>
                     </div>
                 </div>
                 <p className="text-sm text-gray-600 mb-2">Detailed Breakdown:</p>
@@ -224,11 +235,11 @@ const TaxCalculator = ({
                         <span className="text-lg font-bold text-gray-800">Total Estimated Tax:</span>
                         <span className="text-lg font-bold text-red-600">${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    {taxesWithheld > 0 && (
+                    {((totalWithheldFromPaystubs || 0) + taxesWithheld) > 0 && (
                         <div className="flex justify-between items-center border-t pt-2 mt-2 bg-gray-50 -mx-6 px-6 pb-2 rounded-b-xl">
                             <span className="text-lg font-bold text-gray-800">Remaining Tax Due/(Refund):</span>
-                            <span className={`text-lg font-bold ${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax - taxesWithheld) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                ${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax - taxesWithheld).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <span className={`text-lg font-bold ${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax - (totalWithheldFromPaystubs || 0) - taxesWithheld) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                ${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax - (totalWithheldFromPaystubs || 0) - taxesWithheld).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                         </div>
                     )}

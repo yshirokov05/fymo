@@ -14,6 +14,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
     const [categoryUpdatePending, setCategoryUpdatePending] = useState(null);
     const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
     const [isSavingCategory, setIsSavingCategory] = useState(false);
+    const [hiddenAnalysisCategories, setHiddenAnalysisCategories] = useState(new Set());
     
     // Default to current month/year: "2026-04"
     const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -246,11 +247,17 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             const matchesSearch = !analysisSearch || t.name.toLowerCase().includes(analysisSearch.toLowerCase());
             if (!matchesSearch) return;
 
+            // Only count transactions in the current or previous month — prevents phantom $0 entries
+            const tDatePart = t.date.split('T')[0];
+            const isCurrentMonth = tDatePart >= thisMonthStartStr && tDatePart <= thisMonthEndStr;
+            const isPrevMonth = tDatePart >= lastMonthStartStr && tDatePart <= lastMonthEndStr;
+            if (!isCurrentMonth && !isPrevMonth) return;
+
             if (!results[cat]) results[cat] = { name: cat, current: 0, previous: 0 };
-            
-            if (t.date >= thisMonthStartStr && t.date <= thisMonthEndStr) {
+
+            if (isCurrentMonth) {
                 results[cat].current += t.amount;
-            } else if (t.date >= lastMonthStartStr && t.date <= lastMonthEndStr) {
+            } else if (isPrevMonth) {
                 results[cat].previous += t.amount;
             }
         });
@@ -759,7 +766,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                     </div>
                 );
             })()}
-
+
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
@@ -790,17 +797,18 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 <th className="pb-3 px-2 text-right">This Month</th>
                                 <th className="pb-3 px-2 text-right">Last Month</th>
                                 <th className="pb-3 px-2 text-right">Trend</th>
+                                <th className="pb-3 px-2"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {analysisData.length > 0 ? (
-                                analysisData.map((data, idx) => {
+                            {analysisData.filter(d => !hiddenAnalysisCategories.has(d.name)).length > 0 ? (
+                                analysisData.filter(d => !hiddenAnalysisCategories.has(d.name)).map((data, idx) => {
                                     const diff = data.current - data.previous;
                                     const percentChange = data.previous > 0 ? (diff / data.previous) * 100 : 0;
                                     const isUp = diff > 0;
-                                    
+
                                     return (
-                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
                                             <td className="py-3 px-2">
                                                 <div className="flex items-center space-x-2">
                                                     <div className="p-1.5 bg-gray-100 rounded-lg text-gray-600">
@@ -813,24 +821,43 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             <td className="py-3 px-2 text-right font-bold text-sm text-gray-400">${data.previous.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
                                             <td className="py-3 px-2 text-right">
                                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                                    data.previous === 0 ? 'bg-gray-100 text-gray-500' : 
+                                                    data.previous === 0 ? 'bg-gray-100 text-gray-500' :
                                                     isUp ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
                                                 }`}>
                                                     {data.previous === 0 ? 'NEW' : `${isUp ? '+' : ''}${percentChange.toFixed(0)}%`}
                                                 </span>
+                                            </td>
+                                            <td className="py-3 px-2 text-right">
+                                                <button
+                                                    onClick={() => setHiddenAnalysisCategories(prev => new Set([...prev, data.name]))}
+                                                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-all"
+                                                    title={`Hide "${data.name}" from analysis`}
+                                                >
+                                                    <X size={14} />
+                                                </button>
                                             </td>
                                         </tr>
                                     );
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="4" className="py-8 text-center text-gray-400 text-sm italic">
+                                    <td colSpan="5" className="py-8 text-center text-gray-400 text-sm italic">
                                         {analysisSearch ? "No spending found matching that keyword." : "No spending data found for these periods."}
                                     </td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
+                    {hiddenAnalysisCategories.size > 0 && (
+                        <div className="mt-3 text-right">
+                            <button
+                                onClick={() => setHiddenAnalysisCategories(new Set())}
+                                className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
+                            >
+                                Show {hiddenAnalysisCategories.size} hidden {hiddenAnalysisCategories.size === 1 ? 'category' : 'categories'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
