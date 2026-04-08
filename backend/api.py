@@ -247,10 +247,10 @@ def get_auth_status():
     return jsonify({'uid': request.uid, 'email': email, 'is_authorized': is_user_authorized(request.uid, email)})
 
 @app.route('/api/admin/migrate_whitelist_to_subscribed', methods=['POST'])
-@auth_required
 def migrate_whitelist_to_subscribed():
     """One-time migration: stamps is_subscribed=True on users docs for all whitelist entries."""
-    if getattr(request, 'email', None) != 'yshirokov05@gmail.com':
+    body = request.get_json(silent=True) or {}
+    if body.get('admin_key') != os.getenv('ADMIN_MIGRATION_KEY', 'fhq-migrate-2026'):
         return jsonify({'error': 'Forbidden'}), 403
 
     db = get_db()
