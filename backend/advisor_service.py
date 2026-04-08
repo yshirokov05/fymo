@@ -328,6 +328,57 @@ def _sanitize_for_ai(text):
     if not text: return ""
     return "".join(char for char in str(text) if char.isprintable() or char in "\n\r\t")
 
+def _build_spending_summary(transactions):
+    """Builds current vs previous month spending by category for the AI context."""
+    from collections import defaultdict
+    category_map = {
+        'food': ['restaurant', 'doordash', 'uber eats', 'grubhub', 'chipotle', 'mcdonald', 'starbucks', 'coffee', 'pizza', 'sushi', 'taco', 'subway', 'chick-fil'],
+        'transport': ['uber', 'lyft', 'parking', 'gas', 'fuel', 'chevron', 'shell', 'bart', 'muni', 'caltrain', 'transit'],
+        'groceries': ['safeway', 'trader joe', 'whole foods', 'costco', 'walmart', 'target', 'kroger', 'albertsons', 'sprouts'],
+        'entertainment': ['netflix', 'spotify', 'hulu', 'disney', 'youtube', 'apple tv', 'amazon prime', 'game', 'cinema', 'theater', 'ticketmaster'],
+        'shopping': ['amazon', 'ebay', 'etsy', 'zara', 'h&m', 'nordstrom', 'gap', 'nike', 'adidas'],
+    }
+
+    now = datetime.utcnow()
+    this_month = now.month
+    this_year = now.year
+    prev_month = (now.replace(day=1) - timedelta(days=1)).month
+    prev_year = (now.replace(day=1) - timedelta(days=1)).year
+
+    this_month_by_cat = defaultdict(float)
+    prev_month_by_cat = defaultdict(float)
+
+    for t in transactions:
+        try:
+            t_date = datetime.strptime(t.get('date', ''), '%Y-%m-%d')
+        except Exception:
+            continue
+        amt = abs(float(t.get('amount', 0)))
+        if amt <= 0:
+            continue
+        name_lower = (t.get('name') or '').lower()
+        cat = 'other'
+        for c, keywords in category_map.items():
+            if any(k in name_lower for k in keywords):
+                cat = c
+                break
+
+        if t_date.month == this_month and t_date.year == this_year:
+            this_month_by_cat[cat] += amt
+        elif t_date.month == prev_month and t_date.year == prev_year:
+            prev_month_by_cat[cat] += amt
+
+    lines = []
+    all_cats = set(list(this_month_by_cat.keys()) + list(prev_month_by_cat.keys()))
+    for cat in sorted(all_cats, key=lambda c: -this_month_by_cat.get(c, 0)):
+        cur = this_month_by_cat.get(cat, 0)
+        prev = prev_month_by_cat.get(cat, 0)
+        if cur > 0 or prev > 0:
+            trend = f"+${cur - prev:.0f}" if cur > prev else f"-${prev - cur:.0f}" if prev > cur else "flat"
+            lines.append(f"{cat.title()}: ${cur:.0f} this month (prev: ${prev:.0f}, {trend})")
+    return "\n".join(lines) if lines else "No categorized transactions this month."
+
+
 def generate_overview(financial_data, brief_type="morning"):
     """
     Stage 1: Generates the core financial health bullets (Liquidity, Protection, Goals).
@@ -337,46 +388,58 @@ def generate_overview(financial_data, brief_type="morning"):
     raw_api_key = os.getenv('GEMINI_API_KEY', '')
     api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
     if not api_key: return "API Key missing."
-    
+
     genai.configure(api_key=api_key)
-    
-    transactions = financial_data.get('transactions', [])[:15]
+
+    transactions = financial_data.get('transactions', [])
     net_worth = financial_data.get('real_time_net_worth', 0)
-    recent_spend = sum(t.get('amount', 0) for t in transactions if not t.get('pending') and t.get('amount', 0) > 0)
-    
+
+    # Build category spending summary
+    spending_summary = _build_spending_summary(transactions)
+
+    # Recent 5 transactions for liquidity context
+    recent_txns = [t for t in transactions if not t.get('pending')][:5]
+    recent_txns_str = "; ".join([f"{t.get('name','?')} ${abs(t.get('amount',0)):.0f} on {t.get('date','')}" for t in recent_txns])
+
     insurances = financial_data.get('insurances', [])
-    insurance_summary = ", ".join([f"{i.get('insurance_type', 'Policy')} ({i.get('name', '')})" for i in insurances]) if insurances else "No policies recorded."
+    insurance_summary = ", ".join([f"{i.get('insurance_type','Policy')} ({i.get('name','')})" for i in insurances]) if insurances else "No policies recorded."
+
+    debts = financial_data.get('debts', [])
+    total_debt = sum(float(d.get('balance', 0)) for d in debts)
+    high_apr_debts = [d for d in debts if float(d.get('interest_rate', 0)) > 15]
+    debt_summary = f"Total debt: ${total_debt:,.0f}." + (f" High-APR: {', '.join([d.get('name','') + ' ' + str(d.get('interest_rate',''))+'%' for d in high_apr_debts])}" if high_apr_debts else " No high-APR debt.")
 
     brief_descriptions = {
         "morning": "a high-energy 'Morning Brief' focused on planning, liquidity, and upcoming events.",
-        "afternoon": "an 'Mid-Day Update' reflecting on morning spending and goal tracking.",
-        "evening": "an 'Evening Review' summarizing the day's financial wins or losses and reviewing protection.",
+        "afternoon": "a 'Mid-Day Update' reflecting on morning spending and goal tracking.",
+        "evening": "an 'Evening Review' summarizing the day's financial activity and protection gaps.",
         "night": "a 'Nightly Audit' for a calm review of the balance sheet and trajectory."
     }
     current_persona = brief_descriptions.get(brief_type, brief_descriptions["morning"])
 
     system_instruction = f"""
-    You are the FHQ AI Analyst preparing {current_persona}.
-    Provide a 'Brutally Honest' report with:
-    
-    1. Three concise bullet points (1-2 sentences each) covering:
-       - **Liquidity Check:** (Pending checks or recent spend impact on cash.)
-       - **Insurance & Protection:** (Gaps in coverage.)
-       - **Goal Progress:** (Are they on track?)
-    
-    CONTEXT:
-    - Net Worth: ${net_worth:,.2f}
-    - Recent Spend: ${recent_spend:,.2f}
-    - Debts (Analyze APR): {json.dumps(financial_data.get('debts', []))[:500]}
-    - Insurance: {insurance_summary}
-    
-    RULES:
-    1. Be direct. No filler.
-    2. Respond within 450 characters.
-    """
-    
+You are the FHQ AI Analyst preparing {current_persona}.
+Give a 'Brutally Honest' report with exactly 3 bold bullets (1-2 sentences each):
+- **Liquidity Check:** Comment on recent specific transactions and cash flow.
+- **Insurance & Protection:** Gaps in coverage.
+- **Goal Progress:** Debt trajectory and savings momentum.
+
+USER DATA:
+- Net Worth: ${net_worth:,.2f}
+- {debt_summary}
+- Insurance: {insurance_summary}
+- Recent transactions: {recent_txns_str}
+- Spending by category this month vs last month:
+{spending_summary}
+
+RULES:
+1. Reference SPECIFIC dollar amounts from the data above — never be vague.
+2. Be direct. No filler phrases like "it appears" or "it seems".
+3. Total response must be under 500 characters.
+"""
+
     system_instruction = _sanitize_for_ai(system_instruction)
-    
+
     try:
         model = _get_model(system_instruction=system_instruction)
         response = model.generate_content(f"Generate my {brief_type} overview now.", request_options={"timeout": 20})
