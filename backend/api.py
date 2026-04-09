@@ -787,6 +787,20 @@ def update_portfolio():
         )
         logging.info(f"Permanently excluding paystub IDs: {_newly_excluded_ids | _extra_excluded_ids}, employers: {_extra_excluded_employers}")
 
+        # Hard-delete removed paystubs from the subcollection so get_user_data
+        # doesn't reload them on the next request (subcollection persists across saves).
+        try:
+            _db = get_db()
+            if _db:
+                _user_ref = _db.collection('users').document(uid)
+                _del_batch = _db.batch()
+                for _pid in _newly_excluded_ids:
+                    _del_batch.delete(_user_ref.collection('paystubs').document(_pid))
+                _del_batch.commit()
+                logging.info(f"Deleted {len(_newly_excluded_ids)} paystub(s) from subcollection: {_newly_excluded_ids}")
+        except Exception as _e:
+            logging.error(f"Failed to delete paystubs from subcollection: {_e}")
+
     save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
 
     price_map = get_multiple_prices([a.ticker for a in assets])
