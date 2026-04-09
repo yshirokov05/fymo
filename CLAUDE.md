@@ -8,8 +8,8 @@ FHQ is a full-stack personal finance web app. React 19 frontend, Python/Flask ba
 
 - **Live URL:** https://personal-finance-app-18cbc.web.app
 - **Firebase project:** `personal-finance-app-18cbc`
-- **Current version:** v1.2.1 (Production)
-- **Current phase:** Phase 6 — Stripe billing + market launch
+- **Current version:** v1.3.0 (Production)
+- **Current phase:** Market Launch & User Engagement (Phase 6 Stripe complete)
 
 ## Key Files
 
