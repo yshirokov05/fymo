@@ -32,12 +32,16 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
         setIsMobileMenuOpen(false);
     };
 
+    const activeNavStyle = {
+        backgroundColor: 'var(--accent)',
+    };
+
     return (
-        <div className="flex h-screen bg-gray-100 overflow-hidden">
-            {/* Desktop Sidebar (hidden on mobile) */}
+        <div className="flex h-screen bg-gray-100 dark:bg-slate-950 overflow-hidden">
+            {/* Desktop Sidebar */}
             <div className="hidden md:flex md:w-64 bg-gray-900 text-white flex-shrink-0 flex-col">
                 <div className="p-6 flex items-center justify-between">
-                    <span className="text-2xl font-black tracking-tighter text-blue-400">FHQ</span>
+                    <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>FHQ</span>
                     {isPremium ? (
                         <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded text-[10px] font-black uppercase tracking-widest">Premium</span>
                     ) : (
@@ -49,10 +53,11 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                         <button
                             key={item.id}
                             onClick={() => handleNavClick(item.id)}
+                            style={activeView === item.id ? activeNavStyle : {}}
                             className={`
                                 w-full flex items-center space-x-3 py-3 px-4 rounded-lg transition duration-200
-                                ${activeView === item.id 
-                                    ? 'bg-blue-600 text-white shadow-lg' 
+                                ${activeView === item.id
+                                    ? 'text-white shadow-lg'
                                     : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
                             `}
                         >
@@ -81,7 +86,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                     <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsMobileMenuOpen(false)}></div>
                     <div className="relative w-full max-w-xs bg-gray-900 text-white flex flex-col h-full shadow-xl">
                         <div className="p-6 flex items-center justify-between border-b border-gray-800">
-                            <span className="text-2xl font-black tracking-tighter text-blue-400">FHQ</span>
+                            <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>FHQ</span>
                             <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white">
                                 <X size={24} />
                             </button>
@@ -91,10 +96,11 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                                 <button
                                     key={item.id}
                                     onClick={() => handleNavClick(item.id)}
+                                    style={activeView === item.id ? activeNavStyle : {}}
                                     className={`
                                         w-full flex items-center space-x-3 py-4 px-4 rounded-lg transition duration-200
-                                        ${activeView === item.id 
-                                            ? 'bg-blue-600 text-white shadow-lg' 
+                                        ${activeView === item.id
+                                            ? 'text-white shadow-lg'
                                             : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
                                     `}
                                 >
@@ -104,10 +110,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                             ))}
                             <div className="pt-4 mt-4 border-t border-gray-800">
                                 <button
-                                    onClick={() => {
-                                        onOpenFeedback();
-                                        setIsMobileMenuOpen(false);
-                                    }}
+                                    onClick={() => { onOpenFeedback(); setIsMobileMenuOpen(false); }}
                                     className="w-full flex items-center space-x-3 py-4 px-4 rounded-lg text-blue-400 bg-blue-400/5 transition duration-200"
                                 >
                                     <MessageSquare size={24} />
@@ -123,15 +126,15 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
             )}
 
             {/* Main content area */}
-            <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 relative">
+            <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-slate-900 relative">
                 {/* Mobile Top Bar */}
-                <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40 bg-white/80 backdrop-blur-md">
+                <header className="md:hidden bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
                     <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center space-x-1">
                         <Menu size={24} />
                         <span className="text-xs font-bold uppercase tracking-tight">Menu</span>
                     </button>
-                    <span className="text-xl font-black tracking-tighter text-blue-600">Financial HQ</span>
-                    <div className="w-16"></div> {/* Spacer for symmetry */}
+                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>Financial HQ</span>
+                    <div className="w-16"></div>
                 </header>
 
                 <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
@@ -141,7 +144,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                 </main>
 
                 {/* Mobile Bottom Nav */}
-                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex items-center justify-between z-40 safe-area-pb">
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between z-40 safe-area-pb">
                     {quickNavItems.map((item) => (
                         <button
                             key={item.id}
@@ -153,10 +156,11 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                                 }
                             }}
                             className={`p-2 flex flex-col items-center justify-center rounded-xl transition-all duration-200 ${
-                                activeView === item.id 
-                                ? 'text-blue-600 scale-110' 
-                                : 'text-gray-400 hover:text-gray-600'
+                                activeView === item.id
+                                ? 'scale-110'
+                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                             }`}
+                            style={activeView === item.id ? { color: 'var(--accent)' } : {}}
                         >
                             {item.icon}
                             <span className="text-[10px] font-bold mt-0.5 uppercase tracking-tighter">{item.label}</span>

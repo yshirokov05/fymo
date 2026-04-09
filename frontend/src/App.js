@@ -19,6 +19,7 @@ import Onboarding from './components/Onboarding';
 import FeedbackModal from './components/FeedbackModal';
 import StatementUpload from './components/StatementUpload';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider, useToast } from './components/Toast';
 import { RefreshCw, CreditCard, Upload } from 'lucide-react';
 
@@ -831,10 +832,12 @@ function App() {
 
 export default function Root() {
     return (
-        <ToastProvider>
-            <AuthProvider>
-                <App />
-            </AuthProvider>
-        </ToastProvider>
+        <ThemeProvider>
+            <ToastProvider>
+                <AuthProvider>
+                    <App />
+                </AuthProvider>
+            </ToastProvider>
+        </ThemeProvider>
     );
 }

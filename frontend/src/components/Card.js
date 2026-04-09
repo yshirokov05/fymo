@@ -2,10 +2,10 @@ import React from 'react';
 
 const Card = ({ children, title, icon, className = "", id = "" }) => {
     return (
-        <div id={id} className={`bg-white rounded-lg shadow-md p-6 relative ${className}`}>
+        <div id={id} className={`bg-white dark:bg-slate-800 rounded-lg shadow-md dark:shadow-slate-900/50 p-6 relative ${className}`}>
             <div className="flex items-center mb-4">
                 {icon && <div className="mr-3">{icon}</div>}
-                <h3 className="text-xl font-semibold">{title}</h3>
+                <h3 className="text-xl font-semibold dark:text-slate-100">{title}</h3>
             </div>
             <div>
                 {children}

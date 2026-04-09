@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── CSS Variables ─────────────────────────────────────────── */
+:root {
+  --accent:         #2563eb;
+  --accent-light:   #eff6ff;
+  --accent-dark:    #1d4ed8;
+  --accent-sidebar: #3b82f6;
+}
+
+/* ─── Base ───────────────────────────────────────────────────── */
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -12,6 +21,82 @@ body {
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
+
+/* ─── Dark Mode — Surface overrides ─────────────────────────── */
+/* Applied via .dark class on <html>. These override Tailwind's
+   compiled utility classes that are scattered across all 26
+   components without needing to edit each one individually.    */
+
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Card / panel surfaces */
+.dark .bg-white          { background-color: #1e293b !important; }
+.dark .bg-gray-50        { background-color: #162032 !important; }
+.dark .bg-gray-100       { background-color: #1e293b !important; }
+.dark .bg-gray-200       { background-color: #273549 !important; }
+
+/* Text */
+.dark .text-gray-900     { color: #f1f5f9 !important; }
+.dark .text-gray-800     { color: #e2e8f0 !important; }
+.dark .text-gray-700     { color: #cbd5e1 !important; }
+.dark .text-gray-600     { color: #94a3b8 !important; }
+.dark .text-gray-500     { color: #64748b !important; }
+
+/* Borders */
+.dark .border-gray-100   { border-color: #334155 !important; }
+.dark .border-gray-200   { border-color: #334155 !important; }
+.dark .border-gray-300   { border-color: #475569 !important; }
+.dark .divide-gray-50    > * + * { border-color: #334155 !important; }
+.dark .divide-gray-100   > * + * { border-color: #334155 !important; }
+.dark .divide-gray-200   > * + * { border-color: #334155 !important; }
+
+/* Hover states */
+.dark .hover\:bg-gray-50:hover   { background-color: #1e2d40 !important; }
+.dark .hover\:bg-gray-100:hover  { background-color: #273549 !important; }
+
+/* Inputs & selects */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark textarea,
+.dark select {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #64748b; }
+
+/* Shadows in dark mode */
+.dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.4) !important; }
+.dark .shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5) !important; }
+.dark .shadow-lg  { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5) !important; }
+
+/* Coloured tinted backgrounds — slightly darken them in dark mode */
+.dark .bg-blue-50   { background-color: #1e2d47 !important; }
+.dark .bg-green-50  { background-color: #162d1e !important; }
+.dark .bg-red-50    { background-color: #2d1619 !important; }
+.dark .bg-amber-50  { background-color: #2d2316 !important; }
+.dark .bg-indigo-50 { background-color: #1e1f3a !important; }
+.dark .bg-purple-50 { background-color: #241e36 !important; }
+.dark .bg-orange-50 { background-color: #2d2016 !important; }
+
+/* Table hover */
+.dark .hover\:bg-gray-50\/50:hover { background-color: rgba(30,45,64,0.5) !important; }
+
+/* Recharts chart text — keep readable in dark mode */
+.dark .recharts-cartesian-axis-tick text { fill: #94a3b8; }
+.dark .recharts-legend-item-text          { color: #94a3b8 !important; }
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Scrollbar (webkit) */
+.custom-scrollbar::-webkit-scrollbar       { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }

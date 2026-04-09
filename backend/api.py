@@ -246,6 +246,38 @@ def get_auth_status():
     email = getattr(request, 'email', None)
     return jsonify({'uid': request.uid, 'email': email, 'is_authorized': is_user_authorized(request.uid, email)})
 
+@app.route('/api/admin/grant_premium', methods=['POST'])
+def grant_premium():
+    """Admin: directly grant premium to a user by email or UID, no Stripe required."""
+    body = request.get_json(silent=True) or {}
+    if body.get('admin_key') != os.getenv('ADMIN_MIGRATION_KEY', 'fhq-migrate-2026'):
+        return jsonify({'error': 'Forbidden'}), 403
+
+    email = (body.get('email') or '').strip().lower()
+    uid = (body.get('uid') or '').strip()
+
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB unavailable'}), 500
+
+    try:
+        from firebase_admin import auth as fb_auth
+        if not uid and email:
+            user_record = fb_auth.get_user_by_email(email)
+            uid = user_record.uid
+
+        if not uid:
+            return jsonify({'error': 'Provide email or uid'}), 400
+
+        db.collection('users').document(uid).set({'is_subscribed': True}, merge=True)
+        db.collection('whitelist').document(uid).set({'granted': True, 'email': email}, merge=True)
+        logging.info(f"Admin grant_premium: uid={uid} email={email}")
+        return jsonify({'success': True, 'uid': uid, 'email': email})
+    except Exception as e:
+        logging.error(f"grant_premium error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/admin/migrate_whitelist_to_subscribed', methods=['POST'])
 def migrate_whitelist_to_subscribed():
     """One-time migration: stamps is_subscribed=True on users docs for all whitelist entries."""

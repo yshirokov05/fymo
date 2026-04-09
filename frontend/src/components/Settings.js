@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X } from 'lucide-react';
+import { useTheme, ACCENT_PRESETS } from '../context/ThemeContext';
+import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette } from 'lucide-react';
 import PlaidLink from './PlaidLink';
 import axios from 'axios';
 import { useToast } from './Toast';
@@ -8,6 +9,7 @@ import { useToast } from './Toast';
 const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, handlePlaidSync, onPlaidSuccess, isSyncing, syncMessage, customCategories = [], onSaveCustomCategories }) => {
     const { currentUser, logout } = useAuth();
     const { showToast } = useToast();
+    const { isDark, toggleDark, accentId, setAccentId } = useTheme();
     const [health, setHealth] = useState(null);
     const [plaidError, setPlaidError] = useState(null);
     const [updateToken, setUpdateToken] = useState(null);
@@ -270,6 +272,67 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* ── Theme & Appearance ── */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+                <div className="p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                        <Palette className="mr-2 text-indigo-500" size={20} />
+                        Appearance
+                    </h2>
+
+                    {/* Dark / Light toggle */}
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl mb-4">
+                        <div className="flex items-center space-x-3">
+                            {isDark ? <Moon size={20} className="text-indigo-400" /> : <Sun size={20} className="text-amber-500" />}
+                            <div>
+                                <p className="font-bold text-gray-900">{isDark ? 'Dark Mode' : 'Light Mode'}</p>
+                                <p className="text-xs text-gray-500">Toggle the interface theme</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={toggleDark}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                                isDark ? 'bg-indigo-600' : 'bg-gray-300'
+                            }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                    isDark ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
+                        </button>
+                    </div>
+
+                    {/* Accent colour picker */}
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                        <p className="font-bold text-gray-900 mb-1">Accent Colour</p>
+                        <p className="text-xs text-gray-500 mb-4">Changes highlights, active states, and buttons</p>
+                        <div className="flex flex-wrap gap-3">
+                            {ACCENT_PRESETS.map(preset => (
+                                <button
+                                    key={preset.id}
+                                    onClick={() => setAccentId(preset.id)}
+                                    title={preset.label}
+                                    className={`flex flex-col items-center gap-1.5 group`}
+                                >
+                                    <span
+                                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 ${
+                                            accentId === preset.id ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
+                                        }`}
+                                        style={{ backgroundColor: preset.color }}
+                                    >
+                                        {accentId === preset.id && (
+                                            <Check size={14} className="text-white" strokeWidth={3} />
+                                        )}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-gray-500">{preset.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
 
