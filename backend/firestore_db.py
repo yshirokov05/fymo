@@ -103,6 +103,7 @@ def get_user_data(user_id="default_user"):
         ignored_subscription_merchants=data.get('ignored_subscription_merchants', []),
         manual_subscription_merchants=data.get('manual_subscription_merchants', []),
         ignored_flexible=data.get('ignored_flexible', []),
+        excluded_paystub_ids=data.get('excluded_paystub_ids', []),
         stripe_customer_id=data.get('stripe_customer_id'),
         stripe_subscription_id=data.get('stripe_subscription_id')
     )
@@ -385,6 +386,7 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
         'ignored_subscription_merchants': getattr(user, 'ignored_subscription_merchants', []),
         'manual_subscription_merchants': getattr(user, 'manual_subscription_merchants', []),
         'ignored_flexible': ignored_flexible,
+        'excluded_paystub_ids': getattr(user, 'excluded_paystub_ids', []),
         'stripe_customer_id': getattr(user, 'stripe_customer_id', None),
         'stripe_subscription_id': getattr(user, 'stripe_subscription_id', None)
     }

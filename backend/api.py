@@ -591,6 +591,8 @@ def update_portfolio():
     data = request.get_json()
     uid = "demo_user" if request.uid == "guest" else request.uid
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
+    # Capture current paystub IDs before any modifications (used to detect deletions below)
+    _paystubs_before_save = {p.id for p in paystubs}
 
     if 'retirement_accounts' in data:
         try:
@@ -783,6 +785,13 @@ def update_portfolio():
         # Actually, let's just keep the active institution's transactions if we can.
         # This is complex, so let's stick to Assets and Debts which are the main "ghost" issues.
 
+    # Track any paystubs the user explicitly deleted so Plaid sync won't re-add them
+    _paystubs_after_save = {p.id for p in paystubs}
+    _newly_excluded_paystubs = _paystubs_before_save - _paystubs_after_save
+    if _newly_excluded_paystubs:
+        user.excluded_paystub_ids = list(set(getattr(user, 'excluded_paystub_ids', [])) | _newly_excluded_paystubs)
+        logging.info(f"Permanently excluding paystub IDs from sync: {_newly_excluded_paystubs}")
+
     save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
 
     price_map = get_multiple_prices([a.ticker for a in assets])
@@ -876,33 +885,44 @@ def plaid_sync():
                 retirement_accounts.append(nra)
                 existing_ra_ids.add(nra.id)
         
-        # Combine existing manual/other assets with newly synced assets
-        # Combine by (ticker, retirement_account_id) for consistency
-        merged_assets = {}
-        all_to_merge = assets + all_new_assets
-        for a in all_to_merge:
+        # ASSET MERGE: Replace Plaid-synced assets with fresh data; preserve manual assets.
+        # NOTE: Old approach (assets + all_new_assets merged by ticker key) caused doubling
+        # because the same Plaid-synced asset (already in Firestore) got its shares added
+        # to the fresh Plaid value on every sync.
+
+        # Step 1: Keep only manual assets (no plaid_account_id) from Firestore
+        manual_assets = [a for a in assets if not a.plaid_account_id]
+
+        # Step 2: Merge fresh Plaid assets by (ticker, retirement_account_id, tax_treatment)
+        # This correctly combines same holdings across multiple brokerage accounts
+        merged_plaid = {}
+        for a in all_new_assets:
             key = (a.ticker, a.retirement_account_id, a.tax_treatment.name)
-            if key not in merged_assets:
-                merged_assets[key] = a
+            if key not in merged_plaid:
+                merged_plaid[key] = a
             else:
-                existing = merged_assets[key]
+                existing = merged_plaid[key]
                 old_total_cost = existing.shares * existing.cost_basis
                 new_total_cost = a.shares * a.cost_basis
                 total_shares = existing.shares + a.shares
-                
                 if total_shares > 0:
                     existing.cost_basis = (old_total_cost + new_total_cost) / total_shares
-                
                 existing.shares = total_shares
-                
-                # Sum total gains if both exist
                 if a.total_gain is not None:
                     existing.total_gain = (existing.total_gain or 0) + a.total_gain
-                
                 if a.institution_name and existing.institution_name != a.institution_name:
                     if existing.institution_name != 'Multiple Accounts':
                         existing.institution_name = 'Multiple Accounts'
-        assets = list(merged_assets.values())
+
+        # Step 3: Add manual assets only when they don't conflict with fresh Plaid data
+        # (Plaid wins on ticker collision — avoids double-counting the same account)
+        plaid_keys = set(merged_plaid.keys())
+        for ma in manual_assets:
+            ma_key = (ma.ticker, ma.retirement_account_id, ma.tax_treatment.name)
+            if ma_key not in plaid_keys:
+                merged_plaid[ma_key] = ma
+
+        assets = list(merged_plaid.values())
 
         # DEBTS: Preserve manual interest rates and manual NAME overrides
         existing_plaid_debts = {d.plaid_account_id: d for d in debts if d.plaid_account_id}
@@ -989,8 +1009,13 @@ def plaid_sync():
         transactions.sort(key=lambda x: x.date, reverse=True)
 
         existing_paystub_ids = {p.id for p in paystubs}
+        _excluded_paystub_ids = set(getattr(user, 'excluded_paystub_ids', []))
         for np in all_new_paystubs:
-            if np.id not in existing_paystub_ids: paystubs.append(np)
+            if np.id in _excluded_paystub_ids:
+                logging.info(f"Skipping excluded paystub: {np.id} ({np.employer})")
+                continue
+            if np.id not in existing_paystub_ids:
+                paystubs.append(np)
 
         # INVESTMENT INCOME MERGE & DEDUPE
         existing_income_fingerprints = {
