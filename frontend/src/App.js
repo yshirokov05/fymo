@@ -227,10 +227,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setBudgets(response.data.budgets || []);
         setPaystubs(response.data.paystubs || []);
         setOutstandingChecks(response.data.outstanding_checks || []);
-        setOutstandingChecks(response.data.outstanding_checks || []);
         setPlaidItems(response.data.plaid_items || []);
         setNetWorth(response.data.real_time_net_worth);
         setTaxDetails(response.data.tax_details || {});
+        setIsPremium(response.data.is_subscribed || response.data.is_authorized || false);
 
         const yearData = response.data.tax_details?.[selectedTaxYear] || {
             federal_tax: 0,

@@ -798,7 +798,11 @@ def update_portfolio():
     net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
     net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
     net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
-    net_worth_data['is_authorized'] = is_user_authorized(uid, getattr(request, 'email', None))
+    _is_authorized = is_user_authorized(uid, getattr(request, 'email', None))
+    _is_subscribed = getattr(user, 'is_subscribed', False)
+    _is_premium = _is_subscribed or _is_authorized
+    net_worth_data['is_authorized'] = _is_premium
+    net_worth_data['is_subscribed'] = _is_premium
     net_worth_data['ignored_flexible'] = ignored_flexible
     return jsonify(net_worth_data)
 
@@ -1079,7 +1083,11 @@ def plaid_sync():
         net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
         net_worth_data['paystubs'] = [paystub_to_dict(p) for p in paystubs]
         net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
-        net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
+        _is_authorized = is_user_authorized(request.uid, getattr(request, 'email', None))
+        _is_subscribed = getattr(user, 'is_subscribed', False)
+        _is_premium = _is_subscribed or _is_authorized
+        net_worth_data['is_authorized'] = _is_premium
+        net_worth_data['is_subscribed'] = _is_premium
         return jsonify(net_worth_data)
     except Exception as e:
         import traceback
@@ -1153,7 +1161,11 @@ def update_subscription_preferences():
     net_worth_data['business_deductions'] = getattr(user, 'business_deductions', 0.0)
     net_worth_data['dependents'] = getattr(user, 'dependents', 0)
     net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
-    net_worth_data['is_authorized'] = is_user_authorized(uid, getattr(request, 'email', None))
+    _is_authorized = is_user_authorized(uid, getattr(request, 'email', None))
+    _is_subscribed = getattr(user, 'is_subscribed', False)
+    _is_premium = _is_subscribed or _is_authorized
+    net_worth_data['is_authorized'] = _is_premium
+    net_worth_data['is_subscribed'] = _is_premium
     return jsonify(net_worth_data)
 
 @app.route('/api/create_link_token', methods=['POST'])
@@ -1224,7 +1236,11 @@ def set_access_token():
         net_worth_data['business_deductions'] = getattr(user, 'business_deductions', 0.0)
         net_worth_data['dependents'] = getattr(user, 'dependents', 0)
         net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
-        net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
+        _is_authorized = is_user_authorized(request.uid, getattr(request, 'email', None))
+        _is_subscribed = getattr(user, 'is_subscribed', False)
+        _is_premium = _is_subscribed or _is_authorized
+        net_worth_data['is_authorized'] = _is_premium
+        net_worth_data['is_subscribed'] = _is_premium
         return jsonify(net_worth_data)
     except Exception as e:
         return jsonify({'error': "Failed to exchange access token."}), 500
