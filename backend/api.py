@@ -1388,15 +1388,14 @@ def upload_statement():
             pil_image = PILImage.open(temp_path)
             response = model.generate_content([pil_image, prompt])
             os.remove(temp_path)
-        else:  # PDF
-            logging.info(f"Uploading PDF statement to Gemini File API...")
-            uploaded_file = genai.upload_file(temp_path)
-            response = model.generate_content([uploaded_file, prompt])
+        else:  # PDF — pass bytes inline to avoid File API v1beta limitation
+            with open(temp_path, 'rb') as f:
+                pdf_bytes = f.read()
             os.remove(temp_path)
-            try:
-                genai.delete_file(uploaded_file.name)
-            except Exception:
-                pass
+            response = model.generate_content([
+                {"mime_type": "application/pdf", "data": pdf_bytes},
+                prompt
+            ])
             
         parsed_array = json.loads(response.text)
         
@@ -1485,22 +1484,20 @@ def extract_document():
             generation_config={"response_mime_type": "application/json"}
         )
 
-        # Use PIL inline for images (bypasses File API v1beta limitation)
-        # Use File API only for PDFs
+        # Pass data inline to avoid File API v1beta limitation with gemini-1.5-flash
         if ext in {'.png', '.jpg', '.jpeg'}:
             from PIL import Image as PILImage
             pil_image = PILImage.open(temp_path)
             response = model.generate_content([pil_image, prompt])
             os.remove(temp_path)
-        else:  # PDF
-            logging.info(f"Uploading PDF {temp_path} to Gemini File API...")
-            uploaded_file = genai.upload_file(temp_path)
-            response = model.generate_content([uploaded_file, prompt])
+        else:  # PDF — read bytes and pass inline (no File API)
+            with open(temp_path, 'rb') as f:
+                pdf_bytes = f.read()
             os.remove(temp_path)
-            try:
-                genai.delete_file(uploaded_file.name)
-            except Exception as delete_e:
-                logging.warning(f"Failed to delete remote Gemini file: {delete_e}")
+            response = model.generate_content([
+                {"mime_type": "application/pdf", "data": pdf_bytes},
+                prompt
+            ])
             
         result_json = json.loads(response.text)
         return jsonify({'success': True, 'data': result_json})

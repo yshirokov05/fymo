@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import Card from './Card';
 import axios from 'axios';
-import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, CreditCard, X, Search, BarChart2, Star, ChevronLeft, ChevronRight, Calendar, RefreshCw, TrendingUp, DollarSign, Activity } from 'lucide-react';
+import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, CreditCard, X, Search, BarChart2, Star, ChevronLeft, ChevronRight, Calendar, RefreshCw, TrendingUp, DollarSign, Activity, Upload } from 'lucide-react';
 import { useToast } from './Toast';
 
-const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCategories = [], onSaveCustomCategories, fetchData, ignoredSubscriptions = [], manualSubscriptions = [], setIgnoredSubscriptions, setManualSubscriptions, ignoredFlexible = [], onUpdateIgnoredFlexible }) => {
+const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCategories = [], onSaveCustomCategories, fetchData, ignoredSubscriptions = [], manualSubscriptions = [], setIgnoredSubscriptions, setManualSubscriptions, ignoredFlexible = [], onUpdateIgnoredFlexible, onImportStatement }) => {
     const { showToast } = useToast();
     const [newCategory, setNewCategory] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -388,7 +388,16 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                             </button>
                         </>
                     )}
-                    <button 
+                    {onImportStatement && (
+                        <button
+                            onClick={onImportStatement}
+                            className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors flex items-center space-x-2"
+                        >
+                            <Upload size={16} />
+                            <span>Import Statement</span>
+                        </button>
+                    )}
+                    <button
                         onClick={handleAddBudget}
                         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-bold flex items-center space-x-2"
                     >

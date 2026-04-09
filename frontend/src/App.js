@@ -646,10 +646,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         );
       case 'budget':
           return (
-              <Budgeting 
-                budgets={budgets} 
-                transactions={transactions} 
-                onSaveBudgets={handleSaveBudgets} 
+              <Budgeting
+                budgets={budgets}
+                transactions={transactions}
+                onSaveBudgets={handleSaveBudgets}
                 currentUser={currentUser}
                 customCategories={customCategories}
                 onSaveCustomCategories={handleSaveCustomCategories}
@@ -660,6 +660,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 setManualSubscriptions={setManualSubscriptionMerchants}
                 ignoredFlexible={ignoredFlexibleCategories}
                 onUpdateIgnoredFlexible={handleUpdateIgnoredFlexible}
+                onImportStatement={() => setIsUploadOpen(true)}
               />
           );
       case 'advisor':
