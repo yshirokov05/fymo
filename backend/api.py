@@ -451,8 +451,21 @@ def get_net_worth():
         net_worth_data['business_deductions'] = getattr(user, 'business_deductions', 0.0)
         net_worth_data['dependents'] = getattr(user, 'dependents', 0)
         net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in (outstanding_checks or [])]
-        net_worth_data['is_authorized'] = is_user_authorized(request.uid, getattr(request, 'email', None))
-        net_worth_data['is_subscribed'] = getattr(user, 'is_subscribed', False)
+        # Premium check: combine both signals, self-heal if whitelist says yes but doc says no
+        _email = getattr(request, 'email', None)
+        _is_subscribed = getattr(user, 'is_subscribed', False)
+        _is_authorized = is_user_authorized(request.uid, _email)
+        is_premium = _is_subscribed or _is_authorized
+        if _is_authorized and not _is_subscribed:
+            # Self-heal: stamp the users doc so future reads are consistent
+            try:
+                _db = get_db()
+                if _db:
+                    _db.collection('users').document(request.uid).set({'is_subscribed': True}, merge=True)
+            except Exception as _e:
+                logging.warning(f"Self-heal is_subscribed write failed: {_e}")
+        net_worth_data['is_authorized'] = is_premium
+        net_worth_data['is_subscribed'] = is_premium
         net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
         net_worth_data['manual_subscription_merchants'] = getattr(user, 'manual_subscription_merchants', [])
         net_worth_data['ignored_flexible'] = ignored_flexible
