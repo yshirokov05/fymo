@@ -591,8 +591,10 @@ def update_portfolio():
     data = request.get_json()
     uid = "demo_user" if request.uid == "guest" else request.uid
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
-    # Capture current paystub IDs before any modifications (used to detect deletions below)
-    _paystubs_before_save = {p.id for p in paystubs}
+    # Capture current paystubs before modifications (used to detect deletions below)
+    _paystubs_before_save_ids = {p.id for p in paystubs}
+    _paystubs_before_save_map = {p.id: p for p in paystubs}
+    _paystubs_before_save = _paystubs_before_save_ids  # alias used below
 
     if 'retirement_accounts' in data:
         try:
@@ -762,10 +764,22 @@ def update_portfolio():
 
     # Track any paystubs the user explicitly deleted so Plaid sync won't re-add them
     _paystubs_after_save = {p.id for p in paystubs}
-    _newly_excluded_paystubs = _paystubs_before_save - _paystubs_after_save
-    if _newly_excluded_paystubs:
-        user.excluded_paystub_ids = list(set(getattr(user, 'excluded_paystub_ids', [])) | _newly_excluded_paystubs)
-        logging.info(f"Permanently excluding paystub IDs from sync: {_newly_excluded_paystubs}")
+    _newly_excluded_ids = _paystubs_before_save_ids - _paystubs_after_save
+    if _newly_excluded_ids:
+        # Also derive Plaid transaction IDs from deleted paystubs so that if a manual
+        # paystub (UUID) is deleted and Plaid would re-detect the same employer from
+        # transactions, we block both the UUID version AND the paystub_{tid} version.
+        _extra_excluded = set()
+        for pid in _newly_excluded_ids:
+            deleted = _paystubs_before_save_map.get(pid)
+            if deleted and deleted.employer:
+                emp_lower = deleted.employer.lower().strip()
+                for t in transactions:
+                    if emp_lower in t.name.lower() and abs(t.amount) > 0:
+                        _extra_excluded.add(f"paystub_{t.id}")
+        all_newly_excluded = _newly_excluded_ids | _extra_excluded
+        user.excluded_paystub_ids = list(set(getattr(user, 'excluded_paystub_ids', [])) | all_newly_excluded)
+        logging.info(f"Permanently excluding paystub IDs from sync: {all_newly_excluded}")
 
     save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
 
@@ -985,9 +999,27 @@ def plaid_sync():
 
         existing_paystub_ids = {p.id for p in paystubs}
         _excluded_paystub_ids = set(getattr(user, 'excluded_paystub_ids', []))
+        # Secondary dedup fingerprint: (employer_lower, year-month, gross_amount)
+        # Prevents a Plaid-detected paystub from re-appearing after the user deleted
+        # a manually-entered paystub for the same employer/period.
+        existing_paystub_fingerprints = {
+            (
+                (p.employer or '').lower().strip(),
+                str(p.date)[:7],           # YYYY-MM
+                round(float(p.gross_amount or 0), 2)
+            )
+            for p in paystubs
+        }
         for np in all_new_paystubs:
             if np.id in _excluded_paystub_ids:
                 logging.info(f"Skipping excluded paystub: {np.id} ({np.employer})")
+                continue
+            np_fingerprint = (
+                (np.employer or '').lower().strip(),
+                str(np.date)[:7],
+                round(float(np.gross_amount or 0), 2)
+            )
+            if np_fingerprint in existing_paystub_fingerprints:
                 continue
             if np.id not in existing_paystub_ids:
                 paystubs.append(np)
