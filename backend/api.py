@@ -666,34 +666,9 @@ def update_portfolio():
                 tax_treatment=safe_enum(TaxTreatment, asset_data.get('tax_treatment'), TaxTreatment.TAXABLE)
             ))
         
-        # Merge all (existing manual + incoming)
-        merged = {}
-        # Prioritize manual assets or keep them separate? 
-        # User wants "combined for ease", so we combine by (ticker, retirement_account_id)
-        all_to_merge = assets + incoming_assets
-        for a in all_to_merge:
-            key = (a.ticker, a.retirement_account_id, a.tax_treatment.name)
-            if key not in merged:
-                merged[key] = a
-            else:
-                existing = merged[key]
-                old_total_cost = existing.shares * existing.cost_basis
-                new_total_cost = a.shares * a.cost_basis
-                total_shares = existing.shares + a.shares
-                
-                if total_shares > 0:
-                    existing.cost_basis = (old_total_cost + new_total_cost) / total_shares
-                
-                existing.shares = total_shares
-                
-                # Sum total gains if both exist
-                if a.total_gain is not None:
-                    existing.total_gain = (existing.total_gain or 0) + a.total_gain
-                
-                if a.institution_name and existing.institution_name != a.institution_name:
-                    if existing.institution_name != 'Multiple Accounts':
-                        existing.institution_name = 'Multiple Accounts'
-        assets = list(merged.values())
+        # The frontend sends the complete, authoritative asset list from EditPortfolio.
+        # Use it directly — no merge with old Firestore state (that caused doubling).
+        assets = incoming_assets
 
     if 'incomes' in data:
         incomes = []
@@ -822,7 +797,7 @@ def plaid_sync():
         return jsonify({'error': "Access restricted."}), 403
         
     # ARCH-4: Rate Limiting
-    if not check_rate_limit(request.uid, 'plaid_sync', limit_per_hour=5):
+    if not check_rate_limit(request.uid, 'plaid_sync', limit_per_hour=15):
         return jsonify({'error': "Sync limit reached. You can sync up to 5 times per hour."}), 429
 
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
