@@ -766,20 +766,26 @@ def update_portfolio():
     _paystubs_after_save = {p.id for p in paystubs}
     _newly_excluded_ids = _paystubs_before_save_ids - _paystubs_after_save
     if _newly_excluded_ids:
-        # Also derive Plaid transaction IDs from deleted paystubs so that if a manual
-        # paystub (UUID) is deleted and Plaid would re-detect the same employer from
-        # transactions, we block both the UUID version AND the paystub_{tid} version.
-        _extra_excluded = set()
+        _extra_excluded_ids = set()
+        _extra_excluded_employers = set()
         for pid in _newly_excluded_ids:
             deleted = _paystubs_before_save_map.get(pid)
             if deleted and deleted.employer:
                 emp_lower = deleted.employer.lower().strip()
+                # Block by employer name — most reliable since Plaid transaction IDs
+                # can differ (pending→cleared) or the transaction may not be in Firestore
+                _extra_excluded_employers.add(emp_lower)
+                # Also try ID-based exclusion via transaction lookup
                 for t in transactions:
-                    if emp_lower in t.name.lower() and abs(t.amount) > 0:
-                        _extra_excluded.add(f"paystub_{t.id}")
-        all_newly_excluded = _newly_excluded_ids | _extra_excluded
-        user.excluded_paystub_ids = list(set(getattr(user, 'excluded_paystub_ids', [])) | all_newly_excluded)
-        logging.info(f"Permanently excluding paystub IDs from sync: {all_newly_excluded}")
+                    if emp_lower in t.name.lower():
+                        _extra_excluded_ids.add(f"paystub_{t.id}")
+        user.excluded_paystub_ids = list(
+            set(getattr(user, 'excluded_paystub_ids', [])) | _newly_excluded_ids | _extra_excluded_ids
+        )
+        user.excluded_paystub_employers = list(
+            set(getattr(user, 'excluded_paystub_employers', [])) | _extra_excluded_employers
+        )
+        logging.info(f"Permanently excluding paystub IDs: {_newly_excluded_ids | _extra_excluded_ids}, employers: {_extra_excluded_employers}")
 
     save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
 
@@ -999,26 +1005,25 @@ def plaid_sync():
 
         existing_paystub_ids = {p.id for p in paystubs}
         _excluded_paystub_ids = set(getattr(user, 'excluded_paystub_ids', []))
+        _excluded_paystub_employers = {e.lower().strip() for e in getattr(user, 'excluded_paystub_employers', [])}
         # Secondary dedup fingerprint: (employer_lower, year-month, gross_amount)
-        # Prevents a Plaid-detected paystub from re-appearing after the user deleted
-        # a manually-entered paystub for the same employer/period.
         existing_paystub_fingerprints = {
             (
                 (p.employer or '').lower().strip(),
-                str(p.date)[:7],           # YYYY-MM
+                str(p.date)[:7],
                 round(float(p.gross_amount or 0), 2)
             )
             for p in paystubs
         }
         for np in all_new_paystubs:
+            np_employer = (np.employer or '').lower().strip()
             if np.id in _excluded_paystub_ids:
-                logging.info(f"Skipping excluded paystub: {np.id} ({np.employer})")
+                logging.info(f"Skipping excluded paystub by ID: {np.id} ({np.employer})")
                 continue
-            np_fingerprint = (
-                (np.employer or '').lower().strip(),
-                str(np.date)[:7],
-                round(float(np.gross_amount or 0), 2)
-            )
+            if np_employer and np_employer in _excluded_paystub_employers:
+                logging.info(f"Skipping excluded paystub by employer: {np.employer}")
+                continue
+            np_fingerprint = (np_employer, str(np.date)[:7], round(float(np.gross_amount or 0), 2))
             if np_fingerprint in existing_paystub_fingerprints:
                 continue
             if np.id not in existing_paystub_ids:

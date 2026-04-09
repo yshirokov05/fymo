@@ -129,6 +129,7 @@ class User:
     manual_subscription_merchants: List[str] = field(default_factory=list)
     ignored_flexible: List[str] = field(default_factory=list)
     excluded_paystub_ids: List[str] = field(default_factory=list)
+    excluded_paystub_employers: List[str] = field(default_factory=list)
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
 
