@@ -15,6 +15,8 @@ import Layout from './components/Layout';
 import Modal from './components/Modal';
 import Login from './components/Login';
 import DataPrivacyFAQ from './components/DataPrivacyFAQ';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfService from './components/TermsOfService';
 import Onboarding from './components/Onboarding';
 import FeedbackModal from './components/FeedbackModal';
 import StatementUpload from './components/StatementUpload';
@@ -737,6 +739,10 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           );
       case 'faq':
           return <DataPrivacyFAQ />;
+      case 'privacy':
+          return <PrivacyPolicy />;
+      case 'terms':
+          return <TermsOfService />;
       case 'visualizations':
           return <Visualizations />;
       default:

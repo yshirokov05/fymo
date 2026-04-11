@@ -75,8 +75,13 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                         </button>
                     </div>
                 </nav>
-                <div className="p-4 text-[10px] text-gray-500 border-t border-gray-800 leading-tight italic">
-                    All rights reserved. Built as a solo project by Yury Shirokov.
+                <div className="p-4 text-[10px] text-gray-500 border-t border-gray-800 leading-tight">
+                    <p className="italic mb-2">All rights reserved. Built as a solo project by Yury Shirokov.</p>
+                    <div className="flex space-x-3">
+                        <button onClick={() => setActiveView('privacy')} className="hover:text-gray-300 underline">Privacy Policy</button>
+                        <span>·</span>
+                        <button onClick={() => setActiveView('terms')} className="hover:text-gray-300 underline">Terms of Service</button>
+                    </div>
                 </div>
             </div>
 
@@ -118,8 +123,13 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                                 </button>
                             </div>
                         </nav>
-                        <div className="p-6 text-[11px] text-gray-500 border-t border-gray-800 leading-tight bg-gray-950/30 italic">
-                            All rights reserved. Built as a solo project by Yury Shirokov.
+                        <div className="p-6 text-[11px] text-gray-500 border-t border-gray-800 leading-tight bg-gray-950/30">
+                            <p className="italic mb-2">All rights reserved. Built as a solo project by Yury Shirokov.</p>
+                            <div className="flex space-x-3">
+                                <button onClick={() => { setActiveView('privacy'); setIsMobileMenuOpen(false); }} className="hover:text-gray-300 underline">Privacy Policy</button>
+                                <span>·</span>
+                                <button onClick={() => { setActiveView('terms'); setIsMobileMenuOpen(false); }} className="hover:text-gray-300 underline">Terms of Service</button>
+                            </div>
                         </div>
                     </div>
                 </div>
