@@ -91,13 +91,22 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const emergencyMonths = monthlySpend > 0 ? liquidValue / monthlySpend : null;
 
     // Portfolio return (non-cash invested assets)
-    const investedAssets = assets.filter(a => !liquidTypes.has(a.asset_type) && !liquidTickers.has(a.ticker) && a.cost_basis > 0);
+    const allInvestedAssets = assets.filter(a => !liquidTypes.has(a.asset_type) && !liquidTickers.has(a.ticker));
+    const allInvestedValue = allInvestedAssets.reduce((sum, a) => {
+        const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
+        return sum + Math.max(0, a.shares * price);
+    }, 0);
+    const investedAssets = allInvestedAssets.filter(a => a.cost_basis > 0);
     const totalCostBasis = investedAssets.reduce((sum, a) => sum + a.cost_basis, 0);
     const totalCurrentValue = investedAssets.reduce((sum, a) => {
         const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
         return sum + (a.shares * price);
     }, 0);
-    const portfolioReturn = totalCostBasis > 0 ? ((totalCurrentValue - totalCostBasis) / totalCostBasis) * 100 : null;
+    // Only show return % if cost basis covers ≥50% of total invested portfolio value
+    const costBasisCoverage = allInvestedValue > 0 ? totalCurrentValue / allInvestedValue : 0;
+    const portfolioReturn = totalCostBasis > 0 && costBasisCoverage >= 0.5
+        ? ((totalCurrentValue - totalCostBasis) / totalCostBasis) * 100
+        : null;
 
     const hasTransactionData = transactions.length > 0;
     const hasIncomeData = incomes.length > 0;
@@ -261,17 +270,24 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     </Card>
 
                     {/* Portfolio Return */}
-                    <Card title="Portfolio Return" icon={<BarChart2 className={portfolioReturn >= 0 ? "text-green-500" : "text-red-400"} />}>
-                        {portfolioReturn !== null ? (
+                    <Card title="Portfolio Return" icon={<BarChart2 className={portfolioReturn !== null ? (portfolioReturn >= 0 ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
+                        {totalCostBasis > 0 ? (
                             <>
-                                <p className={`text-2xl font-bold ${portfolioReturn >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                    {portfolioReturn >= 0 ? '+' : ''}{portfolioReturn.toFixed(2)}%
-                                </p>
+                                {portfolioReturn !== null ? (
+                                    <p className={`text-2xl font-bold ${portfolioReturn >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                        {portfolioReturn >= 0 ? '+' : ''}{portfolioReturn.toFixed(2)}%
+                                    </p>
+                                ) : (
+                                    <p className="text-2xl font-bold text-gray-400">N/A</p>
+                                )}
                                 <div className="mt-2 space-y-1 text-xs text-gray-500">
                                     <div className="flex justify-between"><span>Cost Basis</span><span className="font-semibold">${totalCostBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                     <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                     <div className="flex justify-between pt-1 border-t border-gray-100"><span>Gain / Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : ''}${(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                 </div>
+                                {portfolioReturn === null && (
+                                    <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis only covers {(costBasisCoverage * 100).toFixed(0)}% of portfolio — return % hidden</p>
+                                )}
                             </>
                         ) : (
                             <p className="text-sm text-gray-400 mt-1">Add investments with cost basis to track returns</p>
