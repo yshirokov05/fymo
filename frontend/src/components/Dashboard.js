@@ -3,7 +3,7 @@ import AssetTable from './AssetTable';
 import DebtTable from './DebtTable';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Card from './Card';
-import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap } from 'lucide-react';
+import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2 } from 'lucide-react';
 
 const COLORS = [
     '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', 
@@ -48,7 +48,59 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true }) => {
+    // --- Financial Health Metrics ---
+    const now = new Date();
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const ytdSpend = transactions
+        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+    const monthlySpend = transactions
+        .filter(t => t.amount > 0 && new Date(t.date) >= monthStart)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+    const monthlyIncome = incomes.reduce((sum, i) => sum + (i.monthly_income || 0), 0);
+
+    const monthlyCashFlow = monthlyIncome - monthlySpend;
+    const savingsRate = monthlyIncome > 0 ? (monthlyCashFlow / monthlyIncome) * 100 : null;
+
+    // Top 3 YTD categories
+    const ytdByCategory = {};
+    transactions
+        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart)
+        .forEach(t => {
+            const cat = t.category || 'Other';
+            ytdByCategory[cat] = (ytdByCategory[cat] || 0) + t.amount;
+        });
+    const topYtdCategories = Object.entries(ytdByCategory)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3);
+
+    // Liquid assets (cash-like) for emergency fund
+    const liquidTypes = new Set(['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS']);
+    const liquidTickers = new Set(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX']);
+    const liquidValue = assets
+        .filter(a => liquidTypes.has(a.asset_type) || liquidTickers.has(a.ticker))
+        .reduce((sum, a) => {
+            const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
+            return sum + (a.shares * price);
+        }, 0);
+    const emergencyMonths = monthlySpend > 0 ? liquidValue / monthlySpend : null;
+
+    // Portfolio return (non-cash invested assets)
+    const investedAssets = assets.filter(a => !liquidTypes.has(a.asset_type) && !liquidTickers.has(a.ticker) && a.cost_basis > 0);
+    const totalCostBasis = investedAssets.reduce((sum, a) => sum + a.cost_basis, 0);
+    const totalCurrentValue = investedAssets.reduce((sum, a) => {
+        const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
+        return sum + (a.shares * price);
+    }, 0);
+    const portfolioReturn = totalCostBasis > 0 ? ((totalCurrentValue - totalCostBasis) / totalCostBasis) * 100 : null;
+
+    const hasTransactionData = transactions.length > 0;
+    const hasIncomeData = incomes.length > 0;
     // Separate positive assets from margin debt (negative balances)
     const positiveAssets = assets.filter(asset => {
         const marketPrice = asset.current_price || (asset.shares > 0 ? asset.cost_basis / asset.shares : 0) || 0;
@@ -139,6 +191,91 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, hideSummary = false,
                     <Card title="Est. Annual Tax" icon={<DollarSign className="text-orange-500" />}>
                         <p className="text-2xl font-bold text-orange-600">${(taxLiability?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <p className="text-xs text-gray-500 mt-1">Informative only</p>
+                    </Card>
+                </div>
+            )}
+
+            {!hideSummary && (hasTransactionData || hasIncomeData || portfolioReturn !== null) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* YTD Spending */}
+                    <Card title="YTD Spending" icon={<TrendingDown className="text-red-400" />}>
+                        {hasTransactionData ? (
+                            <>
+                                <p className="text-2xl font-bold text-red-500">
+                                    ${ytdSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">Jan 1 – today</p>
+                                {topYtdCategories.length > 0 && (
+                                    <div className="mt-3 space-y-1">
+                                        {topYtdCategories.map(([cat, amt]) => (
+                                            <div key={cat} className="flex justify-between text-xs text-gray-600">
+                                                <span className="truncate mr-2">{cat}</span>
+                                                <span className="font-mono font-semibold shrink-0">${amt.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <p className="text-sm text-gray-400 mt-1">Link a bank account to track spending</p>
+                        )}
+                    </Card>
+
+                    {/* Monthly Cash Flow */}
+                    <Card title="Monthly Cash Flow" icon={monthlyCashFlow >= 0 ? <TrendingUp className="text-green-500" /> : <TrendingDown className="text-red-400" />}>
+                        {(hasTransactionData || hasIncomeData) ? (
+                            <>
+                                <p className={`text-2xl font-bold ${monthlyCashFlow >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                    {monthlyCashFlow >= 0 ? '+' : ''}${monthlyCashFlow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <div className="mt-2 space-y-1 text-xs text-gray-500">
+                                    <div className="flex justify-between"><span>Income</span><span className="font-semibold text-green-600">${monthlyIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between"><span>Spending</span><span className="font-semibold text-red-500">${monthlySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                    {savingsRate !== null && (
+                                        <div className="flex justify-between pt-1 border-t border-gray-100"><span>Savings Rate</span><span className={`font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-500'}`}>{savingsRate.toFixed(1)}%</span></div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <p className="text-sm text-gray-400 mt-1">Add income & link bank to see cash flow</p>
+                        )}
+                    </Card>
+
+                    {/* Emergency Fund */}
+                    <Card title="Emergency Fund" icon={<Shield className={emergencyMonths >= 6 ? "text-green-500" : emergencyMonths >= 3 ? "text-yellow-500" : "text-red-400"} />}>
+                        {emergencyMonths !== null ? (
+                            <>
+                                <p className={`text-2xl font-bold ${emergencyMonths >= 6 ? 'text-green-600' : emergencyMonths >= 3 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                    {emergencyMonths.toFixed(1)} <span className="text-base font-normal text-gray-500">mo</span>
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    ${liquidValue.toLocaleString(undefined, { maximumFractionDigits: 0 })} liquid ÷ ${monthlySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo
+                                </p>
+                                <p className={`text-xs font-semibold mt-2 ${emergencyMonths >= 6 ? 'text-green-600' : emergencyMonths >= 3 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {emergencyMonths >= 6 ? '✓ Healthy (6+ months)' : emergencyMonths >= 3 ? '⚠ Low (target: 6 mo)' : '✗ Critical (target: 3+ mo)'}
+                                </p>
+                            </>
+                        ) : (
+                            <p className="text-sm text-gray-400 mt-1">Link a bank account to calculate runway</p>
+                        )}
+                    </Card>
+
+                    {/* Portfolio Return */}
+                    <Card title="Portfolio Return" icon={<BarChart2 className={portfolioReturn >= 0 ? "text-green-500" : "text-red-400"} />}>
+                        {portfolioReturn !== null ? (
+                            <>
+                                <p className={`text-2xl font-bold ${portfolioReturn >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                    {portfolioReturn >= 0 ? '+' : ''}{portfolioReturn.toFixed(2)}%
+                                </p>
+                                <div className="mt-2 space-y-1 text-xs text-gray-500">
+                                    <div className="flex justify-between"><span>Cost Basis</span><span className="font-semibold">${totalCostBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                    <div className="flex justify-between pt-1 border-t border-gray-100"><span>Gain / Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : ''}${(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="text-sm text-gray-400 mt-1">Add investments with cost basis to track returns</p>
+                        )}
                     </Card>
                 </div>
             )}

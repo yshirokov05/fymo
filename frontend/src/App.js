@@ -571,11 +571,13 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                         )}
                     </div>
                 </div>
-                <Dashboard 
-                    netWorth={netWorth} 
-                    assets={assets} 
-                    debts={debts} 
-                    taxLiability={taxLiability} 
+                <Dashboard
+                    netWorth={netWorth}
+                    assets={assets}
+                    debts={debts}
+                    taxLiability={taxLiability}
+                    transactions={transactions}
+                    incomes={incomes}
                     isGuest={isGuest}
                     hasCompletedOnboarding={hasCompletedOnboarding}
                 />
