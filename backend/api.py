@@ -1764,3 +1764,176 @@ def submit_feedback():
     else:
         return jsonify({'error': "Failed to save feedback"}), 500
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GOALS
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/goals', methods=['GET'])
+@token_required
+def get_goals():
+    db = get_db()
+    docs = db.collection('users').document(request.uid).collection('goals').order_by('created_at').get()
+    goals = []
+    for doc in docs:
+        g = doc.to_dict()
+        g['id'] = doc.id
+        goals.append(g)
+    return jsonify({'goals': goals})
+
+
+@app.route('/api/goals', methods=['POST'])
+@token_required
+def create_goal():
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()[:100]
+    if not name:
+        return jsonify({'error': 'Goal name required'}), 400
+    goal_type = data.get('type', 'custom')
+    allowed_types = {'savings', 'debt_payoff', 'emergency_fund', 'investment', 'custom'}
+    if goal_type not in allowed_types:
+        goal_type = 'custom'
+    try:
+        target_amount = float(data.get('target_amount', 0))
+        current_amount = float(data.get('current_amount', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid amount'}), 400
+    target_date = data.get('target_date', '')
+    notes = (data.get('notes') or '').strip()[:500]
+
+    import uuid
+    from datetime import datetime as _dt
+    goal_id = str(uuid.uuid4())
+    goal_doc = {
+        'name': name,
+        'type': goal_type,
+        'target_amount': target_amount,
+        'current_amount': current_amount,
+        'target_date': target_date,
+        'notes': notes,
+        'created_at': _dt.utcnow().isoformat(),
+    }
+    db = get_db()
+    db.collection('users').document(request.uid).collection('goals').document(goal_id).set(goal_doc)
+    goal_doc['id'] = goal_id
+    return jsonify({'goal': goal_doc}), 201
+
+
+@app.route('/api/goals/<goal_id>', methods=['PUT'])
+@token_required
+def update_goal(goal_id):
+    data = request.get_json(silent=True) or {}
+    allowed_fields = {'name', 'type', 'target_amount', 'current_amount', 'target_date', 'notes'}
+    update = {}
+    if 'name' in data:
+        update['name'] = str(data['name']).strip()[:100]
+    if 'type' in data and data['type'] in {'savings', 'debt_payoff', 'emergency_fund', 'investment', 'custom'}:
+        update['type'] = data['type']
+    for field in ('target_amount', 'current_amount'):
+        if field in data:
+            try:
+                update[field] = float(data[field])
+            except (TypeError, ValueError):
+                pass
+    if 'target_date' in data:
+        update['target_date'] = str(data['target_date'])
+    if 'notes' in data:
+        update['notes'] = str(data['notes']).strip()[:500]
+    if not update:
+        return jsonify({'error': 'Nothing to update'}), 400
+    db = get_db()
+    ref = db.collection('users').document(request.uid).collection('goals').document(goal_id)
+    ref.update(update)
+    return jsonify({'success': True})
+
+
+@app.route('/api/goals/<goal_id>', methods=['DELETE'])
+@token_required
+def delete_goal(goal_id):
+    db = get_db()
+    db.collection('users').document(request.uid).collection('goals').document(goal_id).delete()
+    return jsonify({'success': True})
+
+
+@app.route('/api/goals/ai_guidance', methods=['POST'])
+@token_required
+def goal_ai_guidance():
+    if not check_rate_limit(request.uid, 'goal_guidance', limit_per_hour=15):
+        return jsonify({'error': 'Rate limit reached. Please wait before requesting more guidance.'}), 429
+
+    data = request.get_json(silent=True) or {}
+    goal = data.get('goal', {})
+    if not goal.get('name'):
+        return jsonify({'error': 'Goal data required'}), 400
+
+    user, incomes, assets, debts, _, _, _, _, transactions, paystubs, _, _, _, _, _ = get_user_data(user_id=request.uid)
+    from tax_logic import calculate_net_worth as _calc_nw
+    financial_data = _calc_nw(user, incomes, assets, debts, [], [], paystubs)
+
+    monthly_income = financial_data.get('monthly_income', 0)
+    net_worth = financial_data.get('net_worth', 0)
+
+    from datetime import datetime as _dt
+    today = _dt.utcnow()
+    target_date_str = goal.get('target_date', '')
+    months_remaining = None
+    if target_date_str:
+        try:
+            td = _dt.strptime(target_date_str, '%Y-%m-%d')
+            diff = (td.year - today.year) * 12 + (td.month - today.month)
+            months_remaining = max(1, diff)
+        except ValueError:
+            pass
+
+    import advisor_service
+    sanitize = advisor_service._sanitize_for_ai
+
+    goal_type_labels = {
+        'savings': 'savings goal',
+        'debt_payoff': 'debt payoff goal',
+        'emergency_fund': 'emergency fund goal',
+        'investment': 'investment goal',
+        'custom': 'financial goal',
+    }
+    type_label = goal_type_labels.get(goal.get('type', 'custom'), 'financial goal')
+    gap = goal.get('target_amount', 0) - goal.get('current_amount', 0)
+    monthly_needed = round(gap / months_remaining, 2) if months_remaining and gap > 0 else None
+
+    prompt = f"""A user has set the following {type_label}:
+- Goal: {sanitize(goal.get('name', ''))}
+- Target: ${goal.get('target_amount', 0):,.2f}
+- Current progress: ${goal.get('current_amount', 0):,.2f} ({round(goal.get('current_amount', 0) / goal.get('target_amount', 1) * 100, 1)}% complete)
+- Target date: {target_date_str or 'not set'}
+- Notes: {sanitize(goal.get('notes', '')) or 'none'}
+
+User financial context:
+- Monthly gross income: ${monthly_income:,.0f}
+- Net worth: ${net_worth:,.0f}
+- Total debts: ${sum(d.initial_amount - d.amount_paid for d in debts if d.initial_amount > d.amount_paid):,.0f}
+{f'- Months to deadline: {months_remaining}' if months_remaining else ''}
+{f'- Estimated monthly contribution needed: ${monthly_needed:,.2f}' if monthly_needed else ''}
+
+Please provide:
+1. A brief feasibility assessment (1-2 sentences) — is this realistic given the timeline and income?
+2. 3-5 concrete, actionable steps the user can take to reach this goal
+3. One specific monthly savings/payment amount to target, with brief reasoning
+
+Keep the response concise and practical. Use dollar amounts where helpful. Do not give investment advice or tax advice. Frame everything as general financial information.
+"""
+
+    import google.generativeai as genai
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if not api_key:
+        return jsonify({'error': 'AI service not configured'}), 503
+
+    genai.configure(api_key=api_key)
+    try:
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+        response = model.generate_content(prompt, request_options={"timeout": 20})
+        guidance_text = response.text
+    except Exception as e:
+        logging.error(f"Goal AI guidance error: {e}")
+        return jsonify({'error': 'AI service temporarily unavailable'}), 503
+
+    return jsonify({'guidance': guidance_text})
+

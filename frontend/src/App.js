@@ -15,6 +15,7 @@ import Layout from './components/Layout';
 import Modal from './components/Modal';
 import Login from './components/Login';
 import DataPrivacyFAQ from './components/DataPrivacyFAQ';
+import Goals from './components/Goals';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import Onboarding from './components/Onboarding';
@@ -737,6 +738,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 onSaveCustomCategories={handleSaveCustomCategories}
               />
           );
+      case 'goals':
+          return <Goals currentUser={currentUser} />;
       case 'faq':
           return <DataPrivacyFAQ />;
       case 'privacy':
