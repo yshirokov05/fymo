@@ -92,19 +92,16 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
 
     // Portfolio return (non-cash invested assets)
     const allInvestedAssets = assets.filter(a => !liquidTypes.has(a.asset_type) && !liquidTickers.has(a.ticker));
-    const allInvestedValue = allInvestedAssets.reduce((sum, a) => {
+    const totalCurrentValue = allInvestedAssets.reduce((sum, a) => {
         const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
         return sum + Math.max(0, a.shares * price);
     }, 0);
-    const investedAssets = allInvestedAssets.filter(a => a.cost_basis > 0);
-    const totalCostBasis = investedAssets.reduce((sum, a) => sum + a.cost_basis, 0);
-    const totalCurrentValue = investedAssets.reduce((sum, a) => {
-        const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
-        return sum + (a.shares * price);
-    }, 0);
-    // Only show return % if cost basis covers ≥50% of total invested portfolio value
-    const costBasisCoverage = allInvestedValue > 0 ? totalCurrentValue / allInvestedValue : 0;
-    const portfolioReturn = totalCostBasis > 0 && costBasisCoverage >= 0.5
+    const totalCostBasis = allInvestedAssets.reduce((sum, a) => sum + (a.cost_basis || 0), 0);
+    // basisRatio: how much of the portfolio's current value is "explained" by recorded cost basis.
+    // Plaid often sets cost_basis to a tiny non-zero value when real data is unavailable,
+    // producing absurd return %s. Require ≥20% coverage before showing the %.
+    const basisRatio = totalCurrentValue > 0 ? totalCostBasis / totalCurrentValue : 0;
+    const portfolioReturn = totalCostBasis > 0 && basisRatio >= 0.2
         ? ((totalCurrentValue - totalCostBasis) / totalCostBasis) * 100
         : null;
 
@@ -199,7 +196,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
 
                     <Card title="Est. Annual Tax" icon={<DollarSign className="text-orange-500" />}>
                         <p className="text-2xl font-bold text-orange-600">${(taxLiability?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p className="text-xs text-gray-500 mt-1">Informative only</p>
+                        {incomes.some(i => i.is_net) ? (
+                            <p className="text-xs text-yellow-600 mt-1">⚠ Some income marked as net — estimate may be inaccurate</p>
+                        ) : (
+                            <p className="text-xs text-gray-500 mt-1">Informative only</p>
+                        )}
                     </Card>
                 </div>
             )}
@@ -286,7 +287,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     <div className="flex justify-between pt-1 border-t border-gray-100"><span>Gain / Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : ''}${(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                 </div>
                                 {portfolioReturn === null && (
-                                    <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis only covers {(costBasisCoverage * 100).toFixed(0)}% of portfolio — return % hidden</p>
+                                    <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis data covers {(basisRatio * 100).toFixed(0)}% of portfolio value — return % hidden until Plaid syncs full cost basis</p>
                                 )}
                             </>
                         ) : (
