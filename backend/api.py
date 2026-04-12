@@ -852,7 +852,7 @@ def plaid_sync():
              return jsonify({'error': "Accounts require re-connection."}), 400
 
         with ThreadPoolExecutor(max_workers=min(len(active_plaid_items), 10)) as executor:
-            future_to_pi = {executor.submit(plaid_service.sync_plaid_data, pi.access_token, request.uid, custom_rules): pi for pi in active_plaid_items}
+            future_to_pi = {executor.submit(plaid_service.sync_plaid_data, pi.access_token, request.uid, custom_rules, pi.institution_name): pi for pi in active_plaid_items}
             
             for future in future_to_pi:
                 pi = future_to_pi[future]

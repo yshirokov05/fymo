@@ -167,7 +167,7 @@ def categorize_transaction(name, plaid_categories, custom_rules=None):
 
     return pcats[0].capitalize() if pcats else "Other"
 
-def sync_plaid_data(access_token, user_id, custom_rules=None):
+def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=None):
     """
     Fetches account balances, investment holdings, and transactions from Plaid in parallel.
     Returns list of assets, retirement accounts, transactions, debts, paystubs, and incomes.
@@ -321,11 +321,13 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 else:
                     display_name = c_display
 
-                # 3. IF THE NAME IS STILL GENERIC (e.g. "CREDIT CARD"), prefix with Institution
+                # 3. IF THE NAME IS STILL GENERIC (e.g. "CREDIT CARD"), prefix with institution
                 if display_name.lower() in ['credit card', 'card', 'visa', 'mastercard']:
-                    # We have institution_name from the top of sync_plaid_data (via metadata)
-                    # But for now let's try to find it in official_name
-                    if 'chase' in official_name.lower():
+                    # Prefer the institution_name passed in from the PlaidItem record
+                    if institution_name:
+                        prefix = institution_name.replace(' Bank', '').replace(' Financial', '').strip()
+                        display_name = f"{prefix} {display_name}"
+                    elif 'chase' in official_name.lower():
                         display_name = f"Chase {display_name}"
                     elif 'vanguard' in official_name.lower():
                         display_name = f"Vanguard {display_name}"
@@ -434,7 +436,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None):
                 plaid_debt_amt = abs(plaid_reported_value)
                 print(f"Adding Negative Holding Margin: {ticker} = {debt_amt} (Plaid: {plaid_debt_amt})")
                 # If it's a negative CUR:USD, it's almost always a settlement drift / pending trade
-                friendly_margin_name = f"Settlement Adjustment: {ticker}" if ticker == "CUR:USD" else f"Margin Loan: {ticker}"
+                friendly_margin_name = "Pending Settlement" if ticker == "CUR:USD" else f"Margin Loan: {ticker}"
                 
                 new_debts.append(Debt(
                     name=friendly_margin_name,

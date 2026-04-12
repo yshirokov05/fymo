@@ -154,13 +154,13 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         const marketPrice = asset.current_price || 1.0;
         const balance = Math.abs(asset.shares * marketPrice);
         return {
-            name: `Margin: ${asset.ticker}`,
+            name: asset.ticker === 'CUR:USD' ? 'Pending Settlement' : `Margin Loan: ${asset.ticker}`,
             initial_amount: Math.abs(asset.cost_basis),
             amount_paid: 0,
             remaining_balance: balance,
             monthly_payment: 0,
             interest_rate: 0,
-            official_name: asset.official_name || `Margin: ${asset.ticker}`,
+            official_name: asset.official_name || (asset.ticker === 'CUR:USD' ? 'Pending Settlement' : `Margin Loan: ${asset.ticker}`),
             isMargin: true
         };
     });
