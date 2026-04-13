@@ -48,7 +48,7 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null }) => {
     // --- Financial Health Metrics ---
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
@@ -283,29 +283,65 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     </Card>
 
                     {/* Portfolio Return */}
-                    <Card title="Portfolio Return" icon={<BarChart2 className={portfolioReturn !== null ? (portfolioReturn >= 0 ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
-                        {totalCostBasis > 0 ? (
+                    {(() => {
+                        // Total return including realized gains from investment transaction history
+                        const ih = investmentHistory;
+                        const hasHistory = ih && ih.transaction_count > 0;
+                        const totalInvested = ih?.total_invested || 0;
+                        const totalProceeds = ih?.total_proceeds || 0;
+                        const totalDividends = ih?.total_dividends || 0;
+                        // True total return: (current value + cash received) - total cash invested
+                        const trueTotalReturn = hasHistory && totalInvested > 0
+                            ? ((totalCurrentValue + totalProceeds + totalDividends - totalInvested) / totalInvested) * 100
+                            : null;
+                        const trueGainLoss = hasHistory && totalInvested > 0
+                            ? totalCurrentValue + totalProceeds + totalDividends - totalInvested
+                            : null;
+                        const displayReturn = trueTotalReturn !== null ? trueTotalReturn : portfolioReturn;
+                        const displayGainLoss = trueGainLoss !== null ? trueGainLoss : (totalCurrentValue - totalCostBasis);
+                        const isPositive = (displayReturn ?? 0) >= 0;
+                        return (
+                        <Card title="Portfolio Return" icon={<BarChart2 className={displayReturn !== null ? (isPositive ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
+                        {totalCostBasis > 0 || hasHistory ? (
                             <>
-                                {portfolioReturn !== null ? (
-                                    <p className={`text-2xl font-bold ${portfolioReturn >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                        {portfolioReturn >= 0 ? '+' : ''}{portfolioReturn.toFixed(2)}%
+                                {displayReturn !== null ? (
+                                    <p className={`text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-500'}`}>
+                                        {isPositive ? '+' : ''}{displayReturn.toFixed(2)}%
                                     </p>
                                 ) : (
                                     <p className="text-2xl font-bold text-gray-400">N/A</p>
                                 )}
                                 <div className="mt-2 space-y-1 text-xs text-gray-500">
-                                    <div className="flex justify-between"><span>Cost Basis</span><span className="font-semibold">${totalCostBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                    <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                    <div className="flex justify-between pt-1 border-t border-gray-100"><span>Gain / Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : ''}${(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                    {hasHistory ? (
+                                        <>
+                                            <div className="flex justify-between"><span>Total Invested</span><span className="font-semibold">${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            {totalProceeds > 0 && <div className="flex justify-between"><span>Realized Proceeds</span><span className="font-semibold text-green-600">+${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
+                                            {totalDividends > 0 && <div className="flex justify-between"><span>Dividends</span><span className="font-semibold text-green-600">+${totalDividends.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
+                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Total Return $</span><span className={`font-bold ${displayGainLoss >= 0 ? 'text-green-600' : 'text-red-500'}`}>{displayGainLoss >= 0 ? '+' : ''}${Math.abs(displayGainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            {ih?.earliest_date && <p className="text-[10px] text-gray-400 mt-1">Since {ih.earliest_date} · {ih.transaction_count} transactions</p>}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="flex justify-between"><span>Cost Basis</span><span className="font-semibold">${totalCostBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Gain / Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : ''}${(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                        </>
+                                    )}
                                 </div>
-                                {portfolioReturn === null && (
+                                {displayReturn === null && !hasHistory && (
                                     <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis data covers {(basisRatio * 100).toFixed(0)}% of portfolio value — return % hidden until Plaid syncs full cost basis</p>
+                                )}
+                                {!hasHistory && portfolioReturn !== null && (
+                                    <p className="text-xs text-gray-400 mt-1">Sync Plaid to load full transaction history</p>
                                 )}
                             </>
                         ) : (
                             <p className="text-sm text-gray-400 mt-1">Add investments with cost basis to track returns</p>
                         )}
-                    </Card>
+                        </Card>
+                        );
+                    })()}
                 </div>
             )}
 

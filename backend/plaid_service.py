@@ -7,6 +7,8 @@ from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUse
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.investments_holdings_get_request import InvestmentsHoldingsGetRequest
+from plaid.model.investments_transactions_get_request import InvestmentsTransactionsGetRequest
+from plaid.model.investments_transactions_get_request_options import InvestmentsTransactionsGetRequestOptions
 from plaid.model.transactions_get_request import TransactionsGetRequest
 from plaid.model.transactions_get_request_options import TransactionsGetRequestOptions
 from plaid.model.liabilities_get_request import LiabilitiesGetRequest
@@ -189,15 +191,59 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         def fetch_transactions():
             try:
                 end_date = datetime.now().date()
-                start_date = end_date - timedelta(days=30)
-                return client.transactions_get(TransactionsGetRequest(
-                    access_token=access_token,
-                    start_date=start_date,
-                    end_date=end_date,
-                )).to_dict()
+                # Fetch from Jan 1 of current year (YTD) or 365 days back, whichever is earlier
+                ytd_start = end_date.replace(month=1, day=1)
+                start_date = min(ytd_start, end_date - timedelta(days=365))
+                all_transactions = []
+                offset = 0
+                while True:
+                    options = TransactionsGetRequestOptions(offset=offset, count=500)
+                    resp = client.transactions_get(TransactionsGetRequest(
+                        access_token=access_token,
+                        start_date=start_date,
+                        end_date=end_date,
+                        options=options,
+                    )).to_dict()
+                    batch = resp.get('transactions', [])
+                    all_transactions.extend(batch)
+                    if len(all_transactions) >= resp.get('total_transactions', 0) or not batch:
+                        break
+                    offset += len(batch)
+                return {'transactions': all_transactions}
             except Exception as e:
                 logging.warning(f"Transactions not supported or failed: {e}")
                 return {'transactions': []}
+
+        def fetch_investment_transactions():
+            """Fetch investment transaction history (buys, sells, dividends) for total return."""
+            try:
+                end_date = datetime.now().date()
+                # Go back 5 years to capture full brokerage history
+                start_date = end_date.replace(year=end_date.year - 5)
+                all_inv_txns = []
+                offset = 0
+                while True:
+                    options = InvestmentsTransactionsGetRequestOptions(offset=offset, count=500)
+                    resp = client.investments_transactions_get(InvestmentsTransactionsGetRequest(
+                        access_token=access_token,
+                        start_date=start_date,
+                        end_date=end_date,
+                        options=options,
+                    )).to_dict()
+                    batch = resp.get('investment_transactions', [])
+                    all_inv_txns.extend(batch)
+                    total = resp.get('total_investment_transactions', 0)
+                    if len(all_inv_txns) >= total or not batch:
+                        break
+                    offset += len(batch)
+                    if offset > 5000:  # Safety cap
+                        break
+                # Build a securities map for name/ticker lookups
+                sec_map = {s['security_id']: s for s in resp.get('securities', [])}
+                return {'investment_transactions': all_inv_txns, 'securities': sec_map}
+            except Exception as e:
+                logging.warning(f"Investment transactions not supported or failed: {e}")
+                return {'investment_transactions': [], 'securities': {}}
 
         def fetch_liabilities():
             try:
@@ -208,12 +254,13 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
 
         # Execute Plaid requests in parallel
         results = {}
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             future_to_key = {
                 executor.submit(fetch_accounts): 'accounts',
                 executor.submit(fetch_holdings): 'holdings',
                 executor.submit(fetch_transactions): 'transactions',
-                executor.submit(fetch_liabilities): 'liabilities'
+                executor.submit(fetch_liabilities): 'liabilities',
+                executor.submit(fetch_investment_transactions): 'inv_transactions',
             }
             for future in as_completed(future_to_key):
                 key = future_to_key[future]
@@ -227,6 +274,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         holdings_response = results.get('holdings', {'holdings': [], 'securities': []})
         trans_response = results.get('transactions', {'transactions': []})
         liab_response = results.get('liabilities', {'liabilities': {}})
+        inv_trans_result = results.get('inv_transactions', {'investment_transactions': [], 'securities': {}})
 
         if not accounts_response.get('accounts'):
             logging.error(f"No accounts returned for user {user_id}")
@@ -604,7 +652,49 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                     ))
                     logging.info(f"Auto-detected CAPITAL GAIN: {t_name} | ${abs(amt)}")
 
-        return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids
+        # ── Investment transaction analysis (realized gains, total invested) ──
+        inv_txns = inv_trans_result.get('investment_transactions', [])
+        inv_sec_map = inv_trans_result.get('securities', {})
+
+        total_invested = 0.0       # Sum of all buy amounts (cost basis of buys)
+        total_proceeds = 0.0       # Sum of all sell proceeds
+        total_dividends = 0.0      # Cash dividends received
+        total_fees = 0.0
+        earliest_txn_date = None
+
+        for txn in inv_txns:
+            txn_type = (txn.get('type') or '').lower()
+            subtype = (txn.get('subtype') or '').lower()
+            amount = float(txn.get('amount') or 0)
+            # In Plaid investment transactions: amount > 0 = cash outflow (buy); < 0 = inflow (sell/dividend)
+            date_val = txn.get('date')
+            if date_val:
+                date_str = date_val.isoformat() if hasattr(date_val, 'isoformat') else str(date_val)
+                if earliest_txn_date is None or date_str < earliest_txn_date:
+                    earliest_txn_date = date_str
+
+            if txn_type in ('buy',) or subtype in ('buy',):
+                total_invested += amount  # positive = cash out to buy
+            elif txn_type in ('sell',) or subtype in ('sell',):
+                total_proceeds += abs(amount)  # negative = cash in from sell
+            elif txn_type in ('dividend', 'cash') or subtype in ('dividend', 'qualified dividend', 'non-qualified dividend', 'return of principal'):
+                total_dividends += abs(amount)
+            elif txn_type in ('fee',) or subtype in ('fee', 'commission'):
+                total_fees += amount
+
+        # Attach aggregate investment history to the return so the API can surface it
+        # We store it in a lightweight dict rather than a new model class
+        investment_history = {
+            'total_invested': round(total_invested, 2),
+            'total_proceeds': round(total_proceeds, 2),
+            'total_dividends': round(total_dividends, 2),
+            'total_fees': round(total_fees, 2),
+            'transaction_count': len(inv_txns),
+            'earliest_date': earliest_txn_date,
+        }
+        logging.info(f"Investment history for {user_id}: invested={total_invested:.2f}, proceeds={total_proceeds:.2f}, dividends={total_dividends:.2f}, txns={len(inv_txns)}")
+
+        return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids, investment_history
     except Exception as e:
         import traceback
         print(f"CRITICAL SYNC ERROR: {e}")

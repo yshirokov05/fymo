@@ -79,6 +79,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [budgets, setBudgets] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isPremium, setIsPremium] = useState(false);
+  const [investmentHistory, setInvestmentHistory] = useState(null);
   const [taxLiability, setTaxLiability] = useState({
     total: 0,
     federal: 0,
@@ -338,6 +339,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setNetWorth(data.real_time_net_worth);
         setTaxDetails(data.tax_details || {});
         setIsPremium(data.is_subscribed || data.is_authorized || false);
+        if (data.investment_history) setInvestmentHistory(data.investment_history);
     } else {
         fetchData();
     }
@@ -594,6 +596,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     isGuest={isGuest}
                     hasCompletedOnboarding={hasCompletedOnboarding}
                     onUpdateCostBasis={handleUpdateCostBasis}
+                    investmentHistory={investmentHistory}
                 />
             </div>
         );
