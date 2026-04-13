@@ -79,12 +79,13 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [budgets, setBudgets] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isPremium, setIsPremium] = useState(false);
-  const [taxLiability, setTaxLiability] = useState({ 
-    total: 0, 
-    federal: 0, 
+  const [taxLiability, setTaxLiability] = useState({
+    total: 0,
+    federal: 0,
     state: 0,
     fica: 0,
-    withheld: 0
+    withheld: 0,
+    has_net_only_income: false
   });
   const [userTaxInfo, setUserTaxInfo] = useState({ filing_status: 'SINGLE', state: 'CA', employment_type: 'W2', business_deductions: 0, dependents: 0 });
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
@@ -154,7 +155,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             federal: yearData.federal_tax,
             state: yearData.state_tax,
             fica: yearData.fica_tax,
-            withheld: yearData.total_withheld || 0
+            withheld: yearData.total_withheld || 0,
+            has_net_only_income: yearData.has_net_only_income || false
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
@@ -189,7 +191,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             federal: yearData.federal_tax,
             state: yearData.state_tax,
             fica: yearData.fica_tax,
-            withheld: yearData.total_withheld || 0
+            withheld: yearData.total_withheld || 0,
+            has_net_only_income: yearData.has_net_only_income || false
         });
     }
   }, [selectedTaxYear, taxDetails]);

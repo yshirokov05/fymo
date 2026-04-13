@@ -194,12 +194,23 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         <p className="text-2xl font-bold text-red-600">${(debtValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </Card>
 
-                    <Card title="Est. Annual Tax" icon={<DollarSign className="text-orange-500" />}>
-                        <p className="text-2xl font-bold text-orange-600">${(taxLiability?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        {incomes.some(i => i.is_net) ? (
-                            <p className="text-xs text-yellow-600 mt-1">⚠ Some income marked as net — estimate may be inaccurate</p>
+                    <Card title="Est. Annual Tax" icon={<DollarSign className={taxLiability?.has_net_only_income ? "text-gray-400" : "text-orange-500"} />}>
+                        {taxLiability?.has_net_only_income ? (
+                            <>
+                                <p className="text-2xl font-bold text-gray-400">N/A</p>
+                                <p className="text-xs text-amber-600 mt-1">⚠ Income recorded as net (post-tax) — cannot estimate gross tax liability</p>
+                                <p className="text-xs text-gray-400 mt-1">Enter gross income in the Income tab to enable this estimate</p>
+                            </>
+                        ) : incomes.some(i => i.is_net) ? (
+                            <>
+                                <p className="text-2xl font-bold text-orange-600">${(taxLiability?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                <p className="text-xs text-yellow-600 mt-1">⚠ Some income is net — estimate may be inaccurate</p>
+                            </>
                         ) : (
-                            <p className="text-xs text-gray-500 mt-1">Informative only</p>
+                            <>
+                                <p className="text-2xl font-bold text-orange-600">${(taxLiability?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                <p className="text-xs text-gray-500 mt-1">Informative only</p>
+                            </>
                         )}
                     </Card>
                 </div>

@@ -22,6 +22,9 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     });
 
+    // Flexible spending time period: 'month' | '3m' | 'ytd' | '12m'
+    const [flexPeriod, setFlexPeriod] = useState('month');
+
     const handleUpdateSubscriptionPrefs = async (newIgnored, newManual) => {
         try {
             const token = await currentUser.getIdToken();
@@ -152,21 +155,57 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             .reduce((sum, t) => sum + t.amount, 0);
     };
 
+    // Compute the date range for the flexible spending period
+    const getFlexDateRange = () => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const now = new Date(year, month - 1, 1); // start of selected month
+
+        if (flexPeriod === 'month') {
+            return {
+                start: new Date(year, month - 1, 1).toISOString().split('T')[0],
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: 1,
+                label: 'This Month',
+            };
+        } else if (flexPeriod === '3m') {
+            const start = new Date(year, month - 3, 1);
+            return {
+                start: start.toISOString().split('T')[0],
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: 3,
+                label: 'Last 3 Months',
+            };
+        } else if (flexPeriod === 'ytd') {
+            return {
+                start: `${year}-01-01`,
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: month,
+                label: `YTD ${year}`,
+            };
+        } else { // '12m'
+            const start = new Date(year, month - 12, 1);
+            return {
+                start: start.toISOString().split('T')[0],
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: 12,
+                label: 'Last 12 Months',
+            };
+        }
+    };
+
     // Flexible Spending: explicit $0 limit budgets + categories with spending but no hard budget
     const getFlexibleSpending = () => {
         const currentBudgets = isEditing ? editedBudgets : budgets;
         const hardBudgetedCategories = new Set(currentBudgets.filter(b => b.limit_amount > 0).map(b => b.category.trim().toLowerCase()));
-        
+
         const explicitFlexibleBudgets = currentBudgets.filter(b => b.limit_amount === 0 || !b.limit_amount);
         const explicitFlexibleCategoryNames = new Set(explicitFlexibleBudgets.map(b => b.category.trim().toLowerCase()));
 
         const ignoredSet = new Set(ignoredFlexible.map(c => c.trim().toLowerCase()));
         const categorySpend = {};
-        
-        const [year, month] = selectedMonth.split('-').map(Number);
-        const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
-        const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
-        
+
+        const { start: rangeStart, end: rangeEnd } = getFlexDateRange();
+
         // Seed explicitly tracked categories
         explicitFlexibleBudgets.forEach(b => {
              categorySpend[b.category] = 0;
@@ -176,22 +215,20 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             if (t.amount <= 0) return;
             const cat = getTransactionCategory(t);
             if (cat === 'Ignore') return;
-            
-            if (hardBudgetedCategories.has(cat.toLowerCase())) return; 
-            if (ignoredSet.has(cat.toLowerCase()) && !explicitFlexibleCategoryNames.has(cat.toLowerCase())) return; 
 
-            // Fix: Compare only the date part (YYYY-MM-DD)
+            if (hardBudgetedCategories.has(cat.toLowerCase())) return;
+            if (ignoredSet.has(cat.toLowerCase()) && !explicitFlexibleCategoryNames.has(cat.toLowerCase())) return;
+
             const tDatePart = t.date.split('T')[0];
-            if (tDatePart >= startOfMonth && tDatePart <= endOfMonth) {
+            if (tDatePart >= rangeStart && tDatePart <= rangeEnd) {
                 categorySpend[cat] = (categorySpend[cat] || 0) + t.amount;
             }
         });
-        
+
         const results = Object.entries(categorySpend)
             .map(([name, amount]) => ({ name, amount, isExplicit: explicitFlexibleCategoryNames.has(name.toLowerCase()) }))
             .sort((a, b) => b.amount - a.amount);
-            
-        console.log(`FLEX-DEBUG [${selectedMonth}]: Spending found: ${results.length} categories. Ignored list: ${ignoredFlexible.length}. Hard Budgets: ${hardBudgetedCategories.size}`);
+
         return results;
     };
 
@@ -648,7 +685,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 // We keep showing the Tracker button even if empty
                 return (
                     <div className="flex flex-col mb-8">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                             <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center">
                                 <TrendingUp size={24} className="mr-2 text-emerald-600" />
                                 FLEXIBLE SPENDING
@@ -656,35 +693,70 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                     No Budget Set — Tracking Only
                                 </span>
                             </h3>
-                            <button
-                                onClick={() => {
-                                    setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: 'Other', limit_amount: 0, period: 'Monthly' }]);
-                                    setIsEditing(true);
-                                    // Scroll to edit view if needed, but the view becomes editing mode instantly
-                                }}
-                                className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center"
-                                title="Explicitly track a category"
-                            >
-                                <Plus size={16} className="mr-1" />
-                                Add Tracker
-                            </button>
+                            <div className="flex items-center space-x-2">
+                                {/* Period selector */}
+                                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-bold">
+                                    {[
+                                        { id: 'month', label: 'Month' },
+                                        { id: '3m',    label: '3 Mo' },
+                                        { id: 'ytd',   label: 'YTD' },
+                                        { id: '12m',   label: '12 Mo' },
+                                    ].map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setFlexPeriod(opt.id)}
+                                            className={`px-2.5 py-1.5 transition-colors ${flexPeriod === opt.id ? 'bg-emerald-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: 'Other', limit_amount: 0, period: 'Monthly' }]);
+                                        setIsEditing(true);
+                                    }}
+                                    className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center"
+                                    title="Explicitly track a category"
+                                >
+                                    <Plus size={16} className="mr-1" />
+                                    Add Tracker
+                                </button>
+                            </div>
                         </div>
                         <p className="text-xs text-gray-500 mb-4 font-medium leading-relaxed max-w-2xl">
-                            These categories have spending this month but don't have a hard budget. Use these to track variable costs without a strict limit. You can set a budget or hide them anytime.
-                            <span className="ml-2 text-[8px] text-gray-300 font-mono">v1.5.2-FINAL-UI</span>
+                            {flexPeriod === 'month'
+                                ? 'Categories with spending this month but no hard budget. Track variable costs without a strict limit.'
+                                : `Showing total spending across ${getFlexDateRange().label} per category. Switch to Month view for month-over-month comparison.`}
                         </p>
                         
                         {flexibleSpending.length === 0 ? (
                             <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <p className="text-gray-500 text-sm font-medium">No flexible spending tracked this month.</p>
+                                <p className="text-gray-500 text-sm font-medium">No flexible spending found for this period.</p>
                                 <p className="text-gray-400 text-xs mt-1">Click "Add Tracker" to track categories without a fixed budget limit.</p>
                             </div>
                         ) : (
+                        <>
+                        {/* Multi-period summary row */}
+                        {flexPeriod !== 'month' && (() => {
+                            const { months, label } = getFlexDateRange();
+                            const total = flexibleSpending.reduce((s, i) => s + i.amount, 0);
+                            const avgMonth = months > 0 ? total / months : 0;
+                            return (
+                                <div className="flex items-center space-x-6 mb-4 px-1 text-sm text-gray-500">
+                                    <span className="font-semibold text-gray-700">{label} total: <span className="text-emerald-700">${total.toLocaleString(undefined, {maximumFractionDigits: 0})}</span></span>
+                                    <span>Avg/month: <span className="font-semibold text-gray-700">${avgMonth.toLocaleString(undefined, {maximumFractionDigits: 0})}</span></span>
+                                    <span className="text-xs text-gray-400">across {flexibleSpending.length} categor{flexibleSpending.length !== 1 ? 'ies' : 'y'}</span>
+                                </div>
+                            );
+                        })()}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {flexibleSpending.map(item => {
                                 const prevSpent = getPrevMonthSpent(item.name);
                                 const diff = prevSpent > 0 ? ((item.amount - prevSpent) / prevSpent) * 100 : 0;
-                                const suggestedLimit = Math.ceil(item.amount / 50) * 50 || 50;
+                                const { months } = getFlexDateRange();
+                                const avgPerMonth = months > 1 ? item.amount / months : null;
+                                const suggestedLimit = Math.ceil((avgPerMonth || item.amount) / 50) * 50 || 50;
 
                                 return (
                                     <Card key={item.name} className={`p-4 border-l-4 hover:shadow-xl transition-all duration-300 group relative ${item.isExplicit ? 'border-l-indigo-500 bg-indigo-50/10' : 'border-l-emerald-500'}`}>
@@ -736,7 +808,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                     </div>
                                                     <span className="ml-2 truncate" title={item.name}>{item.name}</span>
                                                 </h4>
-                                                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">This Month</div>
+                                                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">{getFlexDateRange().label}</div>
                                             </div>
                                             <div className="flex space-x-1 shrink-0">
                                                 <button
@@ -757,7 +829,12 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                         <div className="text-2xl font-black text-gray-900">
                                             ${item.amount.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
                                         </div>
-                                        {prevSpent > 0 && (
+                                        {avgPerMonth !== null && (
+                                            <div className="mt-1 text-[10px] text-gray-400 font-medium">
+                                                ~${avgPerMonth.toLocaleString(undefined, {maximumFractionDigits: 0})}/mo avg
+                                            </div>
+                                        )}
+                                        {flexPeriod === 'month' && prevSpent > 0 && (
                                             <div className="mt-2 flex items-center space-x-2 text-[10px]">
                                                 <span className="text-gray-400">vs last month: ${prevSpent.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                                                 <span className={`font-bold px-1.5 py-0.5 rounded-full ${
@@ -771,6 +848,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 );
                             })}
                         </div>
+                        </>
                         )}
                     </div>
                 );

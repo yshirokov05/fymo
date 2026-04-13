@@ -50,15 +50,22 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
         
         # Calculate total taxes paid (withheld) across all paystubs
         total_taxes_paid = sum(float(p.tax_withheld or 0) for p in year_paystubs)
-        
-        # Include all paystubs for gross calculation, but handle net_primary specifically
-        # If net_primary is true, the gross_amount should already be net + withheld.
-        gross_income_from_stubs = sum(float(p.gross_amount or 0) for p in year_paystubs)
-        
+
+        # Plaid auto-detected paystubs have is_net_primary=True, meaning gross_amount
+        # is actually the NET deposit (we have no gross figure). Taxing a net deposit
+        # produces a wildly wrong estimate, so exclude these from gross calculation.
+        gross_stubs = [p for p in year_paystubs if not getattr(p, 'is_net_primary', False)]
+        net_primary_stubs = [p for p in year_paystubs if getattr(p, 'is_net_primary', False)]
+        gross_income_from_stubs = sum(float(p.gross_amount or 0) for p in gross_stubs)
+
         # Investment and other Income
         other_gross_income = sum(float(inc.amount or 0) for inc in year_incomes if not getattr(inc, 'is_net', False))
         other_net_income = sum(float(inc.amount or 0) for inc in year_incomes if getattr(inc, 'is_net', False))
-        
+
+        # Flag: if ALL payroll data is net-primary and there's no manually-entered gross income,
+        # we cannot estimate taxes — the tax figure would be nonsense.
+        has_net_only_income = (len(gross_stubs) == 0 and len(net_primary_stubs) > 0 and other_gross_income == 0)
+
         gross_income = other_gross_income + gross_income_from_stubs
         
         retirement_deductions = 0
@@ -99,7 +106,8 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
             "fica_tax": fica_tax,
             "total_tax": fed_tax + state_tax + fica_tax,
             "total_withheld": total_taxes_paid,
-            "net_income_addons": other_net_income
+            "net_income_addons": other_net_income,
+            "has_net_only_income": has_net_only_income,
         }
 
     # ARCH-4: Explicit cast for linter safety
