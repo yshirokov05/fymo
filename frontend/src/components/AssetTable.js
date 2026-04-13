@@ -1,8 +1,28 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Check, X } from 'lucide-react';
 
-const AssetTable = ({ assets }) => {
+const AssetTable = ({ assets, onUpdateCostBasis }) => {
     const [expandedRows, setExpandedRows] = useState({});
+    const [editingCostBasis, setEditingCostBasis] = useState(null); // { id, value }
+
+    const startEdit = (e, assetId, currentCostBasis) => {
+        e.stopPropagation();
+        setEditingCostBasis({ id: assetId, value: currentCostBasis.toString() });
+    };
+
+    const confirmEdit = (e, assetId) => {
+        e.stopPropagation();
+        const val = parseFloat(editingCostBasis?.value);
+        if (!isNaN(val) && val >= 0 && onUpdateCostBasis) {
+            onUpdateCostBasis(assetId, val);
+        }
+        setEditingCostBasis(null);
+    };
+
+    const cancelEdit = (e) => {
+        e.stopPropagation();
+        setEditingCostBasis(null);
+    };
 
     const toggleRow = (ticker) => {
         setExpandedRows(prev => ({
@@ -117,8 +137,36 @@ const AssetTable = ({ assets }) => {
                     
                     {!isHousing ? (
                         <>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                ${asset.cost_basis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 group/cb">
+                                {editingCostBasis?.id === asset.plaid_account_id ? (
+                                    <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
+                                        <span className="text-gray-400 text-xs">$</span>
+                                        <input
+                                            type="number"
+                                            value={editingCostBasis.value}
+                                            onChange={e => setEditingCostBasis(prev => ({ ...prev, value: e.target.value }))}
+                                            className="w-20 text-xs border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none bg-white"
+                                            autoFocus
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                        <button onClick={e => confirmEdit(e, asset.plaid_account_id)} className="text-green-600 hover:text-green-800 p-0.5"><Check size={13} /></button>
+                                        <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 p-0.5"><X size={13} /></button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center space-x-1">
+                                        <span>${asset.cost_basis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        {onUpdateCostBasis && (
+                                            <button
+                                                onClick={e => startEdit(e, asset.plaid_account_id, asset.cost_basis)}
+                                                className="opacity-0 group-hover/cb:opacity-100 transition-opacity text-gray-300 hover:text-blue-500 p-0.5"
+                                                title="Edit cost basis"
+                                            >
+                                                <Pencil size={11} />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </td>
                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-bold">
                                 ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -232,27 +280,36 @@ const AssetTable = ({ assets }) => {
                         {(isLiquidGroup || groupName === 'Investments') && (
                             <tfoot className="bg-gray-50 border-t-2 border-gray-100">
                                 <tr className="font-black">
-                                    <td colSpan="3" className="px-3 md:px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                    {/* Columns: Type | Name | Treatment | Account | Shares/Balance | [Cost/Sh | Price | Daily | Value | Gain/Loss] */}
+                                    <td colSpan="4" className="px-3 md:px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">
                                         {groupName} Total
                                     </td>
-                                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {isLiquidGroup ? (
-                                            `$${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                        ) : (
-                                            groupTotals.shares.toLocaleString(undefined, { maximumFractionDigits: 0 })
-                                        )}
+                                    {/* Shares / Balance column */}
+                                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
+                                        {isLiquidGroup
+                                            ? `$${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                            : groupTotals.shares.toLocaleString(undefined, { maximumFractionDigits: 3 })}
                                     </td>
                                     {!isLiquidGroup && (
                                         <>
+                                            {/* Cost/Sh — show avg cost per share */}
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-400">
+                                                {groupTotals.shares > 0
+                                                    ? `$${(groupTotals.cost / groupTotals.shares).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                                    : '—'}
+                                            </td>
+                                            {/* Price — leave blank */}
                                             <td className="px-3 md:px-6 py-4"></td>
-                                            <td className="px-3 md:px-6 py-4"></td>
-                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm ${groupTotals.dailyChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {/* Daily */}
+                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.dailyChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                 {groupTotals.dailyChange >= 0 ? '+' : ''}${Math.abs(groupTotals.dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {/* Value */}
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
                                                 ${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm ${groupTotals.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {/* Gain/Loss */}
+                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                                 {groupTotals.gainLoss >= 0 ? '+' : ''}${Math.abs(groupTotals.gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 <div className="text-[10px] opacity-70">({groupGainLossPercent.toFixed(2)}%)</div>
                                             </td>

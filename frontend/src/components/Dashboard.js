@@ -48,7 +48,7 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis }) => {
     // --- Financial Health Metrics ---
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
@@ -96,7 +96,8 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
         return sum + Math.max(0, a.shares * price);
     }, 0);
-    const totalCostBasis = allInvestedAssets.reduce((sum, a) => sum + (a.cost_basis || 0), 0);
+    // cost_basis is stored as cost-per-share; multiply by shares to get total position cost
+    const totalCostBasis = allInvestedAssets.reduce((sum, a) => sum + ((a.cost_basis || 0) * (a.shares || 0)), 0);
     // basisRatio: how much of the portfolio's current value is "explained" by recorded cost basis.
     // Plaid often sets cost_basis to a tiny non-zero value when real data is unavailable,
     // producing absurd return %s. Require ≥20% coverage before showing the %.
@@ -332,7 +333,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <Card title="Asset Breakdown" icon={<Briefcase className="text-blue-500" />}>
                         <div className="overflow-x-auto">
-                            <AssetTable assets={positiveAssets} />
+                            <AssetTable assets={positiveAssets} onUpdateCostBasis={onUpdateCostBasis} />
                         </div>
                     </Card>
 

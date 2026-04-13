@@ -270,6 +270,13 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     }
   };
 
+  const handleUpdateCostBasis = (assetId, newCostBasisPerShare) => {
+    const updatedAssets = assets.map(a =>
+        a.plaid_account_id === assetId ? { ...a, cost_basis: newCostBasisPerShare } : a
+    );
+    handleSave({ assets: updatedAssets });
+  };
+
   const handleSaveTaxInfo = async (taxData) => {
     setLoading(true);
     try {
@@ -586,6 +593,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     incomes={incomes}
                     isGuest={isGuest}
                     hasCompletedOnboarding={hasCompletedOnboarding}
+                    onUpdateCostBasis={handleUpdateCostBasis}
                 />
             </div>
         );
