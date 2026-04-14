@@ -160,6 +160,19 @@ cd frontend && npm run deploy
 
 ---
 
+## Codebase Stats
+
+| Layer | Files | Lines of Code |
+|-------|------:|-------------:|
+| Frontend (`.js`, `.jsx`, `.css`, `.html`) | 59 | 9,179 |
+| Backend (`.py`) | 15 | 5,056 |
+| Config & Docs (`.json`, `.md`, `.txt`) | 18 | 10,973 |
+| **Total** | **92** | **25,208** |
+
+*Last updated: April 2026 — v1.4.0*
+
+---
+
 ## License
 
-All rights reserved. © Yury Shirokov. v1.3.0 (Production)
+All rights reserved. © Yury Shirokov. v1.4.0 (Production)
