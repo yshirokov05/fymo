@@ -7,7 +7,7 @@ from firebase_functions import https_fn
     region="us-west2",
     memory=1024,
     timeout_sec=300,
-    secrets=["PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ENV", "GEMINI_API_KEY", "ANTHROPIC_API_KEY", "PLAID_REDIRECT_URI", "FERNET_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID"]
+    secrets=["PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ENV", "GEMINI_API_KEY", "PLAID_REDIRECT_URI", "FERNET_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID"]
 )
 def api_func(req: https_fn.Request) -> https_fn.Response:
     try:
