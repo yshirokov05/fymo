@@ -8,23 +8,68 @@ FHQ is a full-stack personal finance web app. React 19 frontend, Python/Flask ba
 
 - **Live URL:** https://personal-finance-app-18cbc.web.app
 - **Firebase project:** `personal-finance-app-18cbc`
-- **Current version:** v1.3.0 (Production)
+- **Current version:** v1.4.0 (Production)
 - **Current phase:** Market Launch & User Engagement (Phase 6 Stripe complete)
+
+## Feature Inventory
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Dashboard (net worth, tax, cash flow, emergency fund, portfolio return) | ✅ Live | Portfolio return uses investment transaction history when available |
+| AI Analyst (Gemini chat) | ✅ Live | Rate-limited 20/hr; sanitized context |
+| AI Morning/Health Briefs | ✅ Live | Gemini overview + market intelligence |
+| Goals tab | ✅ Live | CRUD goals + per-goal AI guidance (15/hr rate limit); stored in `goals` subcollection |
+| Expenditures / Budgeting | ✅ Live | Flexible spending has Month/3Mo/YTD/12Mo period selector |
+| Income | ✅ Live | Manual + Plaid-detected paystubs; `is_net_primary` flag excludes net paychecks from tax estimate |
+| Tax Projection | ✅ Live | 50-state engine; shows N/A when all income is net (no gross data) |
+| Investments | ✅ Live | Inline cost-basis editing per holding; table totals row aligned |
+| Plaid sync | ✅ Live | Fetches YTD bank transactions (Jan 1 + pagination); 5yr investment transaction history for total return |
+| Debts | ✅ Live | Institution-name-aware labeling (Chase Credit Card, Pending Settlement, Margin Loan) |
+| Insurance | ✅ Live | Manual entry + PDF extraction |
+| Check Tracker | ✅ Live | Outstanding check management |
+| Visualizations | ✅ Live | Charts and allocation views |
+| Security FAQ | ✅ Live | 11-question accordion; covers Plaid, AI, Stripe, deletion, CCPA/GDPR |
+| Privacy Policy | ✅ Live | `/privacy` route; linked in sidebar footer |
+| Terms of Service | ✅ Live | `/terms` route; linked in sidebar footer |
+| Stripe billing | ✅ Live | $9.99/mo Premium; `is_subscribed` field in Firestore |
+| Whitelist access | ✅ Live | `is_authorized` via `whitelist` collection; frontend: `isPremium = is_subscribed \|\| is_authorized` |
 
 ## Key Files
 
 | File | Role |
 |------|------|
-| `frontend/src/App.js` | Top-level state manager. Controls `activeView`, fetches `/api/net_worth`, handles auth. ~1100 lines. |
-| `backend/api.py` | All Flask routes (~40 endpoints). ~2400 lines. |
+| `frontend/src/App.js` | Top-level state manager. Controls `activeView`, fetches `/api/net_worth`, handles auth. ~1200 lines. |
+| `backend/api.py` | All Flask routes (~45 endpoints). ~1900 lines. |
 | `backend/firestore_db.py` | All Firestore reads/writes + Fernet encryption for Plaid tokens. |
 | `backend/models.py` | Enums and dataclasses (AssetType, FilingStatus, IncomeType, etc.). |
+| `backend/calculations.py` | `calculate_net_worth()` — tax engine bridge, income aggregation. Net-primary paystubs excluded from gross. |
 | `backend/tax_logic.py` | 50-state tax engine. Federal + state + FICA for 2025/2026. |
-| `backend/plaid_service.py` | Full Plaid integration: accounts, transactions, investments, liabilities. |
+| `backend/plaid_service.py` | Full Plaid integration: accounts, transactions (YTD + paginated), investment holdings, investment transactions (5yr), liabilities. |
 | `backend/advisor_service.py` | Gemini AI advisor. Loads user context, generates financial advice. |
+| `backend/diagnostics_service.py` | Secret sanitization diagnostics endpoint. Used by `/api/admin/diagnostics`. |
 | `backend/price_service.py` | Yahoo Finance price fetching with 2s localized timeouts. |
 | `backend/auth.py` | `@token_required` decorator — decodes Firebase JWT. |
 | `frontend/src/index.css` | CSS variables (--primary-blue, --card-shadow, etc.). Use these, not ad-hoc Tailwind. |
+| `frontend/src/components/Dashboard.js` | Financial health cards (YTD, cash flow, emergency fund, portfolio return). Accepts `investmentHistory` prop. |
+| `frontend/src/components/AssetTable.js` | Investment holdings table with inline cost-basis editing. Accepts `onUpdateCostBasis` callback. |
+| `frontend/src/components/Goals.js` | Goals CRUD + per-goal Gemini AI guidance. Standalone component, uses `/api/goals/*`. |
+| `frontend/src/components/Budgeting.js` | Budgeting + flexible spending. Has `flexPeriod` state (month/3m/ytd/12m). |
+| `frontend/src/components/DataPrivacyFAQ.js` | 11-question collapsible Security FAQ. |
+| `frontend/src/components/PrivacyPolicy.js` | Full privacy policy page. Route: `activeView === 'privacy'`. |
+| `frontend/src/components/TermsOfService.js` | Full TOS page. Route: `activeView === 'terms'`. |
+| `frontend/src/components/Layout.js` | Sidebar nav + footer links (Privacy Policy · Terms of Service). |
+
+## Subcollections in Firestore
+
+User data is split between the main `/users/{uid}` document and subcollections to avoid the 1MB limit:
+
+| Subcollection | Contents |
+|---------------|----------|
+| `transactions` | Bank/card transactions (up to 500, ordered by date desc) |
+| `paystubs` | Auto-detected + manual paystubs |
+| `custom_rules` | Per-user transaction categorization rules |
+| `outstanding_checks` | Written checks pending clearance |
+| `goals` | Financial goals (CRUD via `/api/goals/*`) |
 
 ## Critical Rules
 
@@ -41,17 +86,31 @@ Every feature must handle the empty/new-user case. If a feature requires data to
 `@token_required` in `auth.py` sets `uid = "guest"` for missing tokens (intentional demo mode). If a route must reject unauthenticated requests, check `uid == "guest"` and return 401 explicitly.
 
 ### 5. Firestore Write Pattern
-All writes are read-modify-write. There are currently no Firestore transactions. Be aware of race conditions on concurrent writes. Do not introduce new unbounded list appends to the top-level user document — transactions belong in subcollections.
+All writes are read-modify-write. There are currently no Firestore transactions. Be aware of race conditions on concurrent writes. Do not introduce new unbounded list appends to the top-level user document — new collections of data belong in subcollections.
 
 ### 6. Price Fetching
 `price_service.py` fetches prices sequentially per ticker. For new features that need prices, use the existing `get_price()` function — do not add new yfinance calls inline.
 
+### 7. Cost Basis Storage
+`asset.cost_basis` is stored as **cost per share** (not total position cost). Always multiply by `asset.shares` to get total position cost. The Investments table displays it as "Cost/Sh" correctly.
+
+### 8. Paystub Net-Primary Flag
+Plaid auto-detected paystubs have `is_net_primary=True`. Their `gross_amount` is actually the net deposit. `calculations.py` excludes these from gross income to avoid taxing already-taxed money. The tax card shows N/A when all payroll data is net-primary and no manual gross income exists.
+
+### 9. Rate Limiting
+All expensive endpoints use the Firestore-based `check_rate_limit(uid, action, limit_per_hour)` pattern. Current limits:
+- AI Analyst: 20/hr
+- Goal AI Guidance: 15/hr
+- Plaid Sync: 15/hr
+- Morning/Health Brief: per-endpoint limits in `advisor_service.py`
+
 ## Known Technical Debt (Do Not Introduce More)
 
-- **1MB Firestore document limit** — all user data in one doc. Transactions will eventually overflow. Don't add more unbounded data to the top-level user document.
+- **1MB Firestore document limit** — user data is split across subcollections but the top-level doc still holds assets, debts, incomes, etc. Do not add more unbounded arrays to the top-level document.
 - **No atomic writes** — concurrent writes lose data. Don't make this worse.
-- **SQLAlchemy is imported in models.py but never connected** — ignore it, don't add to it.
+- **SQLAlchemy is imported in `models.py` but never connected** — ignore it, don't add to it.
 - **Admin emails hardcoded in frontend JS** — known issue, tracked for removal.
+- **No time-based portfolio returns (YTD %, 1Y %)** — requires storing portfolio value snapshots on each Plaid sync. Not yet implemented; current return is either cost-basis unrealized or full investment transaction history total return.
 
 ## Security Standards
 
@@ -64,14 +123,45 @@ All writes are read-modify-write. There are currently no Firestore transactions.
 
 ## Deployment
 
-CI/CD via GitHub Actions (`.github/workflows/deploy.yml`). Pushes to `main` auto-deploy. Manual trigger available via GitHub Actions → "Deploy to Firebase" → "Run workflow".
+CI/CD via GitHub Actions (`.github/workflows/deploy.yml`). Pushes to `main` auto-deploy to Firebase Hosting + Cloud Functions. Manual trigger: GitHub Actions → "Deploy to Firebase" → "Run workflow".
 
 Do not run `npm run deploy` locally unless GitHub Actions is unavailable.
+
+## Repo Structure
+
+```
+/
+├── backend/               Flask app (Cloud Functions)
+│   ├── api.py             All routes
+│   ├── calculations.py    Net worth + tax calculation
+│   ├── models.py          Data models / enums
+│   ├── plaid_service.py   Plaid sync (holdings, transactions, inv. history)
+│   ├── advisor_service.py Gemini AI features
+│   ├── tax_logic.py       50-state tax engine
+│   ├── firestore_db.py    Firestore R/W + Fernet encryption
+│   ├── price_service.py   Yahoo Finance price fetcher
+│   ├── diagnostics_service.py  Secret metadata diagnostics
+│   ├── auth.py            @token_required decorator
+│   ├── statement_processor.py  PDF/image statement extraction
+│   └── main.py            Cloud Function entry point + secret declarations
+├── frontend/src/
+│   ├── App.js             Root state + routing
+│   ├── components/        All UI components (29 files)
+│   └── context/           AuthContext, ThemeContext, ToastContext
+├── code-review/           Architecture + security docs (not deployed)
+├── bare-metal-public/     Google Search Console verification
+├── static-verify-public/  Google Search Console verification
+├── firebase.json          Hosting + Functions config
+├── firestore.rules        Firestore security rules
+└── .github/workflows/     CI/CD deploy pipeline
+```
 
 ## What NOT to Do
 
 - Do not add new npm packages without checking if an existing dependency covers the need.
-- Do not create new top-level files without a clear purpose — the root is already crowded.
+- Do not create new top-level files without a clear purpose.
 - Do not modify `firebase.json` without understanding the hosting/functions/rewrite chain.
 - Do not add `console.log` debugging to production frontend code.
 - Do not increase the Firebase Function timeout beyond 300s — it is already at the limit.
+- Do not add unbounded arrays to the top-level Firestore user document.
+- Do not add new yfinance calls inline — use `price_service.get_price()`.
