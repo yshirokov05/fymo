@@ -677,7 +677,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                 total_invested += amount  # positive = cash out to buy
             elif txn_type in ('sell',) or subtype in ('sell',):
                 total_proceeds += abs(amount)  # negative = cash in from sell
-            elif txn_type in ('dividend', 'cash') or subtype in ('dividend', 'qualified dividend', 'non-qualified dividend', 'return of principal'):
+            elif txn_type in ('dividend',) or subtype in ('dividend', 'qualified dividend', 'non-qualified dividend'):
                 total_dividends += abs(amount)
             elif txn_type in ('fee',) or subtype in ('fee', 'commission'):
                 total_fees += amount

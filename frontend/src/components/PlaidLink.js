@@ -20,13 +20,16 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
         }
     }, [updateToken]);
 
+    // Track whether the user has intentionally clicked "Link" so we know to
+    // auto-open the Plaid dialog once the token arrives.
+    const [pendingOpen, setPendingOpen] = useState(false);
+
     const generateLinkToken = useCallback(async () => {
         if (isGenerating || hasFetched.current) return;
-        
+
         setIsGenerating(true);
         setError(null);
-        
-        // Add a safety timeout
+
         const timeoutId = setTimeout(() => {
             if (!hasFetched.current) {
                 setIsGenerating(false);
@@ -50,16 +53,21 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
             clearTimeout(timeoutId);
             console.error('Error generating link token:', err);
             setError(err.response?.data?.error || err.message);
+            setPendingOpen(false);
         } finally {
             setIsGenerating(false);
         }
     }, [currentUser, isGenerating]);
 
+    // Auto-open Plaid dialog once the token is ready — but ONLY if the user
+    // explicitly clicked the button (pendingOpen). This prevents Plaid from
+    // sending a verification SMS the moment the Settings page loads.
     useEffect(() => {
-        if (currentUser && !linkToken && !isGenerating && !hasFetched.current && !error) {
-            generateLinkToken();
+        if (ready && pendingOpen && linkToken && !updateToken) {
+            setPendingOpen(false);
+            open();
         }
-    }, [currentUser, linkToken, isGenerating, generateLinkToken, error]);
+    }, [ready, pendingOpen, linkToken, updateToken, open]);
 
     const onSuccess = useCallback(async (public_token, metadata) => {
         try {
@@ -112,8 +120,15 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
 
     return (
         <button
-            onClick={() => open()}
-            disabled={!ready || isGenerating}
+            onClick={() => {
+                if (ready && linkToken) {
+                    open();
+                } else {
+                    setPendingOpen(true);
+                    generateLinkToken();
+                }
+            }}
+            disabled={isGenerating}
             className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold transition-all duration-200 transform active:scale-95 ${
                 ready && !isGenerating
                 ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-lg hover:shadow-indigo-200' 
