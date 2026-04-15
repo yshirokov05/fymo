@@ -484,7 +484,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                 plaid_debt_amt = abs(plaid_reported_value)
                 print(f"Adding Negative Holding Margin: {ticker} = {debt_amt} (Plaid: {plaid_debt_amt})")
                 # If it's a negative CUR:USD, it's almost always a settlement drift / pending trade
-                friendly_margin_name = "Pending Settlement" if ticker == "CUR:USD" else f"Margin Loan: {ticker}"
+                friendly_margin_name = "Margin Loan" if ticker == "CUR:USD" else f"Margin Loan: {ticker}"
                 
                 new_debts.append(Debt(
                     name=friendly_margin_name,

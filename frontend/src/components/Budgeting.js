@@ -24,6 +24,8 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
 
     // Flexible spending time period: 'month' | '3m' | 'ytd' | '12m'
     const [flexPeriod, setFlexPeriod] = useState('month');
+    // Per-card period overrides: { [categoryName]: 'month' | '3m' | 'ytd' | '12m' }
+    const [cardPeriods, setCardPeriods] = useState({});
 
     const handleUpdateSubscriptionPrefs = async (newIgnored, newManual) => {
         try {
@@ -191,6 +193,56 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 label: 'Last 12 Months',
             };
         }
+    };
+
+    // Parameterized date range — same logic as getFlexDateRange but accepts an explicit period
+    const getDateRangeForPeriod = (period) => {
+        const [year, month] = selectedMonth.split('-').map(Number);
+        if (period === 'month') {
+            return {
+                start: new Date(year, month - 1, 1).toISOString().split('T')[0],
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: 1,
+                label: 'This Month',
+            };
+        } else if (period === '3m') {
+            const start = new Date(year, month - 3, 1);
+            return {
+                start: start.toISOString().split('T')[0],
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: 3,
+                label: 'Last 3 Months',
+            };
+        } else if (period === 'ytd') {
+            return {
+                start: `${year}-01-01`,
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: month,
+                label: `YTD ${year}`,
+            };
+        } else { // '12m'
+            const start = new Date(year, month - 12, 1);
+            return {
+                start: start.toISOString().split('T')[0],
+                end: new Date(year, month, 0).toISOString().split('T')[0],
+                months: 12,
+                label: 'Last 12 Months',
+            };
+        }
+    };
+
+    // Compute spending for a single category over a specific period
+    const getCategorySpend = (catName, period) => {
+        const { start, end } = getDateRangeForPeriod(period);
+        return transactions
+            .filter(t => {
+                if (t.amount <= 0) return false;
+                const cat = getTransactionCategory(t);
+                if (cat !== catName) return false;
+                const d = t.date.split('T')[0];
+                return d >= start && d <= end;
+            })
+            .reduce((sum, t) => sum + t.amount, 0);
     };
 
     // Flexible Spending: explicit $0 limit budgets + categories with spending but no hard budget
@@ -752,11 +804,13 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         })()}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {flexibleSpending.map(item => {
+                                const cardPeriod = cardPeriods[item.name] || flexPeriod;
+                                const cardAmount = cardPeriod === flexPeriod ? item.amount : getCategorySpend(item.name, cardPeriod);
+                                const { months: cardMonths, label: cardLabel } = getDateRangeForPeriod(cardPeriod);
                                 const prevSpent = getPrevMonthSpent(item.name);
-                                const diff = prevSpent > 0 ? ((item.amount - prevSpent) / prevSpent) * 100 : 0;
-                                const { months } = getFlexDateRange();
-                                const avgPerMonth = months > 1 ? item.amount / months : null;
-                                const suggestedLimit = Math.ceil((avgPerMonth || item.amount) / 50) * 50 || 50;
+                                const diff = prevSpent > 0 ? ((cardAmount - prevSpent) / prevSpent) * 100 : 0;
+                                const avgPerMonth = cardMonths > 1 ? cardAmount / cardMonths : null;
+                                const suggestedLimit = Math.ceil((avgPerMonth || cardAmount) / 50) * 50 || 50;
 
                                 return (
                                     <Card key={item.name} className={`p-4 border-l-4 hover:shadow-xl transition-all duration-300 group relative ${item.isExplicit ? 'border-l-indigo-500 bg-indigo-50/10' : 'border-l-emerald-500'}`}>
@@ -766,7 +820,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             </div>
                                         )}
                                         <div className="absolute top-2 right-2 flex items-center space-x-1.5 z-20">
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     setAnalysisSearch(item.name);
                                                     const el = document.getElementById('recent-transactions');
@@ -777,13 +831,12 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             >
                                                 <Activity size={14} />
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     if (item.isExplicit) {
                                                         if (window.confirm(`Delete explicit tracking for "${item.name}"?`)) {
                                                             const newBudgets = budgets.filter(b => b.category.toLowerCase() !== item.name.toLowerCase() || b.limit_amount > 0);
                                                             onSaveBudgets(newBudgets);
-                                                            // If currently editing, also update editedBudgets
                                                             if (isEditing) {
                                                                 setEditedBudgets(editedBudgets.filter(b => b.category.toLowerCase() !== item.name.toLowerCase() || b.limit_amount > 0));
                                                             }
@@ -800,7 +853,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 <X size={14} />
                                             </button>
                                         </div>
-                                        <div className="flex items-center justify-between mb-3 gap-2">
+                                        <div className="flex items-center justify-between mb-2 gap-2">
                                             <div className="min-w-0 flex-1">
                                                 <h4 className="font-bold text-gray-900 flex items-center min-w-0">
                                                     <div className="shrink-0">
@@ -808,14 +861,12 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                     </div>
                                                     <span className="ml-2 truncate" title={item.name}>{item.name}</span>
                                                 </h4>
-                                                <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">{getFlexDateRange().label}</div>
                                             </div>
                                             <div className="flex space-x-1 shrink-0">
                                                 <button
                                                     onClick={() => {
-                                                        // Pre-fill a budget with this category and a suggested limit based on current spending
-                                                        const suggestedLimit = Math.ceil(item.amount / 50) * 50; // Round up to nearest 50
-                                                        setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: item.name, limit_amount: suggestedLimit, period: 'Monthly' }]);
+                                                        const suggestedLimitVal = Math.ceil(cardAmount / 50) * 50;
+                                                        setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: item.name, limit_amount: suggestedLimitVal, period: 'Monthly' }]);
                                                         setIsEditing(true);
                                                     }}
                                                     className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center space-x-1 shadow-sm font-bold"
@@ -826,15 +877,33 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 </button>
                                             </div>
                                         </div>
-                                        <div className="text-2xl font-black text-gray-900">
-                                            ${item.amount.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                                        {/* Per-card period selector */}
+                                        <div className="flex rounded-md border border-gray-200 overflow-hidden text-[9px] font-bold mb-2 w-fit">
+                                            {[
+                                                { id: 'month', label: 'Mo' },
+                                                { id: '3m',    label: '3M' },
+                                                { id: 'ytd',   label: 'YTD' },
+                                                { id: '12m',   label: '12M' },
+                                            ].map(opt => (
+                                                <button
+                                                    key={opt.id}
+                                                    onClick={() => setCardPeriods(prev => ({ ...prev, [item.name]: opt.id }))}
+                                                    className={`px-1.5 py-1 transition-colors ${cardPeriod === opt.id ? 'bg-emerald-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
                                         </div>
+                                        <div className="text-2xl font-black text-gray-900">
+                                            ${cardAmount.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">{cardLabel}</div>
                                         {avgPerMonth !== null && (
                                             <div className="mt-1 text-[10px] text-gray-400 font-medium">
                                                 ~${avgPerMonth.toLocaleString(undefined, {maximumFractionDigits: 0})}/mo avg
                                             </div>
                                         )}
-                                        {flexPeriod === 'month' && prevSpent > 0 && (
+                                        {cardPeriod === 'month' && prevSpent > 0 && (
                                             <div className="mt-2 flex items-center space-x-2 text-[10px]">
                                                 <span className="text-gray-400">vs last month: ${prevSpent.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                                                 <span className={`font-bold px-1.5 py-0.5 rounded-full ${

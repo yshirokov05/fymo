@@ -1,6 +1,6 @@
 from price_service import get_current_price
 from tax_logic import calculate_federal_tax, calculate_state_tax, calculate_fica_tax
-from models import User, Income, Asset, Debt, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency, Paystub
+from models import User, Income, Asset, Debt, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency, Paystub, IncomeType
 from datetime import datetime
 
 def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], debts: list[Debt], retirement_accounts: list[RetirementAccount] = [], insurances: list[Insurance] = [], paystubs: list[Paystub] = []):
@@ -66,6 +66,11 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
         # we cannot estimate taxes — the tax figure would be nonsense.
         has_net_only_income = (len(gross_stubs) == 0 and len(net_primary_stubs) > 0 and other_gross_income == 0)
 
+        # Net deposits from Plaid-detected paychecks (is_net_primary=True). These are already
+        # post-tax, so they are NOT included in gross_income for tax estimation, but they DO
+        # represent real cash flow that should appear in the dashboard income figure.
+        net_primary_deposits = sum(float(p.gross_amount or 0) for p in net_primary_stubs)
+
         gross_income = other_gross_income + gross_income_from_stubs
         
         retirement_deductions = 0
@@ -94,7 +99,14 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
             se_taxble_income = net_earnings * 0.9235
             fica_tax = se_taxble_income * 0.153
         else:
-            fica_tax = calculate_fica_tax(gross_income, user.filing_status.value, year)
+            # FICA only applies to wage income (salary, hourly). Dividends and
+            # capital gains are investment income and are not subject to FICA.
+            _wage_types = {IncomeType.ANNUAL_SALARY, IncomeType.MONTHLY_SALARY, IncomeType.HOURLY, IncomeType.FIXED_TOTAL}
+            fica_wage_base = gross_income_from_stubs + sum(
+                float(inc.amount or 0) for inc in year_incomes
+                if not getattr(inc, 'is_net', False) and inc.income_type in _wage_types
+            )
+            fica_tax = calculate_fica_tax(fica_wage_base, user.filing_status.value, year)
         
         tax_info[year] = {
             "gross_income": gross_income,
@@ -107,6 +119,7 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
             "total_tax": fed_tax + state_tax + fica_tax,
             "total_withheld": total_taxes_paid,
             "net_income_addons": other_net_income,
+            "net_primary_deposits": net_primary_deposits,
             "has_net_only_income": has_net_only_income,
         }
 
@@ -114,8 +127,21 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
     real_time_net_worth = float(total_assets_market_value) - float(total_debts)
     
     current_year_tax = tax_info.get(current_year, {})
-    total_annual_income = current_year_tax.get('gross_income', 0) + current_year_tax.get('net_income_addons', 0)
-    monthly_post_tax_income = (total_annual_income - current_year_tax.get('total_tax', 0)) / 12
+    # total_annual_income = gross wage/investment income + manually-entered net income + Plaid
+    # net deposits (is_net_primary paystubs). Net deposits are already post-tax so they are
+    # added directly to net income rather than being subject to another tax pass.
+    total_annual_income = (
+        current_year_tax.get('gross_income', 0) +
+        current_year_tax.get('net_income_addons', 0) +
+        current_year_tax.get('net_primary_deposits', 0)
+    )
+    # For cash-flow purposes, tax only applies to the gross portion (net deposits are already net).
+    monthly_post_tax_income = (
+        current_year_tax.get('gross_income', 0) +
+        current_year_tax.get('net_income_addons', 0) -
+        current_year_tax.get('total_tax', 0) +
+        current_year_tax.get('net_primary_deposits', 0)
+    ) / 12
 
     return {
         "total_assets_market_value": total_assets_market_value,

@@ -1382,12 +1382,13 @@ def get_health_brief():
     except Exception:
         tax_results = {}
         
-    # Calculate simplistic live values for the brief context
-    total_assets = sum((a.shares * a.cost_basis) for a in assets)
-    total_debts = sum(d.remaining_balance for d in debts)
-        
+    # Use the full calculate_net_worth() so the brief reflects real market prices,
+    # not just cost-basis estimates.
+    from calculations import calculate_net_worth
+    nw_result = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
+
     financial_data = {
-        'real_time_net_worth': total_assets - total_debts,
+        'real_time_net_worth': nw_result.get('real_time_net_worth', 0),
         'contextual_memory': memory_string,
         'outstanding_checks': [{'amount': c.amount, 'payee': c.payee} for c in outstanding_checks if c.status.name == 'PENDING'],
         'tax_projections': tax_results,

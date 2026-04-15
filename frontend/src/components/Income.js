@@ -302,7 +302,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {paystubs.map((p) => (
+                                    {currentYearPaystubs.map((p) => (
                                         <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
                                             <td className="py-4 px-6 text-sm text-gray-500">{p.date}</td>
                                             <td className="py-4 px-6 text-sm font-bold text-gray-900 flex items-center">
@@ -317,7 +317,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                             </td>
                                         </tr>
                                     ))}
-                                    {paystubs.length === 0 && <tr><td colSpan="6" className="py-8 text-center text-gray-400 italic">No salary records yet.</td></tr>}
+                                    {currentYearPaystubs.length === 0 && <tr><td colSpan="6" className="py-8 text-center text-gray-400 italic">No salary records yet.</td></tr>}
                                 </tbody>
                             </table>
                         </div>

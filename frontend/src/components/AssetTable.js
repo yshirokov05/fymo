@@ -286,9 +286,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     </td>
                                     {/* Shares / Balance column */}
                                     <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
-                                        {isLiquidGroup
-                                            ? `$${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                            : groupTotals.shares.toLocaleString(undefined, { maximumFractionDigits: 3 })}
+                                        {`$${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                     </td>
                                     {!isLiquidGroup && (
                                         <>
