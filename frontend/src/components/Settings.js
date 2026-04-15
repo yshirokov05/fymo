@@ -161,6 +161,12 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
 
                             <div className="pt-4 border-t">
                                 <h3 className="text-lg font-bold text-gray-800 mb-4">Bank & Brokerage Sync</h3>
+                                <div className="mb-3 flex items-start space-x-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                    <span className="text-amber-500 mt-0.5 text-sm">⚠</span>
+                                    <p className="text-xs text-amber-800">
+                                        <span className="font-bold">Not supported via automatic sync:</span> Morgan Stanley, Fidelity 401(k) (employer plans). These institutions do not currently participate in Plaid's data sharing network. Please enter balances manually using the Edit Portfolio button on the Investments page.
+                                    </p>
+                                </div>
                                 <div className="flex flex-wrap gap-4">
                                     <PlaidLink onPlaidSuccess={onPlaidSuccess} updateToken={updateToken} onUpdateReset={() => setUpdateToken(null)} />
                                     {plaidItems.length > 0 && (

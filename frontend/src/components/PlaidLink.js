@@ -11,18 +11,8 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
     const [linkToken, setLinkToken] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState(null);
-    const hasFetched = useRef(false);
-
-    // If an update token is provided from parent, use it
-    useEffect(() => {
-        if (updateToken) {
-            setLinkToken(updateToken);
-        }
-    }, [updateToken]);
-
-    // Track whether the user has intentionally clicked "Link" so we know to
-    // auto-open the Plaid dialog once the token arrives.
     const [pendingOpen, setPendingOpen] = useState(false);
+    const hasFetched = useRef(false);
 
     const generateLinkToken = useCallback(async () => {
         if (isGenerating || hasFetched.current) return;
@@ -59,22 +49,12 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
         }
     }, [currentUser, isGenerating]);
 
-    // Auto-open Plaid dialog once the token is ready — but ONLY if the user
-    // explicitly clicked the button (pendingOpen). This prevents Plaid from
-    // sending a verification SMS the moment the Settings page loads.
-    useEffect(() => {
-        if (ready && pendingOpen && linkToken && !updateToken) {
-            setPendingOpen(false);
-            open();
-        }
-    }, [ready, pendingOpen, linkToken, updateToken, open]);
-
     const onSuccess = useCallback(async (public_token, metadata) => {
         try {
             const token = await currentUser.getIdToken();
-            const response = await axios.post('/api/set_access_token', { 
-                public_token, 
-                metadata 
+            const response = await axios.post('/api/set_access_token', {
+                public_token,
+                metadata
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -88,14 +68,17 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
         }
     }, [currentUser, onPlaidSuccess, showToast]);
 
-    const config = {
-        token: linkToken,
-        onSuccess,
-    };
+    // usePlaidLink must be called before any useEffect that references open/ready
+    const { open, ready } = usePlaidLink({ token: linkToken, onSuccess });
 
-    const { open, ready } = usePlaidLink(config);
+    // Sync an externally-provided update token (e.g. "Fix Connection" flow)
+    useEffect(() => {
+        if (updateToken) {
+            setLinkToken(updateToken);
+        }
+    }, [updateToken]);
 
-    // Auto-open if we received an update token
+    // Auto-open after an update token is ready
     useEffect(() => {
         if (ready && updateToken && linkToken === updateToken) {
             open();
@@ -103,11 +86,20 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
         }
     }, [ready, updateToken, linkToken, open, onUpdateReset]);
 
+    // Auto-open after user-initiated token fetch completes
+    // (pendingOpen is only set true when the user explicitly clicks the button)
+    useEffect(() => {
+        if (ready && pendingOpen && linkToken && !updateToken) {
+            setPendingOpen(false);
+            open();
+        }
+    }, [ready, pendingOpen, linkToken, updateToken, open]);
+
     if (error) {
         return (
             <div className="flex flex-col space-y-2">
                 <button
-                    onClick={() => { hasFetched.current = false; generateLinkToken(); }}
+                    onClick={() => { hasFetched.current = false; setPendingOpen(true); generateLinkToken(); }}
                     className="flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all"
                 >
                     <AlertCircle size={18} />
@@ -130,8 +122,8 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
             }}
             disabled={isGenerating}
             className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold transition-all duration-200 transform active:scale-95 ${
-                ready && !isGenerating
-                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-lg hover:shadow-indigo-200' 
+                !isGenerating
+                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-lg hover:shadow-indigo-200'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
             }`}
         >
