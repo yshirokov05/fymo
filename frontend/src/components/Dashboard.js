@@ -81,7 +81,8 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
 
     // Liquid assets (cash-like) for emergency fund
     const liquidTypes = new Set(['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS']);
-    const liquidTickers = new Set(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX']);
+    // Keep in sync with price_service.py is_cash_ticker list
+    const liquidTickers = new Set(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX']);
     const liquidValue = assets
         .filter(a => liquidTypes.has(a.asset_type) || liquidTickers.has(a.ticker))
         .reduce((sum, a) => {
@@ -100,9 +101,10 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const totalCostBasis = allInvestedAssets.reduce((sum, a) => sum + ((a.cost_basis || 0) * (a.shares || 0)), 0);
     // basisRatio: how much of the portfolio's current value is "explained" by recorded cost basis.
     // Plaid often sets cost_basis to a tiny non-zero value when real data is unavailable,
-    // producing absurd return %s. Require ≥20% coverage before showing the %.
+    // producing absurd return %s. Require ≥50% coverage before showing the % (conservative
+    // threshold — partial cost basis data produces wildly misleading numbers).
     const basisRatio = totalCurrentValue > 0 ? totalCostBasis / totalCurrentValue : 0;
-    const portfolioReturn = totalCostBasis > 0 && basisRatio >= 0.2
+    const portfolioReturn = totalCostBasis > 0 && basisRatio >= 0.5
         ? ((totalCurrentValue - totalCostBasis) / totalCostBasis) * 100
         : null;
 
@@ -300,8 +302,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         const displayReturn = trueTotalReturn !== null ? trueTotalReturn : portfolioReturn;
                         const displayGainLoss = trueGainLoss !== null ? trueGainLoss : (totalCurrentValue - totalCostBasis);
                         const isPositive = (displayReturn ?? 0) >= 0;
+                        const cardTitle = hasHistory
+                            ? (ih?.earliest_date ? `Total Return · Since ${ih.earliest_date}` : 'Total Return')
+                            : 'Portfolio Return (Est.)';
                         return (
-                        <Card title="Portfolio Return" icon={<BarChart2 className={displayReturn !== null ? (isPositive ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
+                        <Card title={cardTitle} icon={<BarChart2 className={displayReturn !== null ? (isPositive ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
                         {totalCostBasis > 0 || hasHistory ? (
                             <>
                                 {displayReturn !== null ? (
@@ -318,22 +323,22 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                             <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                             {totalProceeds > 0 && <div className="flex justify-between"><span>Realized Proceeds</span><span className="font-semibold text-green-600">+${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
                                             {totalDividends > 0 && <div className="flex justify-between"><span>Dividends</span><span className="font-semibold text-green-600">+${totalDividends.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
-                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Total Return $</span><span className={`font-bold ${displayGainLoss >= 0 ? 'text-green-600' : 'text-red-500'}`}>{displayGainLoss >= 0 ? '+' : ''}${Math.abs(displayGainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                            {ih?.earliest_date && <p className="text-[10px] text-gray-400 mt-1">Since {ih.earliest_date} · {ih.transaction_count} transactions</p>}
+                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Total Return $</span><span className={`font-bold ${displayGainLoss >= 0 ? 'text-green-600' : 'text-red-500'}`}>{displayGainLoss >= 0 ? '+' : ''}{displayGainLoss < 0 ? '-' : ''}${Math.abs(displayGainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            {ih?.transaction_count && <p className="text-[10px] text-gray-400 mt-1">{ih.transaction_count} investment transactions</p>}
                                         </>
                                     ) : (
                                         <>
                                             <div className="flex justify-between"><span>Cost Basis</span><span className="font-semibold">${totalCostBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                             <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Gain / Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : ''}${(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Unrealized Gain/Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : '-'}${Math.abs(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                         </>
                                     )}
                                 </div>
                                 {displayReturn === null && !hasHistory && (
-                                    <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis data covers {(basisRatio * 100).toFixed(0)}% of portfolio value — return % hidden until Plaid syncs full cost basis</p>
+                                    <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis data covers {(basisRatio * 100).toFixed(0)}% of portfolio — sync Plaid for accurate return</p>
                                 )}
                                 {!hasHistory && portfolioReturn !== null && (
-                                    <p className="text-xs text-gray-400 mt-1">Sync Plaid to load full transaction history</p>
+                                    <p className="text-xs text-amber-500 mt-1">⚠ Estimated — sync Plaid for verified return</p>
                                 )}
                             </>
                         ) : (

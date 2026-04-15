@@ -469,6 +469,9 @@ def get_net_worth():
         net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
         net_worth_data['manual_subscription_merchants'] = getattr(user, 'manual_subscription_merchants', [])
         net_worth_data['ignored_flexible'] = ignored_flexible
+        # Return persisted investment_history from last Plaid sync
+        if user.investment_history:
+            net_worth_data['investment_history'] = user.investment_history
         return jsonify(net_worth_data)
     except Exception as e:
         import traceback
@@ -1118,18 +1121,29 @@ def plaid_sync():
 
         # Final save
         save_user_data(
-            user, incomes, assets, debts, retirement_accounts, insurances, 
-            plaid_items=plaid_items, budgets=budgets, transactions=transactions, 
-            paystubs=paystubs, custom_rules=custom_rules, 
-            has_completed_onboarding=has_completed_onboarding, 
-            custom_categories=custom_categories, 
-            outstanding_checks=outstanding_checks, 
+            user, incomes, assets, debts, retirement_accounts, insurances,
+            plaid_items=plaid_items, budgets=budgets, transactions=transactions,
+            paystubs=paystubs, custom_rules=custom_rules,
+            has_completed_onboarding=has_completed_onboarding,
+            custom_categories=custom_categories,
+            outstanding_checks=outstanding_checks,
             ignored_flexible=ignored_flexible, # Persist ignore list
             user_id=request.uid
         )
-        
+
+        # Persist investment_history so it's available on next page load (not just this sync session)
+        if combined_investment_history.get('transaction_count', 0) > 0:
+            try:
+                _db = get_db()
+                if _db:
+                    _db.collection('users').document(request.uid).set(
+                        {'investment_history': combined_investment_history}, merge=True
+                    )
+            except Exception as _e:
+                logging.warning(f"Failed to persist investment_history: {_e}")
+
         price_map = get_multiple_prices([a.ticker for a in assets])
-        
+
         net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
         net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
         net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]

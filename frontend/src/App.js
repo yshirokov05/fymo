@@ -137,7 +137,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setTaxDetails(response.data.tax_details || {});
         
         setIsPremium(response.data.is_subscribed || response.data.is_authorized || false);
-        
+        if (response.data.investment_history) setInvestmentHistory(response.data.investment_history);
+
         setHasCompletedOnboarding(response.data.has_completed_onboarding || false);
         setCustomCategories(response.data.custom_categories || []);
         setIgnoredSubscriptionMerchants(response.data.ignored_subscription_merchants || []);

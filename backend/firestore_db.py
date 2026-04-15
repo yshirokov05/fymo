@@ -109,6 +109,8 @@ def get_user_data(user_id="default_user"):
         stripe_subscription_id=data.get('stripe_subscription_id')
     )
     
+    user.investment_history = data.get('investment_history')
+
     custom_categories = data.get('custom_categories', [])
     ignored_flexible = data.get('ignored_flexible', [])
     

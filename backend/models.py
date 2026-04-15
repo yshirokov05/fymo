@@ -132,6 +132,7 @@ class User:
     excluded_paystub_employers: List[str] = field(default_factory=list)
     stripe_customer_id: Optional[str] = None
     stripe_subscription_id: Optional[str] = None
+    investment_history: Optional[dict] = None
 
 @dataclass
 class Income:
