@@ -58,11 +58,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const ytdSpend = transactions
-        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart)
+        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart && t.category !== 'Ignore')
         .reduce((sum, t) => sum + t.amount, 0);
 
     const monthlySpend = transactions
-        .filter(t => t.amount > 0 && new Date(t.date) >= monthStart)
+        .filter(t => t.amount > 0 && new Date(t.date) >= monthStart && t.category !== 'Ignore')
         .reduce((sum, t) => sum + t.amount, 0);
 
     // Income from manually-entered sources
@@ -268,7 +268,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                         <div className="flex justify-between pt-1 border-t border-gray-100">
                                             <span className="flex items-center">
                                                 Savings Rate
-                                                <Info size={12} className="ml-1 text-gray-400 cursor-help" title="Formula: (Monthly Income - Monthly Spend) / Monthly Income" />
+                                                <Info size={12} className="ml-1 text-gray-400 cursor-help" title="Formula: (Income - Valid Spending) / Income. Excludes transfers, debt principal, and 'Ignore' transactions." />
                                             </span>
                                             <span className={`font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-500'}`}>{savingsRate.toFixed(1)}%</span>
                                         </div>

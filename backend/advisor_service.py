@@ -90,13 +90,18 @@ def get_period_comparison(transactions, days=30):
 
 def _build_spending_summary(transactions):
     """Builds current vs previous month spending by category for AI context."""
-    category_map = {
-        'food': ['restaurant', 'doordash', 'uber eats', 'grubhub', 'chipotle', 'mcdonald', 'starbucks', 'coffee', 'pizza', 'sushi', 'taco', 'subway', 'chick-fil'],
-        'transport': ['uber', 'lyft', 'parking', 'gas', 'fuel', 'chevron', 'shell', 'bart', 'muni', 'caltrain', 'transit'],
-        'groceries': ['safeway', 'trader joe', 'whole foods', 'costco', 'walmart', 'target', 'kroger', 'albertsons', 'sprouts'],
-        'entertainment': ['netflix', 'spotify', 'hulu', 'disney', 'youtube', 'apple tv', 'amazon prime', 'game', 'cinema', 'theater', 'ticketmaster'],
-        'shopping': ['amazon', 'ebay', 'etsy', 'zara', 'h&m', 'nordstrom', 'gap', 'nike', 'adidas'],
-    }
+    import json
+    import os
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), 'category_mapping.json')
+        with open(config_path, 'r') as f:
+            full_map = json.load(f)
+            # Adapt the JSON config which is { "CatName": { "patterns": [...] } }
+            # to a simple { "catname": [...] } for the legacy logic
+            category_map = { cat.lower(): data.get("patterns", []) for cat, data in full_map.items() }
+    except Exception as e:
+        logging.error(f"Failed to load category mapping in advisor: {e}")
+        category_map = {}
 
     now = datetime.utcnow()
     this_month = now.month

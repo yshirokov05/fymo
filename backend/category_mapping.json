@@ -1,0 +1,35 @@
+{
+  "Ignore": {
+    "patterns": ["vanguard", "chase card", "payment to", "zelle", "stradavarius", "moose llc", "transfer", "funding"]
+  },
+  "Groceries": {
+    "patterns": ["safeway", "grocer", "kroger", "trader joe", "costco", "target", "walmart", "whole foods", "sprouts", "albertsons", "aldi", "publix"]
+  },
+  "Eating Out": {
+    "patterns": ["dining", "restaurant", "mcdonald", "starbucks", "coffee", "uber eats", "doordash", "grubhub", "pizza", "taco bell", "chipotle", "burger king", "subway", "wendy", "dunkin", "ramen", "grill", "wings", "cafe", "baguette", "eataly", "in-n-out", "mountain mikes"]
+  },
+  "Transportation": {
+    "patterns": ["parking", "ace parking", "uber", "lyft", "transit", "bus", "train", "subway", "metro", "clippercard", "caltrain", "bart", "shell", "chevron", "7-eleven", "gas", "fuel", "mobil", "exxon", "arco", "bp", "valero", "speedway", "quiktrip", "garage", "car wash", "safeway fuel", "safeway gas", "safeway #", "safeway station", "safeway pump"]
+  },
+  "Personal Care": {
+    "patterns": ["hair", "nail", "salon", "barber", "massage", "spa", "massage envy", "great clips", "supercuts", "sephora", "ulta", "cvs", "walgreens", "rite aid"]
+  },
+  "Entertainment": {
+    "patterns": ["paramount", "netflix", "hulu", "disney", "spotify", "apple.com/bill", "youtube premium", "hbo", "max", "openai", "chatgpt", "martial arts", "gym", "movie", "ticket", "show", "gaming", "steam", "playstation", "nintendo", "hobby", "cinema", "theater", "ticketmaster", "amazon prime"]
+  },
+  "Shopping": {
+    "patterns": ["amazon", "ebay", "etsy", "zara", "h&m", "nordstrom", "gap", "nike", "adidas"]
+  },
+  "Housing": {
+    "patterns": ["rent", "mortgage", "hoa", "property tax"]
+  },
+  "Utilities": {
+    "patterns": ["pge", "water bill", "utility", "comcast", "at&t", "verizon", "electric bill"]
+  },
+  "Dividends": {
+    "patterns": ["dividend"]
+  },
+  "Capital Gains": {
+    "patterns": ["sell", "gain", "trade"]
+  }
+}

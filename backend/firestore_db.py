@@ -78,7 +78,7 @@ def safe_enum(enum_class, value, default):
     except (KeyError, ValueError, TypeError):
         return default
 
-def get_user_data(user_id="default_user"):
+def get_user_data(user_id="default_user", fields=None):
     """Fetches user financial state with robust error handling and subcollection support."""
     db = get_db()
     if db is None:
@@ -185,54 +185,55 @@ def get_user_data(user_id="default_user"):
     budgets = [Budget(id=b.get('id'), user_id=user_id, category=b['category'], limit_amount=b['limit_amount'], period=b.get('period', 'MONTHLY')) for b in data.get('budgets', [])]
     
     transactions = []
-    for t in data.get('transactions', []):
-        transactions.append(Transaction(id=t['id'], user_id=user_id, account_id=t.get('account_id'), amount=t['amount'], date=t['date'], name=t['name'], category=t.get('category'), pending=t.get('pending', False), pending_transaction_id=t.get('pending_transaction_id')))
-    
-    sub_txns = user_ref.collection('transactions').order_by('date', direction=firestore.Query.DESCENDING).limit(500).get()
-    existing_ids = {t.id for t in transactions}
-    for doc in sub_txns:
-        if doc.id not in existing_ids:
-            t = doc.to_dict()
-            transactions.append(Transaction(id=doc.id, user_id=user_id, account_id=t.get('account_id'), amount=t['amount'], date=t['date'], name=t['name'], category=t.get('category'), pending=t.get('pending', False), pending_transaction_id=t.get('pending_transaction_id')))
+    if not fields or 'transactions' in fields:
+        for t in data.get('transactions', []):
+            transactions.append(Transaction(id=t['id'], user_id=user_id, account_id=t.get('account_id'), amount=t['amount'], date=t['date'], name=t['name'], category=t.get('category'), pending=t.get('pending', False), pending_transaction_id=t.get('pending_transaction_id')))
+        
+        sub_txns = user_ref.collection('transactions').order_by('date', direction=firestore.Query.DESCENDING).limit(500).get()
+        existing_ids = {t.id for t in transactions}
+        for doc in sub_txns:
+            if doc.id not in existing_ids:
+                t = doc.to_dict()
+                transactions.append(Transaction(id=doc.id, user_id=user_id, account_id=t.get('account_id'), amount=t['amount'], date=t['date'], name=t['name'], category=t.get('category'), pending=t.get('pending', False), pending_transaction_id=t.get('pending_transaction_id')))
+        transactions.sort(key=lambda t: t.date, reverse=True)
 
     paystubs = []
-    for p in data.get('paystubs', []):
-        paystubs.append(Paystub(id=p['id'], user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False)))
-    
-    sub_paystubs = user_ref.collection('paystubs').order_by('date', direction=firestore.Query.DESCENDING).get()
-    existing_p_ids = {p.id for p in paystubs}
-    for doc in sub_paystubs:
-        if doc.id not in existing_p_ids:
-            p = doc.to_dict()
-            paystubs.append(Paystub(id=doc.id, user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False)))
-            
-    # Load Custom Rules
-    custom_rules_raw = data.get('custom_rules', [])
-    custom_rules = [CustomRule(id=cr.get('id'), user_id=user_id, merchant_name=cr['merchant_name'], category=cr['category']) for cr in custom_rules_raw]
-    
-    sub_rules = user_ref.collection('custom_rules').get()
-    existing_r_ids = {r.id for r in custom_rules}
-    for doc in sub_rules:
-        if doc.id not in existing_r_ids:
-            r = doc.to_dict()
-            custom_rules.append(CustomRule(id=doc.id, user_id=user_id, merchant_name=r['merchant_name'], category=r['category']))
-
-    # Load Outstanding Checks
-    outstanding_checks = []
-    for c in data.get('outstanding_checks', []):
-        outstanding_checks.append(OutstandingCheck(id=c.get('id', str(uuid.uuid4())), user_id=user_id, amount=c.get('amount', 0), payee=c.get('payee', ''), date_written=c.get('date_written', ''), status=safe_enum(CheckStatus, c.get('status'), CheckStatus.PENDING), plaid_transaction_id=c.get('plaid_transaction_id')))
+    if not fields or 'paystubs' in fields:
+        for p in data.get('paystubs', []):
+            paystubs.append(Paystub(id=p['id'], user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False)))
         
-    sub_checks = user_ref.collection('outstanding_checks').order_by('date_written', direction=firestore.Query.DESCENDING).get()
-    existing_c_ids = {c.id for c in outstanding_checks}
-    for doc in sub_checks:
-        if doc.id not in existing_c_ids:
-            c = doc.to_dict()
-            outstanding_checks.append(OutstandingCheck(id=doc.id, user_id=user_id, amount=c['amount'], payee=c['payee'], date_written=c['date_written'], status=safe_enum(CheckStatus, c.get('status'), CheckStatus.PENDING), plaid_transaction_id=c.get('plaid_transaction_id')))
+        sub_paystubs = user_ref.collection('paystubs').order_by('date', direction=firestore.Query.DESCENDING).get()
+        existing_p_ids = {p.id for p in paystubs}
+        for doc in sub_paystubs:
+            if doc.id not in existing_p_ids:
+                p = doc.to_dict()
+                paystubs.append(Paystub(id=doc.id, user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False)))
+        paystubs.sort(key=lambda p: p.date, reverse=True)
             
-    # Sort descending by date so the newest items are returned first
-    transactions.sort(key=lambda t: t.date, reverse=True)
-    paystubs.sort(key=lambda p: p.date, reverse=True)
-    outstanding_checks.sort(key=lambda c: c.date_written, reverse=True)
+    custom_rules = []
+    if not fields or 'custom_rules' in fields:
+        custom_rules_raw = data.get('custom_rules', [])
+        custom_rules = [CustomRule(id=cr.get('id'), user_id=user_id, merchant_name=cr['merchant_name'], category=cr['category']) for cr in custom_rules_raw]
+        
+        sub_rules = user_ref.collection('custom_rules').get()
+        existing_r_ids = {r.id for r in custom_rules}
+        for doc in sub_rules:
+            if doc.id not in existing_r_ids:
+                r = doc.to_dict()
+                custom_rules.append(CustomRule(id=doc.id, user_id=user_id, merchant_name=r['merchant_name'], category=r['category']))
+
+    outstanding_checks = []
+    if not fields or 'outstanding_checks' in fields:
+        for c in data.get('outstanding_checks', []):
+            outstanding_checks.append(OutstandingCheck(id=c.get('id', str(uuid.uuid4())), user_id=user_id, amount=c.get('amount', 0), payee=c.get('payee', ''), date_written=c.get('date_written', ''), status=safe_enum(CheckStatus, c.get('status'), CheckStatus.PENDING), plaid_transaction_id=c.get('plaid_transaction_id')))
+            
+        sub_checks = user_ref.collection('outstanding_checks').order_by('date_written', direction=firestore.Query.DESCENDING).get()
+        existing_c_ids = {c.id for c in outstanding_checks}
+        for doc in sub_checks:
+            if doc.id not in existing_c_ids:
+                c = doc.to_dict()
+                outstanding_checks.append(OutstandingCheck(id=doc.id, user_id=user_id, amount=c['amount'], payee=c['payee'], date_written=c['date_written'], status=safe_enum(CheckStatus, c.get('status'), CheckStatus.PENDING), plaid_transaction_id=c.get('plaid_transaction_id')))
+        outstanding_checks.sort(key=lambda c: c.date_written, reverse=True)
         
     return user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, user.has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible
 

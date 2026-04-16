@@ -418,6 +418,18 @@ def cancel_subscription():
 @app.route('/api/health')
 def health_check():
     return jsonify({'status': 'ok'})
+
+@app.route('/api/config/categories', methods=['GET'])
+def get_categories_config():
+    import json
+    try:
+        import os
+        config_path = os.path.join(os.path.dirname(__file__), 'category_mapping.json')
+        with open(config_path, 'r') as f:
+            return jsonify(json.load(f))
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/net_worth', methods=['GET'])
 @token_required
 def get_net_worth():
@@ -1913,7 +1925,7 @@ def goal_ai_guidance():
     if not goal.get('name'):
         return jsonify({'error': 'Goal data required'}), 400
 
-    user, incomes, assets, debts, _, _, _, _, transactions, paystubs, _, _, _, _, _ = get_user_data(user_id=request.uid)
+    user, incomes, assets, debts, _, _, _, _, transactions, paystubs, _, _, _, _, _ = get_user_data(user_id=request.uid, fields=['transactions', 'paystubs'])
     from calculations import calculate_net_worth as _calc_nw
     financial_data = _calc_nw(user, incomes, assets, debts, [], [], paystubs)
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from './Card';
 import axios from 'axios';
 import { Plus, Trash2, PieChart, ShoppingCart, Home, Car, Coffee, PlayCircle, Zap, Wrench, ChevronDown, ChevronUp, Tag, CreditCard, X, Search, BarChart2, Star, ChevronLeft, ChevronRight, Calendar, RefreshCw, TrendingUp, DollarSign, Activity, Upload } from 'lucide-react';
@@ -21,6 +21,13 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     });
+
+    const [categoryConfig, setCategoryConfig] = useState(null);
+    useEffect(() => {
+        axios.get('/api/config/categories')
+            .then(res => setCategoryConfig(res.data))
+            .catch(err => console.error("Failed to load category mapping:", err));
+    }, []);
 
     // Flexible spending time period: 'month' | '3m' | 'ytd' | '12m'
     const [flexPeriod, setFlexPeriod] = useState('month');
@@ -72,21 +79,22 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         
         const name = (transaction.name || "").toLowerCase();
         
-        // Specific exclusions first
-        if (name.includes('vanguard') || name.includes('chase card') || name.includes('payment to') || name.includes('zelle') || name.includes('stradavarius') || name.includes('moose llc') || name.includes('transfer') || name.includes('funding')) return 'Ignore';
+        if (categoryConfig) {
+            for (const [cat, data] of Object.entries(categoryConfig)) {
+                if (data.patterns && data.patterns.some(p => name.includes(p))) {
+                    return cat;
+                }
+            }
+        }
         
-        // Distinction: Safeway Gas vs Groceries
-        if (name.includes('safeway fuel') || name.includes('safeway gas') || name.includes('safeway #') || name.includes('safeway station') || name.includes('safeway pump')) return 'Transportation';
-        if (name.includes('safeway') || name.includes('grocer') || name.includes('kroger') || name.includes('trader joe') || name.includes('costco') || name.includes('target') || name.includes('walmart') || name.includes('whole foods') || name.includes('sprouts')) return 'Groceries';
-        
-        if (name.includes('dining') || name.includes('mcdonald') || name.includes('starbucks') || name.includes('coffee') || name.includes('cal dining') || name.includes('uber eats') || name.includes('doordash') || name.includes('ramen') || name.includes('pizza') || name.includes('grill') || name.includes('wings') || name.includes('cafe') || name.includes('baguette') || name.includes('eataly') || name.includes('in-n-out') || name.includes('mountain mikes') || name.includes('nick the greek') || name.includes('house of three') || name.includes('kiklo')) return 'Eating Out';
-        if (name.includes('tire') || name.includes('oil change') || name.includes('mechanic') || name.includes('auto repair') || name.includes('dmv') || name.includes('registration') || name.includes('jiffy lube')) return 'Vehicle Maintenance';
-        if (name.includes('parking') || name.includes('garage') || name.includes('car wash') || name.includes('ace parking') || name.includes('uber') || name.includes('lyft') || name.includes('transit') || name.includes('bus') || name.includes('train') || name.includes('gas') || name.includes('chevron') || name.includes('shell') || name.includes('fuel') || name.includes('mobil')) return 'Transportation';
-        if (name.includes('hair') || name.includes('nail') || name.includes('salon') || name.includes('barber') || name.includes('massage') || name.includes('spa') || name.includes('great clips') || name.includes('sephora') || name.includes('cvs')) return 'Personal Care';
-        if (name.includes('paramount') || name.includes('netflix') || name.includes('hulu') || name.includes('spotify') || name.includes('disney+') || name.includes('openai') || name.includes('chatgpt') || name.includes('martial arts') || name.includes('gym') || name.includes('yalis') || name.includes('heroes') || name.includes('membership')) return 'Fixed Subscriptions';
-        if (name.includes('movie') || name.includes('ticket') || name.includes('show') || name.includes('gaming') || name.includes('steam') || name.includes('playstation') || name.includes('nintendo') || name.includes('hobby')) return 'Entertainment';
-        if (name.includes('rent') || name.includes('mortgage') || name.includes('hoa') || name.includes('property tax')) return 'Housing';
-        if (name.includes('pge') || name.includes('water') || name.includes('utility') || name.includes('comcast') || name.includes('at&t')) return 'Utilities';
+        // Fallback basics if config not loaded
+        if (name.includes('vanguard') || name.includes('chase card') || name.includes('payment to') || name.includes('zelle') || name.includes('transfer')) return 'Ignore';
+        if (name.includes('safeway fuel')) return 'Transportation';
+        if (name.includes('safeway') || name.includes('grocer') || name.includes('costco') || name.includes('walmart')) return 'Groceries';
+        if (name.includes('dining') || name.includes('coffee') || name.includes('restaurant')) return 'Eating Out';
+        if (name.includes('uber') || name.includes('lyft') || name.includes('gas') || name.includes('transit')) return 'Transportation';
+        if (name.includes('rent') || name.includes('mortgage')) return 'Housing';
+        if (name.includes('pge') || name.includes('water') || name.includes('utility')) return 'Utilities';
         
         return 'Other';
     };

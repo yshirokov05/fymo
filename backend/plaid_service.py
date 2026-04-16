@@ -109,6 +109,21 @@ def exchange_public_token(public_token):
 
 
 
+import json
+
+_CATEGORY_CONFIG = None
+def _get_category_config():
+    global _CATEGORY_CONFIG
+    if _CATEGORY_CONFIG is None:
+        try:
+            config_path = os.path.join(os.path.dirname(__file__), 'category_mapping.json')
+            with open(config_path, 'r') as f:
+                _CATEGORY_CONFIG = json.load(f)
+        except Exception as e:
+            logging.error(f"Failed to load category mapping: {e}")
+            _CATEGORY_CONFIG = {}
+    return _CATEGORY_CONFIG
+
 def categorize_transaction(name, plaid_categories, custom_rules=None):
     """
     Robust categorization based on merchant name, Plaid categories, and user Custom Rules.
@@ -121,50 +136,31 @@ def categorize_transaction(name, plaid_categories, custom_rules=None):
             if rule.merchant_name.lower() in name or name in rule.merchant_name.lower():
                 return rule.category
                 
-    # 1. Ignore List (Transfers, Payments, Investments)
-    if any(k in name for k in ['vanguard', 'chase card', 'payment to', 'zelle', 'stradavarius', 'moose llc', 'transfer', 'funding']):
-        return "Ignore"
-
+    config = _get_category_config()
+    
+    # Check loaded mapping config
+    for cat, rules in config.items():
+        if any(k in name for k in rules.get("patterns", [])):
+            return cat
+            
+    # Fallback to Plaid categories
     pcats = [c.lower() for c in plaid_categories] if plaid_categories else []
     
-    # 2. Groceries
-    if any(k in name for k in ['safeway', 'kroger', 'whole foods', 'trader joe', 'albertsons', 'grocer', 'costco', 'target', 'walmart', 'aldi', 'publix']):
-        return "Groceries"
-        
-    # 3. Eating Out
-    if any(k in name for k in ['dining', 'restaurant', 'mcdonald', 'starbucks', 'coffee', 'uber eats', 'doordash', 'pizza', 'taco bell', 'chipotle', 'burger king', 'subway', 'wendy', 'dunkin', 'ramen', 'grill', 'wings', 'cafe', 'baguette', 'eataly', 'in-n-out', 'mountain mikes']):
-        return "Eating Out"
     if 'food' in pcats or 'dining' in pcats:
         return "Eating Out"
-        
-    # 4. Transportation (includes Parking and Gas)
-    if any(k in name for k in ['parking', 'ace parking', 'uber', 'lyft', 'transit', 'bus', 'train', 'subway', 'metro', 'clippercard', 'caltrain', 'bart', 'shell', 'chevron', '7-eleven', 'gas', 'fuel', 'mobil', 'exxon', 'arco', 'bp', 'valero', 'speedway', 'quiktrip', 'garage', 'car wash']):
-        return "Transportation"
     if 'transport' in pcats or 'travel' in pcats:
         return "Transportation"
-        
-    # 5. Personal Care
-    if any(k in name for k in ['hair', 'nail', 'salon', 'barber', 'massage', 'spa', 'massage envy', 'great clips', 'supercuts', 'sephora', 'ulta', 'cvs', 'walgreens', 'rite aid']):
-        return "Personal Care"
     if 'personal care' in pcats or 'health care' in pcats:
         return "Personal Care"
-        
-    # 6. Entertainment & Services
-    if any(k in name for k in ['paramount', 'netflix', 'hulu', 'disney+', 'spotify', 'apple.com/bill', 'youtube premium', 'hbo', 'max', 'openai', 'chatgpt', 'martial arts', 'gym']):
-        return "Entertainment"
     if 'entertainment' in pcats or 'recreation' in pcats:
         return "Entertainment"
-        
-    # 7. Housing & Utilities
     if 'rent' in pcats or 'mortgage' in pcats:
         return "Housing"
-    if 'utilities' in pcats or any(k in name for k in ['pge', 'comcast', 'at&t', 'verizon', 'water bill', 'electric bill']):
+    if 'utilities' in pcats:
         return "Utilities"
-
-    # 8. Investment Income (Dividends/Sales)
-    if 'dividend' in pcats or 'dividend' in name:
+    if 'dividend' in pcats:
         return "Dividends"
-    if 'sell' in pcats or 'gain' in pcats or 'trade' in name:
+    if 'sell' in pcats or 'gain' in pcats:
         return "Capital Gains"
 
     return pcats[0].capitalize() if pcats else "Other"
