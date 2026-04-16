@@ -1914,7 +1914,7 @@ def goal_ai_guidance():
         return jsonify({'error': 'Goal data required'}), 400
 
     user, incomes, assets, debts, _, _, _, _, transactions, paystubs, _, _, _, _, _ = get_user_data(user_id=request.uid)
-    from tax_logic import calculate_net_worth as _calc_nw
+    from calculations import calculate_net_worth as _calc_nw
     financial_data = _calc_nw(user, incomes, assets, debts, [], [], paystubs)
 
     monthly_income = financial_data.get('monthly_income', 0)

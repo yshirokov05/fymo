@@ -506,11 +506,6 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             # IMPORTANT: Use Plaid's reported value here to match against Plaid's net_equity
             market_value_per_account[acc_id] = market_value_per_account.get(acc_id, 0) + plaid_reported_value
 
-            # Track cost basis from holdings for accurate return calculations
-            # Only count non-cash holdings with valid cost basis
-            if not is_cash_holding and p_cost_basis > 0:
-                cost_basis_per_account[acc_id] = cost_basis_per_account.get(acc_id, 0) + p_cost_basis
-
             # 4. Add as Asset
             # Calculation of gain: Plaid often provides cost_basis as total cost.
             # We want to store the "official" gain from the institution if possible.
@@ -522,6 +517,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             # Determine asset type based on ticker/security type
             is_cash_holding = ticker in CASH_TICKERS or 'money market' in (sec.get('type') or '').lower()
             h_atype = AssetType.CASH if is_cash_holding else AssetType.STOCK
+
+            # Track cost basis from holdings for accurate return calculations
+            # Only count non-cash holdings with valid cost basis
+            if not is_cash_holding and p_cost_basis > 0:
+                cost_basis_per_account[acc_id] = cost_basis_per_account.get(acc_id, 0) + p_cost_basis
 
             asset = Asset(
                 ticker=ticker,
