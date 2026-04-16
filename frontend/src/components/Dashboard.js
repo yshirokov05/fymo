@@ -3,7 +3,7 @@ import AssetTable from './AssetTable';
 import DebtTable from './DebtTable';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Card from './Card';
-import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2 } from 'lucide-react';
+import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, Info } from 'lucide-react';
 
 const COLORS = [
     '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', 
@@ -265,7 +265,13 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     <div className="flex justify-between"><span>Income</span><span className="font-semibold text-green-600">${monthlyIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                     <div className="flex justify-between"><span>Spending</span><span className="font-semibold text-red-500">${monthlySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                     {savingsRate !== null && (
-                                        <div className="flex justify-between pt-1 border-t border-gray-100"><span>Savings Rate</span><span className={`font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-500'}`}>{savingsRate.toFixed(1)}%</span></div>
+                                        <div className="flex justify-between pt-1 border-t border-gray-100">
+                                            <span className="flex items-center">
+                                                Savings Rate
+                                                <Info size={12} className="ml-1 text-gray-400 cursor-help" title="Formula: (Monthly Income - Monthly Spend) / Monthly Income" />
+                                            </span>
+                                            <span className={`font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-500'}`}>{savingsRate.toFixed(1)}%</span>
+                                        </div>
                                     )}
                                 </div>
                             </>
@@ -503,7 +509,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={isDemoMode ? 0.3 : 1} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip content={isDemoMode ? () => null : <CustomTooltip />} />
+                                            <Tooltip content={<CustomTooltip />} />
                                             <Legend verticalAlign="bottom" height={36}/>
                                         </RechartsPieChart>
                                     </ResponsiveContainer>

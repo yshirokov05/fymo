@@ -1949,7 +1949,7 @@ def goal_ai_guidance():
     prompt = f"""A user has set the following {type_label}:
 - Goal: {sanitize(goal.get('name', ''))}
 - Target: ${goal.get('target_amount', 0):,.2f}
-- Current progress: ${goal.get('current_amount', 0):,.2f} ({round(goal.get('current_amount', 0) / goal.get('target_amount', 1) * 100, 1)}% complete)
+- Current progress: ${goal.get('current_amount', 0):,.2f} ({round(goal.get('current_amount', 0) / (goal.get('target_amount', 1) or 1) * 100, 1)}% complete)
 - Target date: {target_date_str or 'not set'}
 - Notes: {sanitize(goal.get('notes', '')) or 'none'}
 

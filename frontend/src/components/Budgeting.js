@@ -285,15 +285,16 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
     };
 
     const getNormalizedMonthlyLimit = (limit_amount, period) => {
-        if (!limit_amount) return 0;
+        const amount = Number(limit_amount);
+        if (!amount) return 0;
         switch (period) {
-            case 'Weekly': return limit_amount * (52 / 12);
-            case 'Bi-Weekly': return limit_amount * (26 / 12);
-            case 'Quarterly': return limit_amount / 3;
-            case 'Bi-Annually': return limit_amount / 6;
-            case 'Annually': return limit_amount / 12;
+            case 'Weekly': return amount * (52 / 12);
+            case 'Bi-Weekly': return amount * (26 / 12);
+            case 'Quarterly': return amount / 3;
+            case 'Bi-Annually': return amount / 6;
+            case 'Annually': return amount / 12;
             case 'Monthly':
-            default: return limit_amount;
+            default: return amount;
         }
     };
 
@@ -721,7 +722,10 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             className="text-gray-500 font-bold text-sm hover:text-blue-600 transition-colors flex items-center"
                                         >
                                             <TrendingUp size={14} className="mr-1" />
-                                            Build from March suggested budgets
+                                            Build from {(() => {
+                                                const [y, m] = selectedMonth.split('-').map(Number);
+                                                return new Date(y, m - 2, 1).toLocaleString('default', { month: 'long' });
+                                            })()} suggested budgets
                                         </button>
                                     );
                                 }
