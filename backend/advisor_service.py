@@ -25,43 +25,48 @@ def _get_client():
 
 def get_market_news():
     """
-    Fetches the latest financial headlines via yfinance for major market indices.
+    Fetches real-time price data for major market indices via price_service.
+    The yfinance .news API is unreliable — price + daily change % is more
+    dependable and gives Claude concrete numbers to work with.
     Results are cached for 15 minutes.
     """
-    import yfinance as yf
     import time
+    from price_service import get_current_price
 
     if time.time() - _news_cache["timestamp"] < NEWS_CACHE_TTL:
         return _news_cache["content"]
 
-    indices = ['SPY', 'QQQ', 'BTC-USD']
-    news_items = []
+    watchlist = [
+        ('SPY',     'S&P 500'),
+        ('QQQ',     'NASDAQ 100'),
+        ('BTC-USD', 'Bitcoin'),
+        ('GLD',     'Gold'),
+        ('TLT',     '20yr Treasury'),
+    ]
 
-    def fetch_ticker_news(symbol):
-        try:
-            ticker = yf.Ticker(symbol)
-            return symbol, ticker.news[:2]
-        except Exception as e:
-            logging.warning(f"Failed to fetch news for {symbol}: {e}")
-            return symbol, []
-
+    lines = []
     try:
-        logging.info("Fetching market news in parallel for AI Brief...")
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {executor.submit(fetch_ticker_news, s): s for s in indices}
-            for future in as_completed(futures, timeout=3):
-                symbol, headlines = future.result()
-                if isinstance(headlines, list):
-                    for h in headlines:
-                        news_items.append(f"[{symbol}] {h.get('title')} - {h.get('publisher')}")
-
-        content = "\n".join(news_items) if news_items else "No major market headlines detected."
-        _news_cache["timestamp"] = time.time()
-        _news_cache["content"] = content
-        return content
+        logging.info("Fetching live market prices for AI Brief...")
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(get_current_price, t): (t, n) for t, n in watchlist}
+            for future in as_completed(futures, timeout=8):
+                ticker, name = futures[future]
+                try:
+                    data = future.result()
+                    if data and isinstance(data, dict):
+                        price = data.get('current_price', 0)
+                        chg = data.get('daily_change_percent', 0)
+                        arrow = '▲' if chg >= 0 else '▼'
+                        lines.append(f"{name} ({ticker}): ${price:,.2f} {arrow} {chg:+.2f}% today")
+                except Exception:
+                    pass
     except Exception as e:
-        logging.error(f"Parallel news fetch error: {e}")
-        return "Market news temporarily unavailable."
+        logging.warning(f"Market price fetch error: {e}")
+
+    content = "\n".join(lines) if lines else "Market data temporarily unavailable."
+    _news_cache["timestamp"] = time.time()
+    _news_cache["content"] = content
+    return content
 
 
 def get_period_comparison(transactions, days=30):
@@ -447,16 +452,25 @@ def generate_market_intelligence(financial_data):
     net_worth = financial_data.get('real_time_net_worth', 0)
     market_news = get_market_news()
 
-    system_prompt = _sanitize_for_ai(f"""You are the FHQ AI Analyst. Provide a section titled `### Market Intelligence` with 2 concise sentences connecting today's news to the user's financial profile.
+    system_prompt = _sanitize_for_ai(f"""You are the FHQ AI Analyst generating a Market Pulse update for a dark-themed dashboard panel.
 
-CONTEXT:
-- Net Worth: ${net_worth:,.2f}
-- Market News:
+LIVE MARKET DATA (today's prices and daily moves):
 {market_news}
 
+USER PORTFOLIO: Net worth ${net_worth:,.2f}
+
+OUTPUT FORMAT — respond with exactly this structure, no extra text:
+Line 1: A single markdown bold ticker summary line, e.g.:
+**SPY** $XXX ▲/▼ X.XX% · **QQQ** $XXX ▲/▼ X.XX% · **BTC** $XX,XXX ▲/▼ X.XX% · **GLD** $XXX ▲/▼ X.XX%
+
+Line 2: (blank line)
+
+Line 3-4: 2 sharp sentences connecting today's moves to the user's ${net_worth:,.0f} portfolio. Cite specific price moves. Max 180 characters total for these sentences.
+
 RULES:
-1. Respond with ONLY the Market Intelligence section.
-2. No filler. Max 300 characters.
+- Use the exact prices from the live data above — do not invent numbers.
+- No headers, no markdown section titles.
+- Be direct. Investors want data, not commentary fluff.
 """)
 
     try:
