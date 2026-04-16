@@ -852,6 +852,7 @@ def plaid_sync():
         PERIOD_KEYS = ('1w', '1m', 'ytd', '1y', '2y', '5y', 'all')
         combined_investment_history = {
             'current_value': 0.0,
+            'total_cost_basis': 0.0,
             'earliest_date': None,
             'transaction_count': 0,
             'total_fees': 0.0,
@@ -883,6 +884,7 @@ def plaid_sync():
                     combined_investment_history['transaction_count'] += inv_history.get('transaction_count', 0)
                     combined_investment_history['total_fees'] += inv_history.get('total_fees', 0)
                     combined_investment_history['current_value'] += inv_history.get('current_value', 0)
+                    combined_investment_history['total_cost_basis'] += inv_history.get('total_cost_basis', 0)
                     # Merge earliest date
                     if inv_history.get('earliest_date'):
                         cur = combined_investment_history.get('earliest_date')

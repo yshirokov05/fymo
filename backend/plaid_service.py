@@ -439,6 +439,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         securities = {s['security_id']: s for s in holdings_response['securities']}
         CASH_TICKERS = ['VMFXX', 'SPAXX', 'FDRXX', 'TMSXX', 'CUR:USD', 'CASH', 'USD', 'SWVXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX']
         market_value_per_account: dict[str, float] = {}
+        cost_basis_per_account: dict[str, float] = {}  # Track total cost basis from holdings per account
         margin_from_holdings_per_account: dict[str, float] = {} # Track identified debt to avoid double counting
         
         all_tickers = [s.get('ticker_symbol') for s in holdings_response['securities'] if s.get('ticker_symbol')]
@@ -504,6 +505,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             # 3. Track market value for POSITIVE assets for margin calculation
             # IMPORTANT: Use Plaid's reported value here to match against Plaid's net_equity
             market_value_per_account[acc_id] = market_value_per_account.get(acc_id, 0) + plaid_reported_value
+
+            # Track cost basis from holdings for accurate return calculations
+            # Only count non-cash holdings with valid cost basis
+            if not is_cash_holding and p_cost_basis > 0:
+                cost_basis_per_account[acc_id] = cost_basis_per_account.get(acc_id, 0) + p_cost_basis
 
             # 4. Add as Asset
             # Calculation of gain: Plaid often provides cost_basis as total cost.
@@ -724,14 +730,16 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             elif txn_type in ('fee',) or subtype in ('fee', 'commission'):
                 total_fees += amount
 
-        # Populate per-account current values from holdings (already computed above)
+        # Populate per-account current values and cost basis from holdings (already computed above)
         for acc_id, mv in market_value_per_account.items():
             if acc_id in by_account:
                 by_account[acc_id]['current_value'] = round(mv, 2)
+                by_account[acc_id]['total_cost_basis'] = round(cost_basis_per_account.get(acc_id, 0), 2)
             elif mv > 0.01:
                 by_account[acc_id] = {
                     'name': account_id_to_name.get(acc_id, 'Investment Account'),
                     'current_value': round(mv, 2),
+                    'total_cost_basis': round(cost_basis_per_account.get(acc_id, 0), 2),
                     'periods': {p: {'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0} for p in PERIOD_KEYS},
                 }
 
@@ -762,9 +770,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             logging.warning(f"Benchmark fetch failed: {_bench_e}")
 
         total_current_value = sum(market_value_per_account.values())
+        total_cost_basis_from_holdings = sum(cost_basis_per_account.values())
 
         investment_history = {
             'current_value': round(total_current_value, 2),
+            'total_cost_basis': round(total_cost_basis_from_holdings, 2),
             'earliest_date': earliest_txn_date,
             'transaction_count': len(inv_txns),
             'total_fees': round(total_fees, 2),

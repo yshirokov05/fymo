@@ -324,16 +324,27 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 const source = isAll ? ih : ih?.by_account?.[prAccount];
                 const curVal = isAll ? (ih?.current_value || totalCurrentValue) : (source?.current_value || 0);
 
-                // All-time data for return % (always all-time)
+                // All-time data for activity display
                 const allD = getPd(source, 'all');
                 // Selected period data for activity display
                 const selD = getPd(source, prPeriod);
 
-                const retPct = allD.invested > 0
-                    ? ((curVal + allD.proceeds + allD.dividends - allD.invested) / allD.invested) * 100
+                // Use holdings-based cost basis for return calculation (accurate ground truth)
+                // Falls back to asset-level cost basis if investment_history doesn't have it
+                const holdingsCostBasis = isAll
+                    ? (ih?.total_cost_basis || 0)
+                    : (source?.total_cost_basis || 0);
+                const costBasisForReturn = holdingsCostBasis > 0 ? holdingsCostBasis : totalCostBasis;
+
+                // Return % = (current_value - cost_basis) / cost_basis
+                // Only show if cost basis covers at least 10% of current value (guards against
+                // Plaid returning near-zero dummy cost basis values)
+                const basisCoverage = curVal > 0 ? costBasisForReturn / curVal : 0;
+                const retPct = costBasisForReturn > 0 && basisCoverage >= 0.1
+                    ? ((curVal - costBasisForReturn) / costBasisForReturn) * 100
                     : portfolioReturn;
-                const retDollar = allD.invested > 0
-                    ? curVal + allD.proceeds + allD.dividends - allD.invested
+                const retDollar = costBasisForReturn > 0 && basisCoverage >= 0.1
+                    ? curVal - costBasisForReturn
                     : (portfolioReturn !== null ? totalCurrentValue - totalCostBasis : null);
                 const pos = (retPct || 0) >= 0;
 
