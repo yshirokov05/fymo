@@ -306,9 +306,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         const displayReturn = trueTotalReturn !== null ? trueTotalReturn : portfolioReturn;
                         const displayGainLoss = trueGainLoss !== null ? trueGainLoss : (totalCurrentValue - totalCostBasis);
                         const isPositive = (displayReturn ?? 0) >= 0;
-                        const cardTitle = hasHistory
-                            ? (ih?.earliest_date ? `Total Return · Since ${ih.earliest_date}` : 'Total Return')
-                            : 'Portfolio Return (Est.)';
+                        const cardTitle = 'Portfolio Return';
 
                         // Per-account breakdown
                         const byAccount = ih?.by_account ? Object.values(ih.by_account) : [];
@@ -328,6 +326,9 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 <div className="mt-2 space-y-1 text-xs text-gray-500">
                                     {hasHistory ? (
                                         <>
+                                            {ih?.earliest_date && (
+                                                <p className="text-[10px] text-gray-400 -mt-1 mb-1">Since {ih.earliest_date} · {ih.transaction_count} transactions</p>
+                                            )}
                                             <div className="flex justify-between"><span>Total Invested</span><span className="font-semibold">${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                             <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                             {totalProceeds > 0 && <div className="flex justify-between"><span>Realized Proceeds</span><span className="font-semibold text-green-600">+${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
@@ -338,7 +339,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                     {displayGainLoss >= 0 ? '+' : '-'}${Math.abs(displayGainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                                 </span>
                                             </div>
-                                            {/* S&P 500 benchmark */}
+                                            {/* S&P 500 YTD benchmark */}
                                             {ih?.spy_ytd_return != null && (
                                                 <div className="flex justify-between pt-1 border-t border-gray-100">
                                                     <span className="text-gray-400">S&P 500 YTD</span>
@@ -347,7 +348,6 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                     </span>
                                                 </div>
                                             )}
-                                            {ih?.transaction_count && <p className="text-[10px] text-gray-400 mt-1">{ih.transaction_count} investment transactions</p>}
                                         </>
                                     ) : (
                                         <>
