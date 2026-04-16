@@ -44,7 +44,7 @@ const formatGuidance = (text) => {
     });
 };
 
-const GoalCard = ({ goal, token, onUpdate, onDelete }) => {
+const GoalCard = ({ goal, getToken, onUpdate, onDelete }) => {
     const [expanded, setExpanded] = useState(false);
     const [guidance, setGuidance] = useState(null);
     const [loadingGuidance, setLoadingGuidance] = useState(false);
@@ -62,6 +62,7 @@ const GoalCard = ({ goal, token, onUpdate, onDelete }) => {
         setLoadingGuidance(true);
         setGuidanceError(null);
         try {
+            const token = await getToken();
             const res = await axios.post('/api/goals/ai_guidance', { goal }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -473,7 +474,7 @@ const Goals = ({ currentUser }) => {
                         <GoalCard
                             key={goal.id}
                             goal={goal}
-                            token={currentUser ? currentUser.getIdToken() : null}
+                            getToken={getToken}
                             onUpdate={handleUpdate}
                             onDelete={handleDelete}
                         />

@@ -515,7 +515,7 @@ def initialize_sample_data():
         Asset(
             ticker='Primary Residence',
             shares=450000,
-            cost_basis=450000,
+            cost_basis=1.0,
             asset_type=AssetType.HOUSING,
             institution_name='Manual'
         )
@@ -1196,8 +1196,8 @@ def plaid_sync():
 @token_required
 def onboarding_complete():
     uid = "demo_user" if request.uid == "guest" else request.uid
-    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, custom_categories, outstanding_checks = get_user_data(user_id=uid)
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=True, custom_categories=custom_categories, outstanding_checks=outstanding_checks, user_id=uid)
+    user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, _, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
+    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=True, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
     return jsonify({'success': True})
 
 @app.route('/api/user_tax_info', methods=['PUT'])
