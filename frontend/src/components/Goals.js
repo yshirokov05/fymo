@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 import { Target, Plus, Trash2, Sparkles, ChevronDown, ChevronUp, CheckCircle2, Clock, TrendingUp, PiggyBank, CreditCard, Wallet, Loader2, AlertCircle, Edit3, X, Check } from 'lucide-react';
 
 const GOAL_TYPES = [
@@ -44,7 +45,8 @@ const formatGuidance = (text) => {
     });
 };
 
-const GoalCard = ({ goal, getToken, onUpdate, onDelete }) => {
+const GoalCard = ({ goal, onUpdate, onDelete }) => {
+    const { currentUser } = useAuth();
     const [expanded, setExpanded] = useState(false);
     const [guidance, setGuidance] = useState(null);
     const [loadingGuidance, setLoadingGuidance] = useState(false);
@@ -59,10 +61,11 @@ const GoalCard = ({ goal, getToken, onUpdate, onDelete }) => {
     const isComplete = progress >= 100;
 
     const fetchGuidance = async () => {
+        if (!currentUser) return;
         setLoadingGuidance(true);
         setGuidanceError(null);
         try {
-            const token = await getToken();
+            const token = await currentUser.getIdToken();
             const res = await axios.post('/api/goals/ai_guidance', { goal }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -474,7 +477,6 @@ const Goals = ({ currentUser }) => {
                         <GoalCard
                             key={goal.id}
                             goal={goal}
-                            getToken={getToken}
                             onUpdate={handleUpdate}
                             onDelete={handleDelete}
                         />
