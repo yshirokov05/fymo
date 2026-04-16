@@ -594,6 +594,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     taxLiability={taxLiability}
                     transactions={transactions}
                     incomes={incomes}
+                    paystubs={paystubs}
                     isGuest={isGuest}
                     hasCompletedOnboarding={hasCompletedOnboarding}
                     onUpdateCostBasis={handleUpdateCostBasis}
@@ -688,12 +689,13 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           return <AIAnalyst isPremium={isPremium} onUpgrade={() => setActiveView('settings')} />;
       case 'income':
           return (
-              <Income 
-                paystubs={paystubs} 
-                onSavePaystubs={handleSavePaystubs} 
+              <Income
+                paystubs={paystubs}
+                onSavePaystubs={handleSavePaystubs}
                 otherIncomes={incomes}
                 onSaveOtherIncomes={(i) => handleSave({ incomes: i })}
                 transactions={transactions}
+                investmentHistory={investmentHistory}
               />
           );
       case 'taxes':

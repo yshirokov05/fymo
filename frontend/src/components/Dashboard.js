@@ -48,7 +48,7 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null }) => {
     // --- Financial Health Metrics ---
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
@@ -62,7 +62,13 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         .filter(t => t.amount > 0 && new Date(t.date) >= monthStart)
         .reduce((sum, t) => sum + t.amount, 0);
 
-    const monthlyIncome = incomes.reduce((sum, i) => sum + (i.monthly_income || 0), 0);
+    // Income from manually-entered sources
+    const manualMonthlyIncome = incomes.reduce((sum, i) => sum + (i.monthly_income || 0), 0);
+    // Income from Plaid-detected paystubs this month (gross_amount = net deposit for is_net_primary)
+    const paystubMonthlyIncome = paystubs
+        .filter(p => { const d = new Date(p.date); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); })
+        .reduce((sum, p) => sum + (p.is_net_primary ? (p.gross_amount || 0) : (p.net_amount || Math.max(0, (p.gross_amount || 0) - (p.tax_withheld || 0)))), 0);
+    const monthlyIncome = manualMonthlyIncome + paystubMonthlyIncome;
 
     const monthlyCashFlow = monthlyIncome - monthlySpend;
     const savingsRate = monthlyIncome > 0 ? (monthlyCashFlow / monthlyIncome) * 100 : null;
@@ -286,13 +292,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
 
                     {/* Portfolio Return */}
                     {(() => {
-                        // Total return including realized gains from investment transaction history
                         const ih = investmentHistory;
                         const hasHistory = ih && ih.transaction_count > 0;
                         const totalInvested = ih?.total_invested || 0;
                         const totalProceeds = ih?.total_proceeds || 0;
                         const totalDividends = ih?.total_dividends || 0;
-                        // True total return: (current value + cash received) - total cash invested
                         const trueTotalReturn = hasHistory && totalInvested > 0
                             ? ((totalCurrentValue + totalProceeds + totalDividends - totalInvested) / totalInvested) * 100
                             : null;
@@ -305,6 +309,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         const cardTitle = hasHistory
                             ? (ih?.earliest_date ? `Total Return · Since ${ih.earliest_date}` : 'Total Return')
                             : 'Portfolio Return (Est.)';
+
+                        // Per-account breakdown
+                        const byAccount = ih?.by_account ? Object.values(ih.by_account) : [];
+                        const accountsWithData = byAccount.filter(a => a.current_value > 0 || a.invested > 0);
+
                         return (
                         <Card title={cardTitle} icon={<BarChart2 className={displayReturn !== null ? (isPositive ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
                         {totalCostBasis > 0 || hasHistory ? (
@@ -323,7 +332,21 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                             <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                             {totalProceeds > 0 && <div className="flex justify-between"><span>Realized Proceeds</span><span className="font-semibold text-green-600">+${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
                                             {totalDividends > 0 && <div className="flex justify-between"><span>Dividends</span><span className="font-semibold text-green-600">+${totalDividends.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
-                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Total Return $</span><span className={`font-bold ${displayGainLoss >= 0 ? 'text-green-600' : 'text-red-500'}`}>{displayGainLoss >= 0 ? '+' : ''}{displayGainLoss < 0 ? '-' : ''}${Math.abs(displayGainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                                            <div className="flex justify-between pt-1 border-t border-gray-100">
+                                                <span>Total Return $</span>
+                                                <span className={`font-bold ${displayGainLoss >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                    {displayGainLoss >= 0 ? '+' : '-'}${Math.abs(displayGainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                </span>
+                                            </div>
+                                            {/* S&P 500 benchmark */}
+                                            {ih?.spy_ytd_return != null && (
+                                                <div className="flex justify-between pt-1 border-t border-gray-100">
+                                                    <span className="text-gray-400">S&P 500 YTD</span>
+                                                    <span className={`font-semibold ${ih.spy_ytd_return >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                                                        {ih.spy_ytd_return >= 0 ? '+' : ''}{ih.spy_ytd_return.toFixed(2)}%
+                                                    </span>
+                                                </div>
+                                            )}
                                             {ih?.transaction_count && <p className="text-[10px] text-gray-400 mt-1">{ih.transaction_count} investment transactions</p>}
                                         </>
                                     ) : (
@@ -334,6 +357,33 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                         </>
                                     )}
                                 </div>
+                                {/* Per-account breakdown */}
+                                {accountsWithData.length > 1 && (
+                                    <div className="mt-3 pt-2 border-t border-gray-100">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">By Account</p>
+                                        <div className="space-y-1.5">
+                                            {accountsWithData.map((acc, idx) => {
+                                                const accReturn = acc.invested > 0
+                                                    ? ((acc.current_value + acc.proceeds + acc.dividends - acc.invested) / acc.invested) * 100
+                                                    : null;
+                                                const accPos = (accReturn ?? 0) >= 0;
+                                                return (
+                                                    <div key={idx} className="flex items-center justify-between text-xs">
+                                                        <span className="text-gray-500 truncate max-w-[120px]" title={acc.name}>{acc.name}</span>
+                                                        <div className="flex items-center space-x-2 shrink-0">
+                                                            <span className="text-gray-600 font-semibold">${acc.current_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                            {accReturn !== null && (
+                                                                <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full ${accPos ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+                                                                    {accPos ? '+' : ''}{accReturn.toFixed(1)}%
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                                 {displayReturn === null && !hasHistory && (
                                     <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis data covers {(basisRatio * 100).toFixed(0)}% of portfolio — sync Plaid for accurate return</p>
                                 )}

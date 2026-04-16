@@ -656,34 +656,89 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         inv_txns = inv_trans_result.get('investment_transactions', [])
         inv_sec_map = inv_trans_result.get('securities', {})
 
-        total_invested = 0.0       # Sum of all buy amounts (cost basis of buys)
-        total_proceeds = 0.0       # Sum of all sell proceeds
-        total_dividends = 0.0      # Cash dividends received
+        total_invested = 0.0
+        total_proceeds = 0.0
+        total_dividends = 0.0
         total_fees = 0.0
         earliest_txn_date = None
+
+        # YTD (current calendar year) subtotals
+        _current_year = datetime.now().year
+        ytd_invested = 0.0
+        ytd_proceeds = 0.0
+        ytd_dividends = 0.0
+
+        # Per-account breakdown keyed by Plaid account_id
+        by_account: dict = {}
 
         for txn in inv_txns:
             txn_type = (txn.get('type') or '').lower()
             subtype = (txn.get('subtype') or '').lower()
             amount = float(txn.get('amount') or 0)
+            acc_id = txn.get('account_id', '')
             # In Plaid investment transactions: amount > 0 = cash outflow (buy); < 0 = inflow (sell/dividend)
             date_val = txn.get('date')
+            txn_year = 0
             if date_val:
                 date_str = date_val.isoformat() if hasattr(date_val, 'isoformat') else str(date_val)
                 if earliest_txn_date is None or date_str < earliest_txn_date:
                     earliest_txn_date = date_str
+                try:
+                    txn_year = int(date_str[:4])
+                except Exception:
+                    txn_year = 0
+
+            # Initialize per-account entry on first encounter
+            if acc_id and acc_id not in by_account:
+                by_account[acc_id] = {
+                    'name': account_id_to_name.get(acc_id, 'Investment Account'),
+                    'invested': 0.0,
+                    'proceeds': 0.0,
+                    'dividends': 0.0,
+                    'current_value': 0.0,
+                }
 
             if txn_type in ('buy',) or subtype in ('buy',):
-                total_invested += amount  # positive = cash out to buy
+                total_invested += amount
+                if acc_id: by_account[acc_id]['invested'] += amount
+                if txn_year == _current_year: ytd_invested += amount
             elif txn_type in ('sell',) or subtype in ('sell',):
-                total_proceeds += abs(amount)  # negative = cash in from sell
+                total_proceeds += abs(amount)
+                if acc_id: by_account[acc_id]['proceeds'] += abs(amount)
+                if txn_year == _current_year: ytd_proceeds += abs(amount)
             elif txn_type in ('dividend',) or subtype in ('dividend', 'qualified dividend', 'non-qualified dividend'):
                 total_dividends += abs(amount)
+                if acc_id: by_account[acc_id]['dividends'] += abs(amount)
+                if txn_year == _current_year: ytd_dividends += abs(amount)
             elif txn_type in ('fee',) or subtype in ('fee', 'commission'):
                 total_fees += amount
 
-        # Attach aggregate investment history to the return so the API can surface it
-        # We store it in a lightweight dict rather than a new model class
+        # Populate per-account current values from holdings (already computed above)
+        for acc_id, mv in market_value_per_account.items():
+            if acc_id in by_account:
+                by_account[acc_id]['current_value'] = round(mv, 2)
+            elif mv > 0.01:
+                by_account[acc_id] = {
+                    'name': account_id_to_name.get(acc_id, 'Investment Account'),
+                    'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0,
+                    'current_value': round(mv, 2),
+                }
+
+        # Round per-account figures
+        for acc_data in by_account.values():
+            for k in ('invested', 'proceeds', 'dividends'):
+                acc_data[k] = round(acc_data[k], 2)
+
+        # Fetch S&P 500 YTD return for benchmark comparison (best-effort, non-blocking)
+        spy_ytd_return = None
+        try:
+            from price_service import get_period_return
+            from concurrent.futures import ThreadPoolExecutor as _TPE
+            with _TPE(max_workers=1) as _ex:
+                spy_ytd_return = _ex.submit(get_period_return, 'SPY', 'ytd').result(timeout=5.0)
+        except Exception as _spy_e:
+            logging.warning(f"SPY YTD fetch skipped: {_spy_e}")
+
         investment_history = {
             'total_invested': round(total_invested, 2),
             'total_proceeds': round(total_proceeds, 2),
@@ -691,8 +746,13 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             'total_fees': round(total_fees, 2),
             'transaction_count': len(inv_txns),
             'earliest_date': earliest_txn_date,
+            'ytd_invested': round(ytd_invested, 2),
+            'ytd_proceeds': round(ytd_proceeds, 2),
+            'ytd_dividends': round(ytd_dividends, 2),
+            'by_account': by_account,
+            'spy_ytd_return': spy_ytd_return,
         }
-        logging.info(f"Investment history for {user_id}: invested={total_invested:.2f}, proceeds={total_proceeds:.2f}, dividends={total_dividends:.2f}, txns={len(inv_txns)}")
+        logging.info(f"Investment history for {user_id}: invested={total_invested:.2f}, proceeds={total_proceeds:.2f}, dividends={total_dividends:.2f}, txns={len(inv_txns)}, accounts={len(by_account)}")
 
         return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids, investment_history
     except Exception as e:

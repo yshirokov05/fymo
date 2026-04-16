@@ -123,6 +123,17 @@ def validate_ticker(ticker_symbol):
     price = get_current_price(ticker_symbol)
     return price is not None
 
+def get_period_return(ticker_symbol, period='ytd'):
+    """Returns the % price return for a ticker over a given yfinance period string."""
+    import yfinance as yf
+    try:
+        hist = yf.Ticker(ticker_symbol.upper()).history(period=period)
+        if len(hist) >= 2:
+            return round(((float(hist['Close'].iloc[-1]) / float(hist['Close'].iloc[0])) - 1) * 100, 2)
+        return None
+    except Exception:
+        return None
+
 if __name__ == '__main__':
     # Test batch fetch
     # print(get_multiple_prices(['AAPL', 'MSFT', 'GOOGL', 'CASH']))
