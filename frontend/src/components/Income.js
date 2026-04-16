@@ -342,43 +342,54 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                     </div>
                                 </div>
                             ))}
-                            {currentYearOther.length === 0 && !investmentHistory?.ytd_dividends && !investmentHistory?.ytd_proceeds && (
-                                <div className="flex flex-col items-center py-8 text-gray-400">
-                                    <DollarSign size={32} className="mb-2 opacity-30" />
-                                    <p className="text-sm font-medium">No investment gains recorded.</p>
-                                </div>
-                            )}
-                            {/* Auto-detected investment income from Plaid */}
-                            {investmentHistory && (investmentHistory.ytd_dividends > 0 || investmentHistory.ytd_proceeds > 0) && (
-                                <div className="mt-3 pt-3 border-t border-gray-100">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Auto-Detected (Plaid) — YTD</p>
-                                    {investmentHistory.ytd_dividends > 0 && (
-                                        <div className="flex justify-between items-center py-2 text-sm">
-                                            <div>
-                                                <span className="font-bold text-gray-800">Dividends</span>
-                                                <span className="ml-2 text-[10px] text-blue-500 font-bold uppercase bg-blue-50 px-1.5 py-0.5 rounded-full">Plaid</span>
-                                            </div>
-                                            <span className="font-black text-green-600">+${investmentHistory.ytd_dividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        </div>
-                                    )}
-                                    {investmentHistory.ytd_proceeds > 0 && investmentHistory.ytd_invested > 0 && (() => {
-                                        const ytdNetGain = investmentHistory.ytd_proceeds - investmentHistory.ytd_invested;
-                                        const isGain = ytdNetGain >= 0;
-                                        return (
-                                            <div className="flex justify-between items-center py-2 text-sm border-t border-gray-50">
+                            {(() => {
+                                // Support both new period-based and old flat format
+                                const ytd = investmentHistory?.periods?.ytd || {
+                                    invested: investmentHistory?.ytd_invested || 0,
+                                    proceeds: investmentHistory?.ytd_proceeds || 0,
+                                    dividends: investmentHistory?.ytd_dividends || 0,
+                                };
+                                return (
+                                <>
+                                {currentYearOther.length === 0 && !ytd.dividends && !ytd.proceeds && (
+                                    <div className="flex flex-col items-center py-8 text-gray-400">
+                                        <DollarSign size={32} className="mb-2 opacity-30" />
+                                        <p className="text-sm font-medium">No investment gains recorded.</p>
+                                    </div>
+                                )}
+                                {investmentHistory && (ytd.dividends > 0 || ytd.proceeds > 0) && (
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Auto-Detected (Plaid) — YTD</p>
+                                        {ytd.dividends > 0 && (
+                                            <div className="flex justify-between items-center py-2 text-sm">
                                                 <div>
-                                                    <span className="font-bold text-gray-800">Realized Trades</span>
+                                                    <span className="font-bold text-gray-800">Dividends</span>
                                                     <span className="ml-2 text-[10px] text-blue-500 font-bold uppercase bg-blue-50 px-1.5 py-0.5 rounded-full">Plaid</span>
                                                 </div>
-                                                <span className={`font-black ${isGain ? 'text-green-600' : 'text-red-500'}`}>
-                                                    {isGain ? '+' : '-'}${Math.abs(ytdNetGain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </span>
+                                                <span className="font-black text-green-600">+${ytd.dividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             </div>
-                                        );
-                                    })()}
-                                    <p className="text-[10px] text-gray-400 mt-1">Proceeds ${(investmentHistory.ytd_proceeds || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} · Invested ${(investmentHistory.ytd_invested || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                                </div>
-                            )}
+                                        )}
+                                        {ytd.proceeds > 0 && ytd.invested > 0 && (() => {
+                                            const ytdNetGain = ytd.proceeds - ytd.invested;
+                                            const isGain = ytdNetGain >= 0;
+                                            return (
+                                                <div className="flex justify-between items-center py-2 text-sm border-t border-gray-50">
+                                                    <div>
+                                                        <span className="font-bold text-gray-800">Realized Trades</span>
+                                                        <span className="ml-2 text-[10px] text-blue-500 font-bold uppercase bg-blue-50 px-1.5 py-0.5 rounded-full">Plaid</span>
+                                                    </div>
+                                                    <span className={`font-black ${isGain ? 'text-green-600' : 'text-red-500'}`}>
+                                                        {isGain ? '+' : '-'}${Math.abs(ytdNetGain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+                                        <p className="text-[10px] text-gray-400 mt-1">Proceeds ${ytd.proceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })} · Invested ${ytd.invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                    </div>
+                                )}
+                                </>
+                                );
+                            })()}
                         </div>
                     </Card>
                 </div>

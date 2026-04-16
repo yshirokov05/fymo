@@ -134,6 +134,40 @@ def get_period_return(ticker_symbol, period='ytd'):
     except Exception:
         return None
 
+def get_multi_period_returns(ticker_symbol):
+    """Fetch % returns for multiple time periods from a single yfinance history query.
+    Returns dict like {'1w': 2.3, '1m': -1.5, 'ytd': 5.2, '1y': 12.1, ...}"""
+    import yfinance as yf
+    from datetime import timedelta
+    try:
+        hist = yf.Ticker(ticker_symbol.upper()).history(period='5y')
+        if len(hist) < 2:
+            return {}
+        last_close = float(hist['Close'].iloc[-1])
+        last_date = hist.index[-1]
+        results = {}
+        for pkey, days in [('1w', 7), ('1m', 30), ('1y', 365), ('2y', 730), ('5y', 1825)]:
+            target = last_date - timedelta(days=days)
+            subset = hist[hist.index >= target]
+            if len(subset) >= 2:
+                sc = float(subset['Close'].iloc[0])
+                if sc > 0:
+                    results[pkey] = round(((last_close / sc) - 1) * 100, 2)
+        # YTD
+        ytd_str = f"{last_date.year}-01-01"
+        ytd_sub = hist[hist.index >= ytd_str]
+        if len(ytd_sub) >= 2:
+            sc = float(ytd_sub['Close'].iloc[0])
+            if sc > 0:
+                results['ytd'] = round(((last_close / sc) - 1) * 100, 2)
+        # All (full dataset)
+        sc = float(hist['Close'].iloc[0])
+        if sc > 0:
+            results['all'] = round(((last_close / sc) - 1) * 100, 2)
+        return results
+    except Exception:
+        return {}
+
 if __name__ == '__main__':
     # Test batch fetch
     # print(get_multiple_prices(['AAPL', 'MSFT', 'GOOGL', 'CASH']))

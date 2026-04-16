@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AssetTable from './AssetTable';
 import DebtTable from './DebtTable';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -50,6 +50,9 @@ const CustomTooltip = ({ active, payload }) => {
 
 const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null }) => {
     // --- Financial Health Metrics ---
+    const [prPeriod, setPrPeriod] = useState('ytd');
+    const [prAccount, setPrAccount] = useState('all');
+
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -225,8 +228,8 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 </div>
             )}
 
-            {!hideSummary && (hasTransactionData || hasIncomeData || portfolioReturn !== null) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {!hideSummary && (hasTransactionData || hasIncomeData) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* YTD Spending */}
                     <Card title="YTD Spending" icon={<TrendingDown className="text-red-400" />}>
                         {hasTransactionData ? (
@@ -290,115 +293,158 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         )}
                     </Card>
 
-                    {/* Portfolio Return */}
-                    {(() => {
-                        const ih = investmentHistory;
-                        const hasHistory = ih && ih.transaction_count > 0;
-                        const totalInvested = ih?.total_invested || 0;
-                        const totalProceeds = ih?.total_proceeds || 0;
-                        const totalDividends = ih?.total_dividends || 0;
-                        const trueTotalReturn = hasHistory && totalInvested > 0
-                            ? ((totalCurrentValue + totalProceeds + totalDividends - totalInvested) / totalInvested) * 100
-                            : null;
-                        const trueGainLoss = hasHistory && totalInvested > 0
-                            ? totalCurrentValue + totalProceeds + totalDividends - totalInvested
-                            : null;
-                        const displayReturn = trueTotalReturn !== null ? trueTotalReturn : portfolioReturn;
-                        const displayGainLoss = trueGainLoss !== null ? trueGainLoss : (totalCurrentValue - totalCostBasis);
-                        const isPositive = (displayReturn ?? 0) >= 0;
-                        const cardTitle = 'Portfolio Return';
+                </div>
+            )}
 
-                        // Per-account breakdown
-                        const byAccount = ih?.by_account ? Object.values(ih.by_account) : [];
-                        const accountsWithData = byAccount.filter(a => a.current_value > 0 || a.invested > 0);
+            {/* Portfolio Return — full-width card with account + period selectors */}
+            {!hideSummary && (investmentHistory || portfolioReturn !== null) && (() => {
+                const ih = investmentHistory;
+                const hasHistory = ih && ih.transaction_count > 0;
+                const PERIOD_ORDER = ['1w', '1m', 'ytd', '1y', '2y', '5y', 'all'];
+                const PERIOD_LABELS = { '1w': '1W', '1m': '1M', 'ytd': 'YTD', '1y': '1Y', '2y': '2Y', '5y': '5Y', 'all': 'All' };
+                const BENCH_NAMES = { spy: 'S&P 500', qqq: 'Nasdaq', dia: 'Dow Jones' };
 
-                        return (
-                        <Card title={cardTitle} icon={<BarChart2 className={displayReturn !== null ? (isPositive ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
-                        {totalCostBasis > 0 || hasHistory ? (
-                            <>
-                                {displayReturn !== null ? (
-                                    <p className={`text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-500'}`}>
-                                        {isPositive ? '+' : ''}{displayReturn.toFixed(2)}%
+                // Build account list for dropdown
+                const accounts = ih?.by_account
+                    ? Object.entries(ih.by_account)
+                        .map(([id, data]) => ({ id, ...data }))
+                        .filter(a => a.current_value > 0 || (a.periods?.all?.invested || 0) > 0)
+                    : [];
+
+                // Helper: get period data from either new or old format
+                const getPd = (src, p) => {
+                    if (!src) return { invested: 0, proceeds: 0, dividends: 0 };
+                    if (src.periods) return src.periods[p] || { invested: 0, proceeds: 0, dividends: 0 };
+                    // Old format fallback
+                    if (p === 'all') return { invested: src.total_invested || 0, proceeds: src.total_proceeds || 0, dividends: src.total_dividends || 0 };
+                    return { invested: 0, proceeds: 0, dividends: 0 };
+                };
+
+                const isAll = prAccount === 'all';
+                const source = isAll ? ih : ih?.by_account?.[prAccount];
+                const curVal = isAll ? (ih?.current_value || totalCurrentValue) : (source?.current_value || 0);
+
+                // All-time data for return % (always all-time)
+                const allD = getPd(source, 'all');
+                // Selected period data for activity display
+                const selD = getPd(source, prPeriod);
+
+                const retPct = allD.invested > 0
+                    ? ((curVal + allD.proceeds + allD.dividends - allD.invested) / allD.invested) * 100
+                    : portfolioReturn;
+                const retDollar = allD.invested > 0
+                    ? curVal + allD.proceeds + allD.dividends - allD.invested
+                    : (portfolioReturn !== null ? totalCurrentValue - totalCostBasis : null);
+                const pos = (retPct || 0) >= 0;
+
+                // Benchmarks for selected period
+                const bench = ih?.benchmarks?.[prPeriod] || {};
+
+                const fmt = (n) => '$' + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+                return (
+                <Card title="Portfolio Return" icon={<BarChart2 className={retPct !== null ? (pos ? "text-green-500" : "text-red-400") : "text-gray-400"} />}>
+                    {hasHistory || totalCostBasis > 0 ? (
+                    <>
+                        {/* Controls */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+                            <select
+                                value={prAccount}
+                                onChange={e => setPrAccount(e.target.value)}
+                                className="text-xs font-semibold bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-gray-300 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 max-w-[220px]"
+                            >
+                                <option value="all">All Accounts</option>
+                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                            <div className="flex gap-1">
+                                {PERIOD_ORDER.map(pk => (
+                                    <button key={pk} onClick={() => setPrPeriod(pk)}
+                                        className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${prPeriod === pk ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-gray-200'}`}
+                                    >{PERIOD_LABELS[pk]}</button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Two-column body */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Left — headline return */}
+                            <div>
+                                {retPct !== null ? (
+                                    <p className={`text-3xl font-bold ${pos ? 'text-green-500' : 'text-red-500'}`}>
+                                        {pos ? '+' : ''}{retPct.toFixed(2)}%
                                     </p>
                                 ) : (
-                                    <p className="text-2xl font-bold text-gray-400">N/A</p>
+                                    <p className="text-3xl font-bold text-gray-500">N/A</p>
                                 )}
-                                <div className="mt-2 space-y-1 text-xs text-gray-500">
-                                    {hasHistory ? (
-                                        <>
-                                            {ih?.earliest_date && (
-                                                <p className="text-[10px] text-gray-400 -mt-1 mb-1">Since {ih.earliest_date} · {ih.transaction_count} transactions</p>
-                                            )}
-                                            <div className="flex justify-between"><span>Total Invested</span><span className="font-semibold">${totalInvested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                            <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                            {totalProceeds > 0 && <div className="flex justify-between"><span>Realized Proceeds</span><span className="font-semibold text-green-600">+${totalProceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
-                                            {totalDividends > 0 && <div className="flex justify-between"><span>Dividends</span><span className="font-semibold text-green-600">+${totalDividends.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>}
-                                            <div className="flex justify-between pt-1 border-t border-gray-100">
-                                                <span>Total Return $</span>
-                                                <span className={`font-bold ${displayGainLoss >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                    {displayGainLoss >= 0 ? '+' : '-'}${Math.abs(displayGainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                </span>
-                                            </div>
-                                            {/* S&P 500 YTD benchmark */}
-                                            {ih?.spy_ytd_return != null && (
-                                                <div className="flex justify-between pt-1 border-t border-gray-100">
-                                                    <span className="text-gray-400">S&P 500 YTD</span>
-                                                    <span className={`font-semibold ${ih.spy_ytd_return >= 0 ? 'text-green-500' : 'text-red-400'}`}>
-                                                        {ih.spy_ytd_return >= 0 ? '+' : ''}{ih.spy_ytd_return.toFixed(2)}%
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="flex justify-between"><span>Cost Basis</span><span className="font-semibold">${totalCostBasis.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                            <div className="flex justify-between"><span>Current Value</span><span className="font-semibold">${totalCurrentValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                            <div className="flex justify-between pt-1 border-t border-gray-100"><span>Unrealized Gain/Loss</span><span className={`font-bold ${totalCurrentValue >= totalCostBasis ? 'text-green-600' : 'text-red-500'}`}>{totalCurrentValue >= totalCostBasis ? '+' : '-'}${Math.abs(totalCurrentValue - totalCostBasis).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-                                        </>
-                                    )}
+                                <p className="text-xs text-gray-500 mt-0.5">All-Time Return</p>
+
+                                {retDollar !== null && (
+                                    <p className={`text-lg font-bold mt-2 ${retDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                        {retDollar >= 0 ? '+' : '-'}{fmt(retDollar)}
+                                    </p>
+                                )}
+
+                                <div className="mt-3">
+                                    <p className="text-xl font-semibold text-gray-300">{fmt(curVal)}</p>
+                                    <p className="text-xs text-gray-500">Current Value</p>
                                 </div>
-                                {/* Per-account breakdown */}
-                                {accountsWithData.length > 1 && (
-                                    <div className="mt-3 pt-2 border-t border-gray-100">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">By Account</p>
+
+                                {ih?.earliest_date && (
+                                    <p className="text-[10px] text-gray-500 mt-4">Since {ih.earliest_date} · {ih.transaction_count} txns</p>
+                                )}
+                            </div>
+
+                            {/* Right — period activity + benchmarks */}
+                            <div>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">{PERIOD_LABELS[prPeriod]} Activity</p>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Invested</span>
+                                        <span className="font-semibold text-gray-200">{fmt(selD.invested)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Proceeds</span>
+                                        <span className={`font-semibold ${selD.proceeds > 0 ? 'text-green-500' : 'text-gray-200'}`}>
+                                            {selD.proceeds > 0 ? '+' : ''}{fmt(selD.proceeds)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Dividends</span>
+                                        <span className={`font-semibold ${selD.dividends > 0 ? 'text-green-500' : 'text-gray-200'}`}>
+                                            {selD.dividends > 0 ? '+' : ''}{fmt(selD.dividends)}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Benchmarks */}
+                                {Object.keys(bench).length > 0 && (
+                                    <div className="mt-4 pt-3 border-t border-white/10">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Benchmarks ({PERIOD_LABELS[prPeriod]})</p>
                                         <div className="space-y-1.5">
-                                            {accountsWithData.map((acc, idx) => {
-                                                const accReturn = acc.invested > 0
-                                                    ? ((acc.current_value + acc.proceeds + acc.dividends - acc.invested) / acc.invested) * 100
-                                                    : null;
-                                                const accPos = (accReturn ?? 0) >= 0;
+                                            {Object.entries(BENCH_NAMES).map(([k, name]) => {
+                                                const v = bench[k];
+                                                if (v == null) return null;
                                                 return (
-                                                    <div key={idx} className="flex items-center justify-between text-xs">
-                                                        <span className="text-gray-500 truncate max-w-[120px]" title={acc.name}>{acc.name}</span>
-                                                        <div className="flex items-center space-x-2 shrink-0">
-                                                            <span className="text-gray-600 font-semibold">${acc.current_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                            {accReturn !== null && (
-                                                                <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full ${accPos ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
-                                                                    {accPos ? '+' : ''}{accReturn.toFixed(1)}%
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                                    <div key={k} className="flex justify-between text-sm">
+                                                        <span className="text-gray-400">{name}</span>
+                                                        <span className={`font-semibold ${v >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                                            {v >= 0 ? '+' : ''}{v.toFixed(2)}%
+                                                        </span>
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     </div>
                                 )}
-                                {displayReturn === null && !hasHistory && (
-                                    <p className="text-xs text-yellow-600 mt-2">⚠ Cost basis data covers {(basisRatio * 100).toFixed(0)}% of portfolio — sync Plaid for accurate return</p>
-                                )}
-                                {!hasHistory && portfolioReturn !== null && (
-                                    <p className="text-xs text-amber-500 mt-1">⚠ Estimated — sync Plaid for verified return</p>
-                                )}
-                            </>
-                        ) : (
-                            <p className="text-sm text-gray-400 mt-1">Add investments with cost basis to track returns</p>
-                        )}
-                        </Card>
-                        );
-                    })()}
-                </div>
-            )}
+                            </div>
+                        </div>
+                    </>
+                    ) : (
+                        <p className="text-sm text-gray-400 mt-1">Add investments or sync Plaid to track returns</p>
+                    )}
+                </Card>
+                );
+            })()}
 
             {isDemoMode && !hideSummary && (
                 <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4 mt-8">

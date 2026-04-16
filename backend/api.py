@@ -849,7 +849,16 @@ def plaid_sync():
     try:
         all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs, all_new_incomes = [], [], [], [], [], []
         synced_ids_total = []
-        combined_investment_history = {'total_invested': 0.0, 'total_proceeds': 0.0, 'total_dividends': 0.0, 'total_fees': 0.0, 'transaction_count': 0, 'earliest_date': None, 'by_account': {}, 'spy_ytd_return': None, 'ytd_invested': 0.0, 'ytd_proceeds': 0.0, 'ytd_dividends': 0.0}
+        PERIOD_KEYS = ('1w', '1m', 'ytd', '1y', '2y', '5y', 'all')
+        combined_investment_history = {
+            'current_value': 0.0,
+            'earliest_date': None,
+            'transaction_count': 0,
+            'total_fees': 0.0,
+            'periods': {p: {'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0} for p in PERIOD_KEYS},
+            'by_account': {},
+            'benchmarks': {},
+        }
         active_plaid_items = [pi for pi in plaid_items if pi.access_token]
         if not active_plaid_items:
              logging.warning(f"No active plaid items for user {request.uid}")
@@ -871,17 +880,24 @@ def plaid_sync():
                     all_new_incomes.extend(new_incomes)
                     synced_ids_total.extend(synced_account_ids)
                     # Aggregate investment history across all linked institutions
-                    for k in ('total_invested', 'total_proceeds', 'total_dividends', 'total_fees', 'transaction_count', 'ytd_invested', 'ytd_proceeds', 'ytd_dividends'):
-                        combined_investment_history[k] = combined_investment_history.get(k, 0) + inv_history.get(k, 0)
+                    combined_investment_history['transaction_count'] += inv_history.get('transaction_count', 0)
+                    combined_investment_history['total_fees'] += inv_history.get('total_fees', 0)
+                    combined_investment_history['current_value'] += inv_history.get('current_value', 0)
+                    # Merge earliest date
                     if inv_history.get('earliest_date'):
                         cur = combined_investment_history.get('earliest_date')
                         combined_investment_history['earliest_date'] = inv_history['earliest_date'] if not cur else min(cur, inv_history['earliest_date'])
-                    # Merge per-account breakdown (accounts are unique across institutions)
+                    # Merge period totals
+                    for pk in PERIOD_KEYS:
+                        src = inv_history.get('periods', {}).get(pk, {})
+                        for k in ('invested', 'proceeds', 'dividends'):
+                            combined_investment_history['periods'][pk][k] += src.get(k, 0)
+                    # Merge per-account breakdown (unique account IDs per institution)
                     if inv_history.get('by_account'):
                         combined_investment_history['by_account'].update(inv_history['by_account'])
-                    # Take first non-null SPY return (same for all items)
-                    if combined_investment_history['spy_ytd_return'] is None and inv_history.get('spy_ytd_return') is not None:
-                        combined_investment_history['spy_ytd_return'] = inv_history['spy_ytd_return']
+                    # Take first non-empty benchmarks (same market data for all institutions)
+                    if not combined_investment_history['benchmarks'] and inv_history.get('benchmarks'):
+                        combined_investment_history['benchmarks'] = inv_history['benchmarks']
                     pi.last_sync = datetime.now().isoformat()
                     logging.info(f"Successfully synced institution {pi.institution_name}")
                 except Exception as e:

@@ -656,17 +656,21 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         inv_txns = inv_trans_result.get('investment_transactions', [])
         inv_sec_map = inv_trans_result.get('securities', {})
 
-        total_invested = 0.0
-        total_proceeds = 0.0
-        total_dividends = 0.0
+        PERIOD_KEYS = ('1w', '1m', 'ytd', '1y', '2y', '5y', 'all')
+        _now_date = datetime.now().date()
+        _period_starts = {
+            '1w': _now_date - timedelta(days=7),
+            '1m': _now_date - timedelta(days=30),
+            'ytd': _now_date.replace(month=1, day=1),
+            '1y': _now_date - timedelta(days=365),
+            '2y': _now_date - timedelta(days=730),
+            '5y': _now_date - timedelta(days=1825),
+            'all': None,
+        }
+
+        periods = {p: {'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0} for p in PERIOD_KEYS}
         total_fees = 0.0
         earliest_txn_date = None
-
-        # YTD (current calendar year) subtotals
-        _current_year = datetime.now().year
-        ytd_invested = 0.0
-        ytd_proceeds = 0.0
-        ytd_dividends = 0.0
 
         # Per-account breakdown keyed by Plaid account_id
         by_account: dict = {}
@@ -678,38 +682,45 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             acc_id = txn.get('account_id', '')
             # In Plaid investment transactions: amount > 0 = cash outflow (buy); < 0 = inflow (sell/dividend)
             date_val = txn.get('date')
-            txn_year = 0
             if date_val:
                 date_str = date_val.isoformat() if hasattr(date_val, 'isoformat') else str(date_val)
                 if earliest_txn_date is None or date_str < earliest_txn_date:
                     earliest_txn_date = date_str
-                try:
-                    txn_year = int(date_str[:4])
-                except Exception:
-                    txn_year = 0
 
             # Initialize per-account entry on first encounter
             if acc_id and acc_id not in by_account:
                 by_account[acc_id] = {
                     'name': account_id_to_name.get(acc_id, 'Investment Account'),
-                    'invested': 0.0,
-                    'proceeds': 0.0,
-                    'dividends': 0.0,
                     'current_value': 0.0,
+                    'periods': {p: {'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0} for p in PERIOD_KEYS},
                 }
 
+            # Determine which periods this transaction falls into
+            txn_date_obj = date_val if hasattr(date_val, 'year') else None
+            if txn_date_obj and hasattr(txn_date_obj, 'date'):
+                txn_date_obj = txn_date_obj.date()  # Convert datetime to date
+
+            applicable_periods = ['all']
+            if txn_date_obj:
+                for pk, start in _period_starts.items():
+                    if pk != 'all' and start is not None and txn_date_obj >= start:
+                        applicable_periods.append(pk)
+
             if txn_type in ('buy',) or subtype in ('buy',):
-                total_invested += amount
-                if acc_id: by_account[acc_id]['invested'] += amount
-                if txn_year == _current_year: ytd_invested += amount
+                for pk in applicable_periods:
+                    periods[pk]['invested'] += amount
+                    if acc_id and acc_id in by_account:
+                        by_account[acc_id]['periods'][pk]['invested'] += amount
             elif txn_type in ('sell',) or subtype in ('sell',):
-                total_proceeds += abs(amount)
-                if acc_id: by_account[acc_id]['proceeds'] += abs(amount)
-                if txn_year == _current_year: ytd_proceeds += abs(amount)
+                for pk in applicable_periods:
+                    periods[pk]['proceeds'] += abs(amount)
+                    if acc_id and acc_id in by_account:
+                        by_account[acc_id]['periods'][pk]['proceeds'] += abs(amount)
             elif txn_type in ('dividend',) or subtype in ('dividend', 'qualified dividend', 'non-qualified dividend'):
-                total_dividends += abs(amount)
-                if acc_id: by_account[acc_id]['dividends'] += abs(amount)
-                if txn_year == _current_year: ytd_dividends += abs(amount)
+                for pk in applicable_periods:
+                    periods[pk]['dividends'] += abs(amount)
+                    if acc_id and acc_id in by_account:
+                        by_account[acc_id]['periods'][pk]['dividends'] += abs(amount)
             elif txn_type in ('fee',) or subtype in ('fee', 'commission'):
                 total_fees += amount
 
@@ -720,39 +731,48 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             elif mv > 0.01:
                 by_account[acc_id] = {
                     'name': account_id_to_name.get(acc_id, 'Investment Account'),
-                    'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0,
                     'current_value': round(mv, 2),
+                    'periods': {p: {'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0} for p in PERIOD_KEYS},
                 }
 
-        # Round per-account figures
+        # Round per-account period figures
         for acc_data in by_account.values():
-            for k in ('invested', 'proceeds', 'dividends'):
-                acc_data[k] = round(acc_data[k], 2)
+            for pk in PERIOD_KEYS:
+                for k in ('invested', 'proceeds', 'dividends'):
+                    acc_data['periods'][pk][k] = round(acc_data['periods'][pk][k], 2)
 
-        # Fetch S&P 500 YTD return for benchmark comparison (best-effort, non-blocking)
-        spy_ytd_return = None
+        # Fetch multi-period benchmark returns for S&P 500, Nasdaq, Dow Jones (best-effort)
+        benchmarks = {}
         try:
-            from price_service import get_period_return
-            from concurrent.futures import ThreadPoolExecutor as _TPE
-            with _TPE(max_workers=1) as _ex:
-                spy_ytd_return = _ex.submit(get_period_return, 'SPY', 'ytd').result(timeout=5.0)
-        except Exception as _spy_e:
-            logging.warning(f"SPY YTD fetch skipped: {_spy_e}")
+            from price_service import get_multi_period_returns
+            benchmark_tickers = {'spy': 'SPY', 'qqq': 'QQQ', 'dia': 'DIA'}
+            with ThreadPoolExecutor(max_workers=3) as _bex:
+                bfutures = {_bex.submit(get_multi_period_returns, t): k for k, t in benchmark_tickers.items()}
+                for bf in as_completed(bfutures):
+                    bkey = bfutures[bf]
+                    try:
+                        result = bf.result(timeout=10.0)
+                        for period, ret in result.items():
+                            if period not in benchmarks:
+                                benchmarks[period] = {}
+                            benchmarks[period][bkey] = ret
+                    except Exception:
+                        pass
+        except Exception as _bench_e:
+            logging.warning(f"Benchmark fetch failed: {_bench_e}")
+
+        total_current_value = sum(market_value_per_account.values())
 
         investment_history = {
-            'total_invested': round(total_invested, 2),
-            'total_proceeds': round(total_proceeds, 2),
-            'total_dividends': round(total_dividends, 2),
-            'total_fees': round(total_fees, 2),
-            'transaction_count': len(inv_txns),
+            'current_value': round(total_current_value, 2),
             'earliest_date': earliest_txn_date,
-            'ytd_invested': round(ytd_invested, 2),
-            'ytd_proceeds': round(ytd_proceeds, 2),
-            'ytd_dividends': round(ytd_dividends, 2),
+            'transaction_count': len(inv_txns),
+            'total_fees': round(total_fees, 2),
+            'periods': {pk: {k: round(v, 2) for k, v in pdata.items()} for pk, pdata in periods.items()},
             'by_account': by_account,
-            'spy_ytd_return': spy_ytd_return,
+            'benchmarks': benchmarks,
         }
-        logging.info(f"Investment history for {user_id}: invested={total_invested:.2f}, proceeds={total_proceeds:.2f}, dividends={total_dividends:.2f}, txns={len(inv_txns)}, accounts={len(by_account)}")
+        logging.info(f"Investment history for {user_id}: txns={len(inv_txns)}, accounts={len(by_account)}, periods={list(periods.keys())}")
 
         return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids, investment_history
     except Exception as e:
