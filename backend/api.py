@@ -676,10 +676,18 @@ def update_portfolio():
 
         incoming_assets = []
         for asset_data in data['assets']:
+            _shares = float(asset_data.get('shares', 0))
+            _cost_basis = float(asset_data.get('cost_basis', 0))
+            _asset_type = asset_data.get('asset_type', '')
+            # Allow negative shares only for MARGIN/SHORT positions (handled separately)
+            # For all standard assets, reject negative shares or negative cost basis
+            if _asset_type not in ('MARGIN', 'SHORT') and (_shares < 0 or _cost_basis < 0):
+                return jsonify({'error': f"Invalid data: shares and cost basis must be non-negative for {asset_data.get('ticker', 'unknown')}"}), 400
+            
             incoming_assets.append(Asset(
                 ticker=asset_data.get('ticker', '').upper(),
-                shares=float(asset_data.get('shares', 0)),
-                cost_basis=float(asset_data.get('cost_basis', 0)),
+                shares=_shares,
+                cost_basis=_cost_basis,
                 total_gain=float(asset_data.get('total_gain', 0)) if asset_data.get('total_gain') is not None else None,
                 asset_type=safe_enum(AssetType, asset_data.get('asset_type'), AssetType.STOCK),
                 retirement_account_id=asset_data.get('retirement_account_id'),
