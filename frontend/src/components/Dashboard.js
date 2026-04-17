@@ -209,8 +209,15 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         </p>
                     </Card>
 
-                    <Card title="Total Debts" icon={<ArrowDownCircle className="text-red-500" />}>
-                        <p className="text-2xl font-bold text-red-600">${(debtValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <Card title="Total Debts" icon={<ArrowDownCircle className={debtValue === 0 && !isDebtDemoMode ? "text-green-500" : "text-red-500"} />}>
+                        {debtValue === 0 && !isDebtDemoMode ? (
+                            <>
+                                <p className="text-2xl font-bold text-green-600">$0.00</p>
+                                <p className="text-xs text-green-600 font-semibold mt-1">🎉 Debt free!</p>
+                            </>
+                        ) : (
+                            <p className="text-2xl font-bold text-red-600">${(debtValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        )}
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                             All linked &amp; manual debts
                             <Info size={11} className="text-gray-400 cursor-help" title="Includes mortgages, car loans, credit cards, margin balances, and any manually entered debts." />
