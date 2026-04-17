@@ -36,8 +36,11 @@ STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '').strip()
 APP_URL = "https://personal-finance-app-18cbc.web.app"
 
 @app.route('/api/diagnostics', methods=['GET'])
+@auth_required
 def get_diagnostics():
     """SEC-D: Returns health check and secret sanitization status."""
+    if request.uid == "guest":
+        return jsonify({"error": "Unauthorized"}), 401
     return jsonify(diagnostics_service.get_secret_diagnostics())
 
 # ARCH-4: Simple Firestore-based rate limiting
@@ -250,7 +253,8 @@ def get_auth_status():
 def grant_premium():
     """Admin: directly grant premium to a user by email or UID, no Stripe required."""
     body = request.get_json(silent=True) or {}
-    if body.get('admin_key') != os.getenv('ADMIN_MIGRATION_KEY', 'fhq-migrate-2026'):
+    expected_key = os.getenv('ADMIN_MIGRATION_KEY', '')
+    if not expected_key or body.get('admin_key') != expected_key:
         return jsonify({'error': 'Forbidden'}), 403
 
     email = (body.get('email') or '').strip().lower()
@@ -282,7 +286,8 @@ def grant_premium():
 def migrate_whitelist_to_subscribed():
     """One-time migration: stamps is_subscribed=True on users docs for all whitelist entries."""
     body = request.get_json(silent=True) or {}
-    if body.get('admin_key') != os.getenv('ADMIN_MIGRATION_KEY', 'fhq-migrate-2026'):
+    expected_key = os.getenv('ADMIN_MIGRATION_KEY', '')
+    if not expected_key or body.get('admin_key') != expected_key:
         return jsonify({'error': 'Forbidden'}), 403
 
     db = get_db()
@@ -1845,9 +1850,45 @@ def submit_feedback():
 # GOALS
 # ─────────────────────────────────────────────────────────────────────────────
 
+    # 5. Take a portfolio snapshot for future MWR calculations
+    take_portfolio_snapshot(request.uid, total_assets)
+
+def take_portfolio_snapshot(user_id, assets):
+    """Stores the current total investment balance as a historical snapshot for MWR."""
+    from datetime import datetime
+    try:
+        db = get_db()
+        if not db: return
+        
+        # Calculate total value of non-cash investments
+        liquid_types = {'CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'}
+        liquid_tickers = {'CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'}
+        
+        investments_value = 0.0
+        for a in assets:
+            if a.asset_type.name not in liquid_types and a.ticker not in liquid_tickers:
+                price = getattr(a, 'current_price', None) or (a.cost_basis / a.shares if a.shares > 0 else 0)
+                investments_value += a.shares * price
+                
+        if investments_value > 0:
+            today_str = datetime.now().strftime('%Y-%m-%d')
+            # Use date string as doc ID so we auto-overwrite if synced multiple times today
+            ref = db.collection('users').document(user_id).collection('portfolio_snapshots').document(today_str)
+            ref.set({
+                'date': today_str,
+                'total_value': investments_value,
+                'timestamp': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            logging.info(f"Took portfolio snapshot for {user_id}: ${investments_value:.2f}")
+    except Exception as e:
+        logging.error(f"Error taking snapshot for {user_id}: {e}")
+
 @app.route('/api/goals', methods=['GET'])
 @token_required
 def get_goals():
+    if request.uid == "guest":
+        return jsonify({'goals': []})
+        
     db = get_db()
     docs = db.collection('users').document(request.uid).collection('goals').order_by('created_at').get()
     goals = []
@@ -1861,6 +1902,9 @@ def get_goals():
 @app.route('/api/goals', methods=['POST'])
 @token_required
 def create_goal():
+    if request.uid == "guest":
+        return jsonify({'error': 'Please sign in or create an account to save goals.'}), 401
+        
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()[:100]
     if not name:
@@ -1898,6 +1942,9 @@ def create_goal():
 @app.route('/api/goals/<goal_id>', methods=['PUT'])
 @token_required
 def update_goal(goal_id):
+    if request.uid == "guest":
+        return jsonify({'error': 'Please sign in or create an account to update goals.'}), 401
+        
     data = request.get_json(silent=True) or {}
     allowed_fields = {'name', 'type', 'target_amount', 'current_amount', 'target_date', 'notes'}
     update = {}
@@ -1926,6 +1973,9 @@ def update_goal(goal_id):
 @app.route('/api/goals/<goal_id>', methods=['DELETE'])
 @token_required
 def delete_goal(goal_id):
+    if request.uid == "guest":
+        return jsonify({'error': 'Please sign in or create an account to delete goals.'}), 401
+        
     db = get_db()
     db.collection('users').document(request.uid).collection('goals').document(goal_id).delete()
     return jsonify({'success': True})

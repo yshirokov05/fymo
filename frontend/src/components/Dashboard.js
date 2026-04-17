@@ -393,7 +393,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 ) : (
                                     <p className="text-3xl font-bold text-gray-500">N/A</p>
                                 )}
-                                <p className="text-xs text-gray-500 mt-0.5">All-Time Return</p>
+                                <p className="text-xs text-gray-500 mt-0.5">Return (All-Time)</p>
 
                                 {retDollar !== null && (
                                     <p className={`text-lg font-bold mt-2 ${retDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
