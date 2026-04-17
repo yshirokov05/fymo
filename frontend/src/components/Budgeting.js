@@ -583,7 +583,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                     const prevSpent = getPrevMonthSpent(budget.category);
 
                     return (
-                        <Card key={budget.id || index} className="relative overflow-hidden group">
+                        <Card key={budget.id || index} className="relative overflow-hidden group transition-transform duration-150 hover:scale-[1.02]">
                             <div className="flex justify-between items-start mb-4">
                                 <div>
                                     {isEditing ? (
@@ -825,7 +825,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 const suggestedLimit = Math.ceil((avgPerMonth || cardAmount) / 50) * 50 || 50;
 
                                 return (
-                                    <Card key={item.name} className={`p-4 border-l-4 hover:shadow-xl transition-all duration-300 group relative ${item.isExplicit ? 'border-l-indigo-500 bg-indigo-50/10' : 'border-l-emerald-500'}`}>
+                                    <Card key={item.name} className={`p-4 border-l-4 hover:shadow-xl transition-all duration-300 group relative ${item.isExplicit ? 'border-l-indigo-500 bg-indigo-50/10' : 'border-l-emerald-500'} transition-transform duration-150 hover:scale-[1.02]`}>
                                         {item.isExplicit && (
                                             <div className="absolute top-0 right-1/2 translate-x-1/2 -mt-2 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm">
                                                 Manually Tracked
