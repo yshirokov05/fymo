@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Send, Bot, Sparkles, Loader2, Lock, TrendingUp, RefreshCw, Sun, Moon, Sunset, BarChart2 } from 'lucide-react';
+import { Send, Bot, Sparkles, Loader2, Lock, TrendingUp, RefreshCw, Sun, Moon, Sunset, BarChart2, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // ── Sub-components ──────────────────────────────────────────────────────────
@@ -441,6 +441,20 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                         </div>
                     </div>
                 )}
+
+                <div className="px-4 pb-2 flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => setMessages([{
+                            role: 'assistant',
+                            content: "Chat cleared. What would you like to explore?"
+                        }])}
+                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                        <Trash2 size={12} />
+                        Clear chat
+                    </button>
+                </div>
 
                 {/* Input bar */}
                 <form
