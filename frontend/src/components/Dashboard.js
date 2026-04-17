@@ -195,15 +195,26 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card title="Net Worth" icon={<DollarSign className="text-green-500" />}>
                         <p className="text-2xl font-bold">${(netWorth || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        <p className="text-xs text-gray-500 mt-1">Assets - Debts</p>
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            Assets - Debts
+                            <Info size={11} className="text-gray-400 cursor-help" title="Sum of all asset market values minus all outstanding debt balances." />
+                        </p>
                     </Card>
 
                     <Card title="Total Assets" icon={<Briefcase className="text-blue-500" />}>
                         <p className="text-2xl font-bold text-blue-600">${(assetValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            All linked &amp; manual assets
+                            <Info size={11} className="text-gray-400 cursor-help" title="Includes cash, checking, savings, investment holdings, real estate, and any manually entered assets." />
+                        </p>
                     </Card>
 
                     <Card title="Total Debts" icon={<ArrowDownCircle className="text-red-500" />}>
                         <p className="text-2xl font-bold text-red-600">${(debtValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            All linked &amp; manual debts
+                            <Info size={11} className="text-gray-400 cursor-help" title="Includes mortgages, car loans, credit cards, margin balances, and any manually entered debts." />
+                        </p>
                     </Card>
 
                     <Card title="Est. Annual Tax" icon={<DollarSign className={taxLiability?.has_net_only_income ? "text-gray-400" : "text-orange-500"} />}>
