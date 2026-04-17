@@ -834,7 +834,7 @@ def update_portfolio():
     net_worth_data['plaid_items'] = [{'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in plaid_items]
     net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
     net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
-    net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
+    net_worth_data['paystubs'] = [paystub_to_dict(p) for p in paystubs]
     net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
     _is_authorized = is_user_authorized(uid, getattr(request, 'email', None))
     _is_subscribed = getattr(user, 'is_subscribed', False)
@@ -1183,6 +1183,9 @@ def plaid_sync():
             except Exception as _e:
                 logging.warning(f"Failed to persist investment_history: {_e}")
 
+        # Take a daily portfolio snapshot for future MWR calculations
+        take_portfolio_snapshot(request.uid, assets)
+
         price_map = get_multiple_prices([a.ticker for a in assets])
 
         net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
@@ -1239,7 +1242,6 @@ def update_subscription_preferences():
     try:
         data = request.get_json()
         uid = "demo_user" if request.uid == "guest" else request.uid
-        print(f"DEBUG_SUBS: {uid} updating prefs: {data}")
         
         user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
         
@@ -1255,32 +1257,8 @@ def update_subscription_preferences():
             'manual_subscription_merchants': getattr(user, 'manual_subscription_merchants', [])
         })
     except Exception as e:
-        print(f"ERROR in subscription_preferences: {str(e)}")
+        logging.error(f"Error in subscription_preferences: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-    price_map = get_multiple_prices([a.ticker for a in assets])
-    
-    net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
-    net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
-    net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]
-    net_worth_data['debts'] = [debt_to_dict(d) for d in debts]
-    net_worth_data['retirement_accounts'] = [retirement_account_to_dict(ra) for ra in retirement_accounts]
-    net_worth_data['insurances'] = [get_insurance_to_dict(ins) for ins in insurances]
-    net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
-    net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
-    net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer} for p in paystubs]
-    net_worth_data['filing_status'] = user.filing_status.name
-    net_worth_data['state'] = user.state.name
-    net_worth_data['employment_type'] = getattr(user, 'employment_type', EmploymentType.W2).name
-    net_worth_data['business_deductions'] = getattr(user, 'business_deductions', 0.0)
-    net_worth_data['dependents'] = getattr(user, 'dependents', 0)
-    net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in outstanding_checks]
-    _is_authorized = is_user_authorized(uid, getattr(request, 'email', None))
-    _is_subscribed = getattr(user, 'is_subscribed', False)
-    _is_premium = _is_subscribed or _is_authorized
-    net_worth_data['is_authorized'] = _is_premium
-    net_worth_data['is_subscribed'] = _is_premium
-    return jsonify(net_worth_data)
 
 @app.route('/api/create_link_token', methods=['POST'])
 @auth_required
@@ -1849,9 +1827,6 @@ def submit_feedback():
 # ─────────────────────────────────────────────────────────────────────────────
 # GOALS
 # ─────────────────────────────────────────────────────────────────────────────
-
-    # 5. Take a portfolio snapshot for future MWR calculations
-    take_portfolio_snapshot(request.uid, total_assets)
 
 def take_portfolio_snapshot(user_id, assets):
     """Stores the current total investment balance as a historical snapshot for MWR."""

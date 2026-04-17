@@ -4,7 +4,7 @@ This file is read automatically by Claude Code. It provides project context, con
 
 ## Project Overview
 
-FHQ is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, Google Gemini for AI features.
+FHQ is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, Claude Sonnet 4.6 for all AI features. Gemini 1.5 Flash is used only for document/PDF extraction (insurance, paystubs, bank statements) via the Gemini API.
 
 - **Live URL:** https://personal-finance-app-18cbc.web.app
 - **Firebase project:** `personal-finance-app-18cbc`
@@ -16,9 +16,9 @@ FHQ is a full-stack personal finance web app. React 19 frontend, Python/Flask ba
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Dashboard (net worth, tax, cash flow, emergency fund, portfolio return) | ✅ Live | Portfolio return uses investment transaction history when available |
-| AI Analyst (Gemini chat) | ✅ Live | Rate-limited 20/hr; sanitized context |
-| AI Morning/Health Briefs | ✅ Live | Gemini overview + market intelligence |
-| Goals tab | ✅ Live | CRUD goals + per-goal AI guidance (15/hr rate limit); stored in `goals` subcollection |
+| AI Analyst (Claude Sonnet chat) | ✅ Live | Rate-limited 20/hr; SSE streaming; agentic tool-use loop; sanitized context |
+| AI Morning/Health Briefs | ✅ Live | Claude Sonnet overview + live market pulse (SPY/QQQ/BTC/GLD/TLT via yfinance) |
+| Goals tab | ✅ Live | CRUD goals + per-goal Claude AI guidance (15/hr rate limit); stored in `goals` subcollection |
 | Expenditures / Budgeting | ✅ Live | Flexible spending has Month/3Mo/YTD/12Mo period selector |
 | Income | ✅ Live | Manual + Plaid-detected paystubs; `is_net_primary` flag excludes net paychecks from tax estimate |
 | Tax Projection | ✅ Live | 50-state engine; shows N/A when all income is net (no gross data) |
@@ -45,14 +45,15 @@ FHQ is a full-stack personal finance web app. React 19 frontend, Python/Flask ba
 | `backend/calculations.py` | `calculate_net_worth()` — tax engine bridge, income aggregation. Net-primary paystubs excluded from gross. |
 | `backend/tax_logic.py` | 50-state tax engine. Federal + state + FICA for 2025/2026. |
 | `backend/plaid_service.py` | Full Plaid integration: accounts, transactions (YTD + paginated), investment holdings, investment transactions (5yr), liabilities. |
-| `backend/advisor_service.py` | Gemini AI advisor. Loads user context, generates financial advice. |
+| `backend/advisor_service.py` | Claude Sonnet 4.6 AI advisor. Streaming advice, agentic tool-use, health/morning briefs, memory extraction. |
+| `backend/category_mapping.json` | Single source of truth for transaction categories + keyword patterns. Served via `/api/config/categories`. |
 | `backend/diagnostics_service.py` | Secret sanitization diagnostics endpoint. Used by `/api/admin/diagnostics`. |
 | `backend/price_service.py` | Yahoo Finance price fetching with 2s localized timeouts. |
 | `backend/auth.py` | `@token_required` decorator — decodes Firebase JWT. |
 | `frontend/src/index.css` | CSS variables (--primary-blue, --card-shadow, etc.). Use these, not ad-hoc Tailwind. |
 | `frontend/src/components/Dashboard.js` | Financial health cards (YTD, cash flow, emergency fund, portfolio return). Accepts `investmentHistory` prop. |
 | `frontend/src/components/AssetTable.js` | Investment holdings table with inline cost-basis editing. Accepts `onUpdateCostBasis` callback. |
-| `frontend/src/components/Goals.js` | Goals CRUD + per-goal Gemini AI guidance. Standalone component, uses `/api/goals/*`. |
+| `frontend/src/components/Goals.js` | Goals CRUD + per-goal Claude AI guidance. Standalone component, uses `/api/goals/*`. |
 | `frontend/src/components/Budgeting.js` | Budgeting + flexible spending. Has `flexPeriod` state (month/3m/ytd/12m). |
 | `frontend/src/components/DataPrivacyFAQ.js` | 11-question collapsible Security FAQ. |
 | `frontend/src/components/PrivacyPolicy.js` | Full privacy policy page. Route: `activeView === 'privacy'`. |
@@ -70,6 +71,7 @@ User data is split between the main `/users/{uid}` document and subcollections t
 | `custom_rules` | Per-user transaction categorization rules |
 | `outstanding_checks` | Written checks pending clearance |
 | `goals` | Financial goals (CRUD via `/api/goals/*`) |
+| `portfolio_snapshots` | Daily investment value snapshots for future MWR calculations (written on each Plaid sync) |
 
 ## Critical Rules
 
@@ -109,15 +111,15 @@ All expensive endpoints use the Firestore-based `check_rate_limit(uid, action, l
 - **1MB Firestore document limit** — user data is split across subcollections but the top-level doc still holds assets, debts, incomes, etc. Do not add more unbounded arrays to the top-level document.
 - **No atomic writes** — concurrent writes lose data. Don't make this worse.
 - **SQLAlchemy is imported in `models.py` but never connected** — ignore it, don't add to it.
-- **Admin emails hardcoded in frontend JS** — known issue, tracked for removal.
-- **No time-based portfolio returns (YTD %, 1Y %)** — requires storing portfolio value snapshots on each Plaid sync. Not yet implemented; current return is either cost-basis unrealized or full investment transaction history total return.
+- **Admin emails previously hardcoded in frontend JS** — removed; whitelist is now purely Firestore-based.
+- **Portfolio returns use institution cost basis** — Plaid Holdings `cost_basis` field is ground truth. A 10% coverage guard prevents absurd % when basis data is sparse. Daily snapshots are being taken in `portfolio_snapshots` subcollection for future MWR calculations.
 
 ## Security Standards
 
 - Never hardcode API keys, secrets, or credentials in any file.
 - Never commit `.env` files or service account JSON files.
 - Always verify Firebase auth context in backend routes.
-- Sanitize all user input before passing to Gemini (see `_sanitize_for_ai()` in `advisor_service.py`).
+- Sanitize all user input before passing to Claude (see `_sanitize_for_ai()` in `advisor_service.py`).
 - Plaid tokens must be encrypted via Fernet before writing to Firestore.
 - Rate-limit expensive endpoints (Gemini calls, Plaid sync) using the existing Firestore-based limiter pattern.
 
