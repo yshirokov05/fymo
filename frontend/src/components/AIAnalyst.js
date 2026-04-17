@@ -18,6 +18,15 @@ const TypingDots = () => (
     </div>
 );
 
+// Blinking cursor shown at the end of incoming tokens
+const StreamingCursor = () => (
+    <span
+        className="inline-block w-0.5 h-4 bg-blue-500 ml-0.5 align-middle"
+        style={{ animation: 'blink 0.8s step-end infinite' }}
+    />
+);
+
+
 const BriefSkeleton = () => (
     <div className="space-y-3 animate-pulse">
         <div className="h-3.5 bg-gray-100 rounded-full w-3/4" />
@@ -141,18 +150,83 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
         setMessages(prev => [...prev, { role: 'user', content: msg }]);
         setIsLoading(true);
 
+        // Add a placeholder streaming message for the AI response
+        const streamingId = Date.now();
+        setMessages(prev => [...prev, { role: 'assistant', content: '', streaming: true, id: streamingId }]);
+
         try {
             const token = await currentUser?.getIdToken();
-            const res = await axios.post('/api/ask_advisor', { prompt: msg }, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            const response = await fetch('/api/ask_advisor', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ prompt: msg }),
             });
-            setMessages(prev => [...prev, { role: 'assistant', content: res.data.advice }]);
+
+            if (!response.ok) {
+                // Non-streaming error (auth failure, rate limit, etc.)
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.error || `Error ${response.status}`;
+                setMessages(prev => prev.map(m =>
+                    m.id === streamingId ? { role: 'assistant', content: errMsg } : m
+                ));
+                return;
+            }
+
+            // Parse SSE stream
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    if (!line.startsWith('data:')) continue;
+                    const raw = line.slice(5).trim();
+                    if (raw === '[DONE]') break;
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (parsed.error) {
+                            fullText = parsed.error;
+                        } else if (parsed.token) {
+                            fullText += parsed.token;
+                        }
+                        // Update the streaming message in-place
+                        setMessages(prev => prev.map(m =>
+                            m.id === streamingId ? { ...m, content: fullText } : m
+                        ));
+                    } catch {
+                        // Ignore malformed SSE lines
+                    }
+                }
+            }
+
+            // Finalize: remove the streaming flag, commit full text
+            setMessages(prev => prev.map(m =>
+                m.id === streamingId
+                    ? { role: 'assistant', content: fullText || "I'm having trouble connecting right now. Please try again." }
+                    : m
+            ));
         } catch {
-            setMessages(prev => [...prev, { role: 'assistant', content: "I'm having trouble connecting right now. Please try again." }]);
+            setMessages(prev => prev.map(m =>
+                m.id === streamingId
+                    ? { role: 'assistant', content: "I'm having trouble connecting right now. Please try again." }
+                    : m
+            ));
         } finally {
             setIsLoading(false);
         }
     };
+
 
     const BRIEF_LABELS = {
         morning: 'Morning Brief',
@@ -309,25 +383,22 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                                         ? 'bg-blue-600 text-white rounded-br-sm'
                                         : 'bg-white text-gray-800 rounded-bl-sm border border-gray-100'
                                 }`}>
-                                    <ReactMarkdown className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mt-1 [&>ul>li]:mb-0.5">
-                                        {m.content}
-                                    </ReactMarkdown>
+                                    {m.streaming && !m.content ? (
+                                        <TypingDots />
+                                    ) : (
+                                        <>
+                                            <ReactMarkdown className="prose prose-sm max-w-none [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:mt-1 [&>ul>li]:mb-0.5">
+                                                {m.content}
+                                            </ReactMarkdown>
+                                            {m.streaming && <StreamingCursor />}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
                     ))}
 
-                    {/* Typing indicator */}
-                    {isLoading && (
-                        <div className="flex justify-start">
-                            <div className="flex items-end gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center text-[10px] font-black text-white shadow-sm">AI</div>
-                                <div className="bg-white rounded-2xl rounded-bl-sm border border-gray-100 shadow-sm">
-                                    <TypingDots />
-                                </div>
-                            </div>
-                        </div>
-                    )}
+
 
                     {/* Premium gate */}
                     {!isPremium && (

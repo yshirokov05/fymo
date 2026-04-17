@@ -176,6 +176,183 @@ def _run_search_tool(query: str) -> str:
     return json.dumps({"results": f"General search for '{query}': costs align with standard 2026 market rates."})
 
 
+def get_financial_advice_stream(user_prompt, financial_data):
+    """
+    Streaming version of get_financial_advice.
+    Yields SSE-formatted strings: 'data: {"token": "..."}\n\n'
+    Handles the agentic tool-use loop first (non-streaming), then streams
+    the final text response token-by-token.
+    """
+    import json as _json
+    client, err = _get_client()
+    if err:
+        yield f'data: {_json.dumps({"token": err})}\n\n'
+        yield 'data: [DONE]\n\n'
+        return
+
+    try:
+        transactions = financial_data.get('transactions', [])
+
+        current_spending, current_total = get_period_comparison(transactions, days=30)
+        cutoff_30 = datetime.now() - timedelta(days=30)
+        cutoff_60 = datetime.now() - timedelta(days=60)
+        prev_transactions = [
+            t for t in transactions
+            if cutoff_60 <= datetime.strptime(t.get('date', '1970-01-01'), '%Y-%m-%d') < cutoff_30
+        ]
+        prev_spending = defaultdict(float)
+        prev_total = 0.0
+        for t in prev_transactions:
+            if not t.get('pending', False) and t.get('amount', 0) > 0:
+                cat = t.get('category', 'Uncategorized')
+                prev_spending[cat] += t['amount']
+                prev_total += t['amount']
+
+        insights = []
+        for cat in set(list(current_spending.keys()) + list(prev_spending.keys())):
+            curr = current_spending.get(cat, 0)
+            prev = prev_spending.get(cat, 0)
+            if prev > 0:
+                change = ((curr - prev) / prev) * 100
+                if abs(change) >= 10:
+                    insights.append(f"- {cat}: {'Up' if change > 0 else 'Down'} {abs(change):.1f}% (${curr:,.2f} vs ${prev:,.2f})")
+            elif curr > 50:
+                insights.append(f"- {cat}: New spend of ${curr:,.2f}")
+
+        budgets = financial_data.get('budgets', [])
+        normalized_budgets = []
+        for b in budgets:
+            limit = b.get('limit_amount', 0)
+            period = b.get('period', 'MONTHLY').upper()
+            monthly_equiv = limit * 4.345 if period == 'WEEKLY' else limit
+            normalized_budgets.append({
+                "category": b.get('category'),
+                "monthly_limit": monthly_equiv,
+                "current_period_spend": current_spending.get(b.get('category'), 0)
+            })
+
+        assets = financial_data.get('assets', [])
+        portfolio_lines = []
+        for a in assets:
+            ticker = a.get('ticker', '?')
+            shares = float(a.get('shares', 0))
+            price = float(a.get('current_price') or a.get('cost_basis') or 0)
+            value = float(a.get('value') or (shares * price))
+            cost_basis = float(a.get('cost_basis') or 0)
+            gain = float(a.get('total_gain') or ((price - cost_basis) * shares if cost_basis else 0))
+            institution = a.get('institution_name', '')
+            tax_treatment = a.get('tax_treatment', 'TAXABLE')
+            portfolio_lines.append(
+                f"{ticker}: {shares:.4f} shares @ ${price:.2f} = ${value:,.2f} | "
+                f"cost basis ${cost_basis:.2f}/sh | unrealized gain ${gain:,.2f} | "
+                f"{tax_treatment} | {institution}"
+            )
+
+        memory_str = financial_data.get('contextual_memory', "No previous habits or goals recorded yet.")
+
+        system_prompt = _sanitize_for_ai(f"""You are the FHQ AI Advisor — a sharp, data-driven financial analyst.
+
+USER FINANCIAL PROFILE:
+- Net Worth: ${financial_data.get('real_time_net_worth', 0):,.2f}
+- Total Annual Income: ${financial_data.get('total_annual_income', 0):,.2f}
+- Total Debt: ${financial_data.get('total_debt', 0):,.2f}
+- State: {financial_data.get('state', 'Unknown')}
+
+INVESTMENT PORTFOLIO:
+{chr(10).join(portfolio_lines) if portfolio_lines else "No holdings recorded."}
+
+PERSISTENT MEMORY (Habits & Long-term Goals):
+{memory_str}
+
+PERIOD-OVER-PERIOD SPENDING (Last 30 days vs prior 30 days):
+{chr(10).join(insights) if insights else "No significant spending changes."}
+- Current 30-day total: ${current_total:,.2f}
+- Previous 30-day total: ${prev_total:,.2f}
+
+BUDGET STATUS (Monthly):
+{_json.dumps(normalized_budgets, indent=2)}
+
+DEBTS & LIABILITIES:
+{_json.dumps(financial_data.get('debts', []), indent=2)}
+
+INSURANCE POLICIES:
+{_json.dumps(financial_data.get('insurances', []), indent=2)}
+
+GUIDELINES:
+1. Be direct and data-driven — cite specific dollar amounts from the data above.
+2. For portfolio questions, analyze diversification, concentration risk, tax treatment, and unrealized gains/losses.
+3. For credit card or debt questions, use your knowledge of the named institutions.
+4. If the user is overspending or under-diversified, say so clearly.
+5. Keep responses under 350 words unless the question is complex.
+6. End with: "This is for informational purposes only. Consult a licensed financial professional for regulated decisions."
+""")
+
+        messages = [{"role": "user", "content": _sanitize_for_ai(user_prompt)}]
+
+        # Phase 1: Agentic tool-use loop (non-streaming — tools need full round trips)
+        for _ in range(3):
+            response = client.messages.create(
+                model=_CLAUDE_MODEL,
+                max_tokens=1024,
+                system=system_prompt,
+                tools=[_SEARCH_TOOL],
+                messages=messages
+            )
+
+            if response.stop_reason == "tool_use":
+                messages.append({"role": "assistant", "content": response.content})
+                tool_results = []
+                for block in response.content:
+                    if block.type == "tool_use":
+                        result = _run_search_tool(block.input.get("query", ""))
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result
+                        })
+                messages.append({"role": "user", "content": tool_results})
+            else:
+                # Tool loop done. Now stream the final answer.
+                # Extract any existing text from this non-streamed response
+                # (may already have text if no tools were called)
+                existing_text = ""
+                for block in response.content:
+                    if hasattr(block, "text"):
+                        existing_text += block.text
+
+                if existing_text:
+                    # No tool calls happened — stream the text we already have
+                    # by yielding it in small chunks for a typing effect
+                    chunk_size = 4
+                    for i in range(0, len(existing_text), chunk_size):
+                        chunk = existing_text[i:i + chunk_size]
+                        yield f'data: {_json.dumps({"token": chunk})}\n\n'
+                    yield 'data: [DONE]\n\n'
+                    return
+                else:
+                    # Tool calls happened — do a streaming follow-up call
+                    break
+
+        # Phase 2: Final streaming call (after tool rounds, or fallback)
+        with client.messages.stream(
+            model=_CLAUDE_MODEL,
+            max_tokens=1024,
+            system=system_prompt,
+            tools=[_SEARCH_TOOL],
+            messages=messages
+        ) as stream:
+            for text_chunk in stream.text_stream:
+                yield f'data: {_json.dumps({"token": text_chunk})}\n\n'
+
+        yield 'data: [DONE]\n\n'
+
+    except Exception as e:
+        logging.error(f"get_financial_advice_stream error: {e}")
+        import json as _json2
+        yield f'data: {_json2.dumps({"error": str(e)})}\n\n'
+        yield 'data: [DONE]\n\n'
+
+
 def get_financial_advice(user_prompt, financial_data):
     """
     Provides personalized financial advice using Claude Sonnet.

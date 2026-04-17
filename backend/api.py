@@ -1398,26 +1398,43 @@ def ask_advisor():
     financial_data['budgets'] = [budget_to_dict(b) for b in budgets]
     financial_data['insurances'] = [get_insurance_to_dict(ins) for ins in insurances]
     financial_data['state'] = user.state.name
-    financial_data['contextual_memory'] = memory_string # Persistent memory
-    
-    # 3. Reflection middleware (Background task)
+    financial_data['contextual_memory'] = memory_string  # Persistent memory
+
+    # 3. Reflection middleware (Background task — fire-and-forget)
     def reflect_and_save():
-        import advisor_service
-        new_fact = advisor_service.extract_user_memory(user_prompt, memory_string)
+        import advisor_service as _adv
+        new_fact = _adv.extract_user_memory(user_prompt, memory_string)
         if new_fact:
             firestore_db.save_user_memory(
-                user_id=request.uid, 
-                fact_id=new_fact.get('fact_id'), 
-                category=new_fact.get('category'), 
+                user_id=request.uid,
+                fact_id=new_fact.get('fact_id'),
+                category=new_fact.get('category'),
                 content=new_fact.get('content')
             )
-            
+
     import threading
-    threading.Thread(target=reflect_and_save).start()
-    
-    # 4. Get advice from high-tier logic
-    advice = advisor_service.get_financial_advice(user_prompt, financial_data)
-    return jsonify({'advice': advice})
+    from flask import Response, stream_with_context
+    threading.Thread(target=reflect_and_save, daemon=True).start()
+
+    # 4. Stream the advice as SSE
+    def generate():
+        try:
+            for chunk in advisor_service.get_financial_advice_stream(user_prompt, financial_data):
+                yield chunk
+        except Exception as e:
+            import json as _j
+            yield f'data: {_j.dumps({"error": str(e)})}\n\n'
+            yield 'data: [DONE]\n\n'
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',  # Disable nginx buffering
+            'Connection': 'keep-alive',
+        }
+    )
 
 @app.route('/api/health_brief', methods=['GET'])
 @auth_required

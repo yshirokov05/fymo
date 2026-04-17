@@ -96,7 +96,13 @@ code {
   color: #f1f5f9 !important;
 }
 
-/* Scrollbar (webkit) */
 .custom-scrollbar::-webkit-scrollbar       { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+/* ─── AI Streaming cursor blink ─────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
