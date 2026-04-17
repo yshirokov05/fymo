@@ -326,6 +326,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                     # Use the purchase_apr or just the first one available
                     purchase_apr = next((a for a in aprs if a.get('apr_type') == 'purchase_apr'), aprs[0])
                     interest_rate = float(purchase_apr.get('annual_percentage_rate', 0)) / 100.0
+                    interest_rate = min(interest_rate, 1.0)  # Cap at 100% APR — Plaid occasionally returns outlier values
                 
                 # Naming cleanup: avoid 'Ultimate Rewards' as the primary display name
                 display_name = acc['name']
