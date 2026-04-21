@@ -353,24 +353,38 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 // Selected period data for activity display
                 const selD = getPd(source, prPeriod);
 
-                // Use holdings-based cost basis for return calculation (accurate ground truth)
+                // Use holdings-based cost basis for all-time return (accurate ground truth)
                 // Falls back to asset-level cost basis if investment_history doesn't have it
                 const holdingsCostBasis = isAll
                     ? (ih?.total_cost_basis || 0)
                     : (source?.total_cost_basis || 0);
                 const costBasisForReturn = holdingsCostBasis > 0 ? holdingsCostBasis : totalCostBasis;
 
-                // Return % = (current_value - cost_basis) / cost_basis
-                // Only show if cost basis covers at least 10% of current value (guards against
-                // Plaid returning near-zero dummy cost basis values)
+                // All-time return from institution cost basis (period-agnostic baseline)
                 const basisCoverage = curVal > 0 ? costBasisForReturn / curVal : 0;
-                const retPct = costBasisForReturn > 0 && basisCoverage >= 0.1
+                const allTimeRetPct = costBasisForReturn > 0 && basisCoverage >= 0.1
                     ? ((curVal - costBasisForReturn) / costBasisForReturn) * 100
                     : portfolioReturn;
-                const retDollar = costBasisForReturn > 0 && basisCoverage >= 0.1
+                const allTimeRetDollar = costBasisForReturn > 0 && basisCoverage >= 0.1
                     ? curVal - costBasisForReturn
                     : (portfolioReturn !== null ? totalCurrentValue - totalCostBasis : null);
+
+                // Period-specific return: reconstructed from 5yr transaction history + yfinance historical prices.
+                // Available for 1W/1M/YTD/1Y/2Y/5Y after first sync with transaction history.
+                // Falls back to all-time when not yet computed (e.g. 'all' period or first sync).
+                const periodRetPct = (prPeriod !== 'all' && ih?.period_returns?.[prPeriod] != null)
+                    ? ih.period_returns[prPeriod]
+                    : null;
+                const hasPeriodReturn = periodRetPct !== null;
+
+                // Display values: prefer period-specific when available
+                const retPct = hasPeriodReturn ? periodRetPct : allTimeRetPct;
+                const retDollar = hasPeriodReturn ? null : allTimeRetDollar;  // dollar amount only meaningful for all-time
                 const pos = (retPct || 0) >= 0;
+                const returnLabel = hasPeriodReturn ? `${PERIOD_LABELS[prPeriod]} Return` : 'All-Time Return';
+                const returnTooltip = hasPeriodReturn
+                    ? `Holding-period return for ${PERIOD_LABELS[prPeriod]}: reconstructed from your Plaid transaction history + historical prices. Shows gain/loss vs portfolio value at the period start date.`
+                    : 'Unrealized gain based on institution-reported cost basis vs current market value. Period selector controls the activity breakdown and benchmark comparison on the right.';
 
                 // Benchmarks for selected period
                 const bench = ih?.benchmarks?.[prPeriod] || {};
@@ -412,8 +426,8 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     <p className="text-3xl font-bold text-gray-500">N/A</p>
                                 )}
                                 <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-                                    All-Time Return
-                                    <Info size={11} className="text-gray-500 cursor-help" title="Unrealized gain based on institution-reported cost basis vs current market value. Period selector controls the activity breakdown and benchmark comparison on the right." />
+                                    {returnLabel}
+                                    <Info size={11} className="text-gray-500 cursor-help" title={returnTooltip} />
                                 </p>
 
                                 {retDollar !== null && (

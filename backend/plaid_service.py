@@ -746,6 +746,117 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                 for k in ('invested', 'proceeds', 'dividends'):
                     acc_data['periods'][pk][k] = round(acc_data['periods'][pk][k], 2)
 
+        # ── Reconstruct period-specific portfolio returns (best-effort) ──
+        # Walk the 5yr transaction ledger to compute shares held at each period start,
+        # then price those positions via yfinance to get a true holding-period return %.
+        period_returns = {}
+        try:
+            import yfinance as _yf
+            import pandas as _pd
+            from datetime import datetime as _dt_cls
+
+            CASH_LIKE = {
+                'CUR:USD', 'USD', 'CASH', 'VMFXX', 'SPAXX', 'FDRXX',
+                'SWVXX', 'TMSXX', 'SNSXX', 'FZFXX', 'VBTIX', 'VUSXX',
+            }
+
+            # Build share ledger: (date, ticker, delta) from buy/sell transactions only
+            share_ledger = []
+            for _txn in inv_txns:
+                _sec_id = _txn.get('security_id')
+                if not _sec_id:
+                    continue
+                _sec = inv_sec_map.get(_sec_id) or {}
+                _ticker = (_sec.get('ticker_symbol') or '').upper().strip()
+                if not _ticker or _ticker in CASH_LIKE:
+                    continue
+
+                _ttype = (_txn.get('type') or '').lower()
+                _stype = (_txn.get('subtype') or '').lower()
+                _is_buy = _ttype == 'buy' or _stype == 'buy'
+                _is_sell = _ttype == 'sell' or _stype == 'sell'
+                if not _is_buy and not _is_sell:
+                    continue
+
+                _qty = abs(float(_txn.get('quantity') or 0))
+                if _qty < 0.0001:
+                    continue
+
+                _dv = _txn.get('date')
+                if not _dv:
+                    continue
+                if hasattr(_dv, 'date'):
+                    _dobj = _dv.date()
+                elif isinstance(_dv, str):
+                    _dobj = _dt_cls.strptime(_dv[:10], '%Y-%m-%d').date()
+                else:
+                    _dobj = _dv
+
+                share_ledger.append((_dobj, _ticker, _qty if _is_buy else -_qty))
+
+            share_ledger.sort(key=lambda x: x[0])
+
+            if share_ledger and total_current_value > 100:
+                # Compute cumulative shares at each period start (only txns BEFORE that date)
+                period_start_snaps = {}
+                for _pk, _start in _period_starts.items():
+                    if _start is None:
+                        continue
+                    _cum = {}
+                    for (_td, _tk, _delta) in share_ledger:
+                        if _td < _start:
+                            _cum[_tk] = _cum.get(_tk, 0.0) + _delta
+                    # Keep only open long positions
+                    period_start_snaps[_pk] = {t: s for t, s in _cum.items() if s > 0.001}
+
+                _all_hist_tickers = list({t for snap in period_start_snaps.values() for t in snap})
+
+                if _all_hist_tickers:
+                    _tickers_str = ' '.join(_all_hist_tickers)
+                    _raw = _yf.download(_tickers_str, period='5y', progress=False, auto_adjust=True)
+
+                    # Normalise to a DataFrame of Close prices keyed by ticker
+                    if isinstance(_raw.columns, _pd.MultiIndex):
+                        _close_df = _raw['Close']
+                    elif len(_all_hist_tickers) == 1:
+                        _close_df = _raw[['Close']].rename(columns={'Close': _all_hist_tickers[0]})
+                    else:
+                        _close_df = _raw.get('Close', _raw)
+
+                    # Strip timezone so Timestamp comparisons work
+                    if getattr(_close_df.index, 'tz', None) is not None:
+                        _close_df.index = _close_df.index.tz_convert(None)
+
+                    for _pk, _snap in period_start_snaps.items():
+                        if not _snap:
+                            continue
+                        _start_ts = _pd.Timestamp(_period_starts[_pk])
+                        _val_at_start = 0.0
+                        _priced = 0
+
+                        for _ticker, _shares in _snap.items():
+                            if _ticker not in _close_df.columns:
+                                continue
+                            _series = _close_df[_ticker].dropna()
+                            _after = _series[_series.index >= _start_ts]
+                            if not _after.empty:
+                                _price = float(_after.iloc[0])
+                            else:
+                                _before = _series[_series.index < _start_ts]
+                                if _before.empty:
+                                    continue
+                                _price = float(_before.iloc[-1])
+                            _val_at_start += _shares * _price
+                            _priced += 1
+
+                        _coverage = _priced / len(_snap) if _snap else 0
+                        if _coverage >= 0.75 and _val_at_start > 100:
+                            _ret = (total_current_value - _val_at_start) / _val_at_start * 100
+                            period_returns[_pk] = round(_ret, 2)
+
+        except Exception as _pr_e:
+            logging.warning(f"Period return reconstruction skipped: {_pr_e}")
+
         # Fetch multi-period benchmark returns for S&P 500, Nasdaq, Dow Jones (best-effort)
         benchmarks = {}
         try:
@@ -778,6 +889,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             'periods': {pk: {k: round(v, 2) for k, v in pdata.items()} for pk, pdata in periods.items()},
             'by_account': by_account,
             'benchmarks': benchmarks,
+            'period_returns': period_returns,
         }
         logging.info(f"Investment history for {user_id}: txns={len(inv_txns)}, accounts={len(by_account)}, periods={list(periods.keys())}")
 
