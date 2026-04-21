@@ -76,10 +76,10 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const monthlyCashFlow = monthlyIncome - monthlySpend;
     const savingsRate = monthlyIncome > 0 ? (monthlyCashFlow / monthlyIncome) * 100 : null;
 
-    // Top 3 YTD categories
+    // Top 3 YTD categories (exclude Ignore — same filter as ytdSpend)
     const ytdByCategory = {};
     transactions
-        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart)
+        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart && t.category !== 'Ignore')
         .forEach(t => {
             const cat = t.category || 'Other';
             ytdByCategory[cat] = (ytdByCategory[cat] || 0) + t.amount;
@@ -411,13 +411,33 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 ) : (
                                     <p className="text-3xl font-bold text-gray-500">N/A</p>
                                 )}
-                                <p className="text-xs text-gray-500 mt-0.5">Return (All-Time)</p>
+                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                    All-Time Return
+                                    <Info size={11} className="text-gray-500 cursor-help" title="Unrealized gain based on institution-reported cost basis vs current market value. Period selector controls the activity breakdown and benchmark comparison on the right." />
+                                </p>
 
                                 {retDollar !== null && (
-                                    <p className={`text-lg font-bold mt-2 ${retDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    <p className={`text-base font-bold mt-2 ${retDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                         {retDollar >= 0 ? '+' : '-'}{fmt(retDollar)}
+                                        <span className="text-xs font-normal text-gray-500 ml-1">unrealized</span>
                                     </p>
                                 )}
+
+                                {/* Period-specific net activity: proceeds + dividends - invested.
+                                    This IS period-aware and changes with the period pill. */}
+                                {(() => {
+                                    const netPL = (selD.proceeds || 0) + (selD.dividends || 0) - (selD.invested || 0);
+                                    if (selD.invested === 0 && selD.proceeds === 0 && selD.dividends === 0) return null;
+                                    const plPos = netPL >= 0;
+                                    return (
+                                        <p className={`text-sm font-semibold mt-1 ${plPos ? 'text-green-400' : 'text-red-400'}`}>
+                                            {plPos ? '+' : '-'}{fmt(Math.abs(netPL))}
+                                            <span className="text-xs font-normal text-gray-500 ml-1">
+                                                net activity ({PERIOD_LABELS[prPeriod]})
+                                            </span>
+                                        </p>
+                                    );
+                                })()}
 
                                 <div className="mt-3">
                                     <p className="text-xl font-semibold text-gray-300">{fmt(curVal)}</p>
