@@ -3,7 +3,7 @@ import AssetTable from './AssetTable';
 import DebtTable from './DebtTable';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Card from './Card';
-import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, Info } from 'lucide-react';
+import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, Info, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 
 const COLORS = [
     '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', 
@@ -61,6 +61,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     // --- Financial Health Metrics ---
     const [prPeriod, setPrPeriod] = useState('ytd');
     const [prAccount, setPrAccount] = useState('all');
+    const [showMath, setShowMath] = useState(false);
 
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
@@ -364,38 +365,80 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 // Selected period data for activity display
                 const selD = getPd(source, prPeriod);
 
-                // Use holdings-based cost basis for all-time return (accurate ground truth)
-                // Falls back to asset-level cost basis if investment_history doesn't have it
+                // ── Consolidated return computation ────────────────────────────────
+                // Single source of truth. Three-tier fallback with explicit sanity guards.
+                //
+                // TIER 1 (preferred): period_returns[pk] — reconstructed from 5yr transaction
+                //   history + yfinance historical prices on the backend. True holding-period return.
+                // TIER 2: all-time from institution cost basis (ih.total_cost_basis or source.total_cost_basis).
+                // TIER 3 (legacy fallback): asset-level cost basis from manual entries.
+                //
+                // Guards applied to all tiers:
+                //   - basisCoverage ≥ 10%  → protects against tiny/missing basis (divide-by-near-zero)
+                //   - basisRatio ≤ 5×     → protects against absurd basis (data corruption blow-up)
+                //
+                // When guards fail we return null + a reason string for the "Show math" panel.
+
+                const SANE_MAX_BASIS_RATIO = 5;   // cost basis more than 5× current value = corrupt
+                const MIN_BASIS_COVERAGE = 0.1;   // require ≥10% coverage to trust the %
+
                 const holdingsCostBasis = isAll
                     ? (ih?.total_cost_basis || 0)
                     : (source?.total_cost_basis || 0);
-                const costBasisForReturn = holdingsCostBasis > 0 ? holdingsCostBasis : totalCostBasis;
 
-                // All-time return from institution cost basis (period-agnostic baseline)
+                // Which basis source are we using? Track it for "Show math" transparency.
+                let basisSource, costBasisForReturn;
+                if (holdingsCostBasis > 0) {
+                    basisSource = 'institution';  // from Plaid Holdings
+                    costBasisForReturn = holdingsCostBasis;
+                } else if (totalCostBasis > 0) {
+                    basisSource = 'manual';       // from asset-level manual entries
+                    costBasisForReturn = totalCostBasis;
+                } else {
+                    basisSource = 'none';
+                    costBasisForReturn = 0;
+                }
+
+                // Sanity guards
                 const basisCoverage = curVal > 0 ? costBasisForReturn / curVal : 0;
-                const allTimeRetPct = costBasisForReturn > 0 && basisCoverage >= 0.1
-                    ? ((curVal - costBasisForReturn) / costBasisForReturn) * 100
-                    : portfolioReturn;
-                const allTimeRetDollar = costBasisForReturn > 0 && basisCoverage >= 0.1
-                    ? curVal - costBasisForReturn
-                    : (portfolioReturn !== null ? totalCurrentValue - totalCostBasis : null);
+                const basisRatio = curVal > 0 ? costBasisForReturn / curVal : Infinity;
+                const backendRejected = ih?.basis_sanity_flag === 'ratio_exceeded';
 
-                // Period-specific return: reconstructed from 5yr transaction history + yfinance historical prices.
-                // Available for 1W/1M/YTD/1Y/2Y/5Y after first sync with transaction history.
-                // Falls back to all-time when not yet computed (e.g. 'all' period or first sync).
+                let allTimeRetPct = null;
+                let allTimeRetDollar = null;
+                let rejectionReason = null;
+
+                if (backendRejected) {
+                    rejectionReason = 'Plaid returned a cost basis that exceeds current market value by more than 5× — likely a delisted or exotic holding with bad institution data. Backend rejected it to protect your stats.';
+                } else if (costBasisForReturn <= 0) {
+                    rejectionReason = 'No cost basis available. Plaid didn\'t provide one and no manual entries were found. Link a brokerage or enter cost per share in the Investments tab.';
+                } else if (basisCoverage < MIN_BASIS_COVERAGE) {
+                    rejectionReason = `Cost basis (${(basisCoverage * 100).toFixed(1)}% of current value) is too sparse to trust. Need ≥10% coverage for a meaningful %.`;
+                } else if (basisRatio > SANE_MAX_BASIS_RATIO) {
+                    rejectionReason = `Cost basis ($${costBasisForReturn.toLocaleString(undefined, {maximumFractionDigits: 0})}) is ${basisRatio.toFixed(1)}× current value — almost certainly corrupt. Check your manually-entered assets for a total-cost stored as cost-per-share.`;
+                } else {
+                    allTimeRetPct = ((curVal - costBasisForReturn) / costBasisForReturn) * 100;
+                    allTimeRetDollar = curVal - costBasisForReturn;
+                }
+
+                // Period-specific return (TIER 1) takes priority when available
                 const periodRetPct = (prPeriod !== 'all' && ih?.period_returns?.[prPeriod] != null)
                     ? ih.period_returns[prPeriod]
                     : null;
                 const hasPeriodReturn = periodRetPct !== null;
 
-                // Display values: prefer period-specific when available
+                // Final display values
                 const retPct = hasPeriodReturn ? periodRetPct : allTimeRetPct;
-                const retDollar = hasPeriodReturn ? null : allTimeRetDollar;  // dollar amount only meaningful for all-time
+                const retDollar = hasPeriodReturn ? null : allTimeRetDollar;
                 const pos = (retPct || 0) >= 0;
-                const returnLabel = hasPeriodReturn ? `${PERIOD_LABELS[prPeriod]} Return` : 'All-Time Return';
+                const returnLabel = hasPeriodReturn
+                    ? `${PERIOD_LABELS[prPeriod]} Return`
+                    : (retPct !== null ? 'All-Time Return' : 'Return Unavailable');
                 const returnTooltip = hasPeriodReturn
                     ? `Holding-period return for ${PERIOD_LABELS[prPeriod]}: reconstructed from your Plaid transaction history + historical prices. Shows gain/loss vs portfolio value at the period start date.`
-                    : 'Unrealized gain based on institution-reported cost basis vs current market value. Period selector controls the activity breakdown and benchmark comparison on the right.';
+                    : (retPct !== null
+                        ? `Unrealized gain from ${basisSource === 'institution' ? 'institution-reported cost basis' : 'your manual cost-basis entries'}. Period selector controls activity & benchmarks on the right.`
+                        : rejectionReason || 'Return could not be computed.');
 
                 // Benchmarks for selected period
                 const bench = ih?.benchmarks?.[prPeriod] || {};
@@ -471,6 +514,68 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
 
                                 {ih?.earliest_date && (
                                     <p className="text-[10px] text-gray-500 mt-4">Since {ih.earliest_date} · {ih.transaction_count} txns</p>
+                                )}
+
+                                {/* Rejection warning — shown when guards tripped (corrupt data path) */}
+                                {rejectionReason && !hasPeriodReturn && (
+                                    <div className="mt-3 flex items-start gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                        <AlertTriangle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                                        <p className="text-[11px] text-amber-200 leading-relaxed">{rejectionReason}</p>
+                                    </div>
+                                )}
+
+                                {/* Show Math — data-forward transparency. Exposes every input behind the % so
+                                    users can see exactly how the number was derived. This is the FHQ differentiator
+                                    over Monarch/Copilot, which hide the calculation. */}
+                                <button
+                                    onClick={() => setShowMath(s => !s)}
+                                    className="mt-3 flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-200 transition-colors"
+                                >
+                                    {showMath ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                    <span className="font-semibold uppercase tracking-wider">{showMath ? 'Hide' : 'Show'} Math</span>
+                                </button>
+                                {showMath && (
+                                    <div className="mt-2 p-3 bg-black/20 border border-white/5 rounded-lg space-y-1.5 text-[11px] font-mono">
+                                        <div className="flex justify-between text-gray-400">
+                                            <span>Current Value</span>
+                                            <span className="text-gray-200">${curVal.toLocaleString(undefined, {maximumFractionDigits: 2})}</span>
+                                        </div>
+                                        <div className="flex justify-between text-gray-400">
+                                            <span>Cost Basis ({basisSource})</span>
+                                            <span className={costBasisForReturn > 0 ? 'text-gray-200' : 'text-gray-500'}>
+                                                {costBasisForReturn > 0 ? `$${costBasisForReturn.toLocaleString(undefined, {maximumFractionDigits: 2})}` : 'unavailable'}
+                                            </span>
+                                        </div>
+                                        {costBasisForReturn > 0 && (
+                                            <>
+                                                <div className="flex justify-between text-gray-400">
+                                                    <span>Basis Coverage</span>
+                                                    <span className={basisCoverage >= MIN_BASIS_COVERAGE ? 'text-gray-200' : 'text-amber-400'}>
+                                                        {(basisCoverage * 100).toFixed(1)}% {basisCoverage >= MIN_BASIS_COVERAGE ? '✓' : '⚠'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between text-gray-400">
+                                                    <span>Basis / Value Ratio</span>
+                                                    <span className={basisRatio <= SANE_MAX_BASIS_RATIO ? 'text-gray-200' : 'text-red-400'}>
+                                                        {basisRatio.toFixed(2)}× {basisRatio <= SANE_MAX_BASIS_RATIO ? '✓' : '✗'}
+                                                    </span>
+                                                </div>
+                                            </>
+                                        )}
+                                        {hasPeriodReturn && (
+                                            <div className="flex justify-between text-gray-400 pt-1.5 mt-1.5 border-t border-white/5">
+                                                <span>{PERIOD_LABELS[prPeriod]} Start Value</span>
+                                                <span className="text-blue-300">reconstructed</span>
+                                            </div>
+                                        )}
+                                        <div className="pt-1.5 mt-1.5 border-t border-white/5 text-gray-500">
+                                            <div className="text-[10px] leading-snug">
+                                                Formula: {hasPeriodReturn
+                                                    ? '(Current − Period-Start Value) / Period-Start Value × 100'
+                                                    : '(Current − Cost Basis) / Cost Basis × 100'}
+                                            </div>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
 

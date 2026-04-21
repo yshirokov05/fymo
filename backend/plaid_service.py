@@ -516,9 +516,21 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             h_atype = AssetType.CASH if is_cash_holding else AssetType.STOCK
 
             # Track cost basis from holdings for accurate return calculations
-            # Only count non-cash holdings with valid cost basis
+            # Only count non-cash holdings with valid cost basis.
+            # Sanity guard: reject individual-holding cost basis > $100M (Plaid occasionally
+            # returns absurd values for delisted/exotic securities; letting those through
+            # poisons the aggregate return calculation). $100M/position is more than any
+            # realistic retail holding.
+            SANE_PER_HOLDING_BASIS_CAP = 100_000_000  # $100M
             if not is_cash_holding and p_cost_basis > 0:
-                cost_basis_per_account[acc_id] = cost_basis_per_account.get(acc_id, 0) + p_cost_basis
+                if p_cost_basis > SANE_PER_HOLDING_BASIS_CAP:
+                    logging.warning(
+                        f"Rejecting implausible cost basis for {ticker} in acc {acc_id}: "
+                        f"${p_cost_basis:,.2f} (cap: ${SANE_PER_HOLDING_BASIS_CAP:,.0f}). "
+                        f"Shares: {shares}, market value: ${market_value:,.2f}"
+                    )
+                else:
+                    cost_basis_per_account[acc_id] = cost_basis_per_account.get(acc_id, 0) + p_cost_basis
 
             asset = Asset(
                 ticker=ticker,
@@ -880,6 +892,27 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         total_current_value = sum(market_value_per_account.values())
         total_cost_basis_from_holdings = sum(cost_basis_per_account.values())
 
+        # Aggregate sanity guard: cost basis should not wildly exceed current market value.
+        # If it does, the data is corrupt (usually one bad Plaid holding slipped through or
+        # a delisted position still has an old institution-reported basis). Zero it rather
+        # than writing a poisoned value into Firestore — downstream UI will correctly show
+        # "cost basis unavailable" instead of a nonsense -99% return.
+        basis_sanity_flag = None
+        if total_cost_basis_from_holdings > 0 and total_current_value > 0:
+            ratio = total_cost_basis_from_holdings / total_current_value
+            if ratio > 5.0:
+                logging.warning(
+                    f"[Sync {user_id}] Rejecting aggregate cost basis: "
+                    f"${total_cost_basis_from_holdings:,.2f} is {ratio:.1f}x current value "
+                    f"${total_current_value:,.2f}. Zeroing total_cost_basis."
+                )
+                basis_sanity_flag = 'ratio_exceeded'
+                total_cost_basis_from_holdings = 0.0
+                # Zero the per-account basis too so account-level return doesn't lie
+                cost_basis_per_account = {k: 0.0 for k in cost_basis_per_account}
+                for _acc_data in by_account.values():
+                    _acc_data['total_cost_basis'] = 0.0
+
         investment_history = {
             'current_value': round(total_current_value, 2),
             'total_cost_basis': round(total_cost_basis_from_holdings, 2),
@@ -890,6 +923,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             'by_account': by_account,
             'benchmarks': benchmarks,
             'period_returns': period_returns,
+            'basis_sanity_flag': basis_sanity_flag,
         }
         logging.info(f"Investment history for {user_id}: txns={len(inv_txns)}, accounts={len(by_account)}, periods={list(periods.keys())}")
 
