@@ -110,8 +110,17 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         }, 0);
     const emergencyMonths = monthlySpend > 0 ? liquidValue / monthlySpend : null;
 
-    // Portfolio return (non-cash invested assets)
-    const allInvestedAssets = assets.filter(a => !liquidTypes.has(a.asset_type) && !liquidTickers.has(a.ticker));
+    // Portfolio return (market-traded investments only).
+    // Explicitly whitelisted: STOCK. Everything else — HOUSING, BOND, SALARY, cash-family —
+    // is excluded. Real estate is not a portfolio return (compounds differently, often
+    // stored with hack shape like shares=450000, cost_basis=1.0 to represent dollar amounts).
+    // Cash/savings are liquid, not invested. BOND positions held as individual securities
+    // typically arrive with ticker + asset_type=STOCK from Plaid anyway.
+    const investedAssetTypes = new Set(['STOCK']);
+    const allInvestedAssets = assets.filter(a =>
+        investedAssetTypes.has(a.asset_type)
+        && !liquidTickers.has(a.ticker)
+    );
     const totalCurrentValue = allInvestedAssets.reduce((sum, a) => {
         const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
         return sum + Math.max(0, a.shares * price);
@@ -415,7 +424,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 } else if (basisCoverage < MIN_BASIS_COVERAGE) {
                     rejectionReason = `Cost basis (${(basisCoverage * 100).toFixed(1)}% of current value) is too sparse to trust. Need ≥10% coverage for a meaningful %.`;
                 } else if (basisRatio > SANE_MAX_BASIS_RATIO) {
-                    rejectionReason = `Cost basis ($${costBasisForReturn.toLocaleString(undefined, {maximumFractionDigits: 0})}) is ${basisRatio.toFixed(1)}× current value — almost certainly corrupt. Check your manually-entered assets for a total-cost stored as cost-per-share.`;
+                    rejectionReason = `Cost basis ($${costBasisForReturn.toLocaleString(undefined, {maximumFractionDigits: 0})}) is ${basisRatio.toFixed(1)}× current value. Likely a stale or corrupt data entry — open the Investments tab and verify cost-per-share is correct on each holding.`;
                 } else {
                     allTimeRetPct = ((curVal - costBasisForReturn) / costBasisForReturn) * 100;
                     allTimeRetDollar = curVal - costBasisForReturn;
@@ -546,22 +555,32 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 {costBasisForReturn > 0 ? `$${costBasisForReturn.toLocaleString(undefined, {maximumFractionDigits: 2})}` : 'unavailable'}
                                             </span>
                                         </div>
-                                        {costBasisForReturn > 0 && (
-                                            <>
-                                                <div className="flex justify-between text-gray-400">
-                                                    <span>Basis Coverage</span>
-                                                    <span className={basisCoverage >= MIN_BASIS_COVERAGE ? 'text-gray-200' : 'text-amber-400'}>
-                                                        {(basisCoverage * 100).toFixed(1)}% {basisCoverage >= MIN_BASIS_COVERAGE ? '✓' : '⚠'}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between text-gray-400">
-                                                    <span>Basis / Value Ratio</span>
-                                                    <span className={basisRatio <= SANE_MAX_BASIS_RATIO ? 'text-gray-200' : 'text-red-400'}>
-                                                        {basisRatio.toFixed(2)}× {basisRatio <= SANE_MAX_BASIS_RATIO ? '✓' : '✗'}
-                                                    </span>
-                                                </div>
-                                            </>
-                                        )}
+                                        {costBasisForReturn > 0 && (() => {
+                                            // Coverage is "healthy" when: min threshold met AND not above 100% (above 100%
+                                            // means basis exceeds current value — always a red flag, either unrealized losses
+                                            // OR corrupt data. The Basis / Value Ratio row catches severe cases separately.)
+                                            const coverageHealthy = basisCoverage >= MIN_BASIS_COVERAGE && basisCoverage <= 1.0;
+                                            const ratioHealthy = basisRatio <= SANE_MAX_BASIS_RATIO;
+                                            return (
+                                                <>
+                                                    <div className="flex justify-between text-gray-400">
+                                                        <span>Basis Coverage</span>
+                                                        <span className={coverageHealthy ? 'text-gray-200' : 'text-amber-400'}>
+                                                            {basisCoverage > 100
+                                                                ? `${basisCoverage.toExponential(1)}`
+                                                                : `${(basisCoverage * 100).toFixed(1)}%`
+                                                            } {coverageHealthy ? '✓' : '⚠'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between text-gray-400">
+                                                        <span>Basis / Value Ratio</span>
+                                                        <span className={ratioHealthy ? 'text-gray-200' : 'text-red-400'}>
+                                                            {basisRatio > 1000 ? basisRatio.toExponential(1) : `${basisRatio.toFixed(2)}×`} {ratioHealthy ? '✓' : '✗'}
+                                                        </span>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
                                         {hasPeriodReturn && (
                                             <div className="flex justify-between text-gray-400 pt-1.5 mt-1.5 border-t border-white/5">
                                                 <span>{PERIOD_LABELS[prPeriod]} Start Value</span>
