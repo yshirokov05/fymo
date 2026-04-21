@@ -1,30 +1,46 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, Wallet, CreditCard, PiggyBank, Settings, DollarSign, Shield, PieChart, Sparkles, Menu, X, Lock, MessageSquare, TrendingDown, BarChart3, TrendingUp, Target } from 'lucide-react';
 
-const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback }) => {
+const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback, capabilities = {} }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    const navItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-        { id: 'advisor', label: 'AI Analyst', icon: <Sparkles size={20} /> },
-        { id: 'budget', label: 'Expenditures', icon: <PieChart size={20} /> },
-        { id: 'income', label: 'Income', icon: <TrendingUp size={20} /> },
-        { id: 'taxes', label: 'Tax Projection', icon: <DollarSign size={20} /> },
-        { id: 'investments', label: 'Investments', icon: <PiggyBank size={20} /> },
-        { id: 'insurance', label: 'Insurance', icon: <Shield size={20} /> },
-        { id: 'goals', label: 'Goals', icon: <Target size={20} /> },
-        { id: 'debts', label: 'Debts', icon: <CreditCard size={20} /> },
-        { id: 'checks', label: 'Check Tracker', icon: <DollarSign size={20} /> },
-        { id: 'visualizations', label: 'Visualizations', icon: <BarChart3 size={20} /> },
-        { id: 'faq', label: 'Security FAQ', icon: <Lock size={20} /> },
-        { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
+    // Capability-gated nav. Core tabs always show. Secondary tabs only appear when the
+    // user has data that populates them — keeps the sidebar tailored and uncluttered.
+    // `always` = shown regardless. `when` = boolean key from capabilities object.
+    const allNavItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} />, always: true },
+        { id: 'advisor', label: 'AI Analyst', icon: <Sparkles size={20} />, always: true },
+        { id: 'budget', label: 'Expenditures', icon: <PieChart size={20} />, always: true },
+        { id: 'income', label: 'Income', icon: <TrendingUp size={20} />, always: true },
+        { id: 'taxes', label: 'Tax Projection', icon: <DollarSign size={20} />, when: 'hasIncome' },
+        { id: 'investments', label: 'Investments', icon: <PiggyBank size={20} />, when: 'hasInvestments' },
+        { id: 'insurance', label: 'Insurance', icon: <Shield size={20} />, when: 'hasInsurance' },
+        { id: 'goals', label: 'Goals', icon: <Target size={20} />, always: true },
+        { id: 'debts', label: 'Debts', icon: <CreditCard size={20} />, when: 'hasDebts' },
+        { id: 'checks', label: 'Check Tracker', icon: <DollarSign size={20} />, when: 'hasChecks' },
+        { id: 'visualizations', label: 'Visualizations', icon: <BarChart3 size={20} />, when: 'hasAnyFinancialData' },
+        { id: 'faq', label: 'Security FAQ', icon: <Lock size={20} />, always: true },
+        { id: 'settings', label: 'Settings', icon: <Settings size={20} />, always: true },
     ];
 
+    const navItems = allNavItems.filter(item => {
+        // Always show the currently active view (so you can't end up stranded if you
+        // delete the last item in a category while viewing its tab).
+        if (activeView === item.id) return true;
+        if (item.always) return true;
+        if (item.when) return !!capabilities[item.when];
+        return true;
+    });
+
+    // Mobile bottom nav — swap "Vault" for "Goals" when user has no investments so the
+    // primary tap target actually matches what they use.
     const quickNavItems = [
         { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={24} /> },
         { id: 'advisor', label: 'AI', icon: <Sparkles size={24} /> },
         { id: 'budget', label: 'Spending', icon: <PieChart size={24} /> },
-        { id: 'investments', label: 'Vault', icon: <PiggyBank size={24} /> },
+        capabilities.hasInvestments
+            ? { id: 'investments', label: 'Vault', icon: <PiggyBank size={24} /> }
+            : { id: 'goals', label: 'Goals', icon: <Target size={24} /> },
         { id: 'menu', label: 'More', icon: <Menu size={24} /> },
     ];
 

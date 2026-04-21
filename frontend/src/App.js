@@ -503,8 +503,28 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     }
   };
 
+  // ── User capabilities: what features actually apply to THIS user? ──
+  // Drives conditional rendering throughout the app so users don't see tabs/cards for
+  // features they don't use. "Junk elimination" — if you have no investments, you don't
+  // need a Portfolio Return card, an Investments tab, or a Dividends row in Income.
+  const capabilities = {
+    hasLinkedBank: (plaidItems || []).length > 0,
+    hasInvestments:
+      (assets || []).some(a => (a.asset_type === 'STOCK' || a.asset_type === 'CRYPTO') && (a.shares || 0) > 0)
+      || ((investmentHistory?.current_value || 0) > 0),
+    hasDebts: (debts || []).length > 0,
+    hasInsurance: (insurances || []).length > 0,
+    hasPayroll: (paystubs || []).length > 0,
+    hasIncome: (incomes || []).length > 0 || (paystubs || []).length > 0,
+    hasChecks: (outstandingChecks || []).length > 0,
+    hasTransactions: (transactions || []).length > 0,
+    hasAnyFinancialData:
+      (assets || []).length > 0 || (debts || []).length > 0 || (incomes || []).length > 0 ||
+      (paystubs || []).length > 0 || (insurances || []).length > 0 || (plaidItems || []).length > 0,
+  };
+
   if (loading && !isModalOpen) {
-    return <Layout activeView={activeView} setActiveView={setActiveView}><div>Loading...</div></Layout>;
+    return <Layout activeView={activeView} setActiveView={setActiveView} capabilities={capabilities}><div>Loading...</div></Layout>;
   }
 
   const handleSavePaystubs = async (newPaystubs) => {
@@ -599,6 +619,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     hasCompletedOnboarding={hasCompletedOnboarding}
                     onUpdateCostBasis={handleUpdateCostBasis}
                     investmentHistory={investmentHistory}
+                    capabilities={capabilities}
+                    onOpenEdit={openEditModal}
+                    onOpenLink={() => setActiveView('settings')}
                 />
             </div>
         );
@@ -796,7 +819,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   }
 
   return (
-    <Layout activeView={activeView} setActiveView={setActiveView} isPremium={isPremium} onOpenFeedback={() => setIsFeedbackOpen(true)}>
+    <Layout activeView={activeView} setActiveView={setActiveView} isPremium={isPremium} onOpenFeedback={() => setIsFeedbackOpen(true)} capabilities={capabilities}>
       {renderContent()}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Edit Portfolio">
         <EditPortfolio 

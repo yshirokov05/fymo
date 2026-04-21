@@ -48,7 +48,16 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, capabilities = null, onOpenEdit = null, onOpenLink = null }) => {
+    // Capabilities fallback: if not passed (legacy usage), infer from data we have.
+    // Lets us use Dashboard in embedded contexts (Investments tab, Debts tab) without piping.
+    const caps = capabilities || {
+        hasInvestments: assets.some(a => (a.asset_type === 'STOCK' || a.asset_type === 'CRYPTO') && (a.shares || 0) > 0) || ((investmentHistory?.current_value || 0) > 0),
+        hasDebts: debts.length > 0,
+        hasIncome: incomes.length > 0 || paystubs.length > 0,
+        hasTransactions: transactions.length > 0,
+        hasLinkedBank: false,  // can't infer from props
+    };
     // --- Financial Health Metrics ---
     const [prPeriod, setPrPeriod] = useState('ytd');
     const [prAccount, setPrAccount] = useState('all');
@@ -192,7 +201,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     return (
         <div className="space-y-8">
             {!hideSummary && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className={`grid grid-cols-1 md:grid-cols-2 ${caps.hasIncome ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
                     <Card title="Net Worth" icon={<DollarSign className="text-green-500" />}>
                         <p className="text-2xl font-bold">${(netWorth || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
@@ -224,6 +233,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         </p>
                     </Card>
 
+                    {caps.hasIncome && (
                     <Card title="Est. Annual Tax" icon={<DollarSign className={taxLiability?.has_net_only_income ? "text-gray-400" : "text-orange-500"} />}>
                         {taxLiability?.has_net_only_income ? (
                             <>
@@ -243,6 +253,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                             </>
                         )}
                     </Card>
+                    )}
                 </div>
             )}
 
@@ -320,8 +331,8 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 </div>
             )}
 
-            {/* Portfolio Return — full-width card with account + period selectors */}
-            {!hideSummary && (investmentHistory || portfolioReturn !== null) && (() => {
+            {/* Portfolio Return — only shown when the user actually has investments. */}
+            {!hideSummary && caps.hasInvestments && (investmentHistory || portfolioReturn !== null) && (() => {
                 const ih = investmentHistory;
                 const hasHistory = ih && ih.transaction_count > 0;
                 const PERIOD_ORDER = ['1w', '1m', 'ytd', '1y', '2y', '5y', 'all'];
