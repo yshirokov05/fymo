@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme, ACCENT_PRESETS } from '../context/ThemeContext';
-import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette } from 'lucide-react';
+import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette, AlertTriangle } from 'lucide-react';
 import PlaidLink from './PlaidLink';
 import axios from 'axios';
 import { useToast } from './Toast';
@@ -16,6 +16,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
     const [resetConfirmation, setResetConfirmation] = useState('');
     const [isResetLoading, setIsResetLoading] = useState(false);
     const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+    const [showUnsupportedList, setShowUnsupportedList] = useState(false);
 
     const handleFixConnection = async (institutionName) => {
         try {
@@ -161,11 +162,32 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
 
                             <div className="pt-4 border-t">
                                 <h3 className="text-lg font-bold text-gray-800 mb-4">Bank & Brokerage Sync</h3>
-                                <div className="mb-3 flex items-start space-x-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                                    <span className="text-amber-500 mt-0.5 text-sm">⚠</span>
-                                    <p className="text-xs text-amber-800">
-                                        <span className="font-bold">Not supported via automatic sync:</span> Morgan Stanley, Fidelity 401(k) (employer plans). These institutions do not currently participate in Plaid's data sharing network. Please enter balances manually using the Edit Portfolio button on the Investments page.
-                                    </p>
+                                <div className="mb-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg px-4 py-3">
+                                    <div className="flex items-start space-x-3">
+                                        <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold text-amber-900 mb-1">Not every institution works with Plaid</p>
+                                            <p className="text-xs text-amber-800 leading-relaxed">
+                                                FHQ uses Plaid to sync balances, transactions, and holdings. Plaid covers 12,000+ banks and brokerages — but not all. For unsupported institutions, use <span className="font-bold">Edit Portfolio</span> on the Investments page or manual entry elsewhere. Your totals will still combine correctly.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowUnsupportedList(v => !v)}
+                                                className="mt-2 text-xs font-bold text-amber-900 underline hover:text-amber-700"
+                                            >
+                                                {showUnsupportedList ? 'Hide' : 'Show'} commonly unsupported institutions
+                                            </button>
+                                            {showUnsupportedList && (
+                                                <ul className="mt-2 text-xs text-amber-800 space-y-1 list-disc ml-4">
+                                                    <li><span className="font-bold">Morgan Stanley</span> — wealth management / E*TRADE legacy accounts</li>
+                                                    <li><span className="font-bold">Fidelity 401(k)</span> — employer retirement plans (personal Fidelity accounts work)</li>
+                                                    <li><span className="font-bold">Most employer-sponsored 401(k)/403(b)/457</span> — Empower, Principal, Voya, TIAA retirement arms</li>
+                                                    <li><span className="font-bold">HSA providers</span> — HealthEquity, Fidelity HSA (limited coverage)</li>
+                                                    <li><span className="font-bold">Some credit unions & regional banks</span> — if you don't see yours, try searching by exact name</li>
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex flex-wrap gap-4">
                                     <PlaidLink onPlaidSuccess={onPlaidSuccess} updateToken={updateToken} onUpdateReset={() => setUpdateToken(null)} />

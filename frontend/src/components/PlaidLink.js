@@ -3,9 +3,9 @@ import { usePlaidLink } from 'react-plaid-link';
 import { useToast } from './Toast';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { CreditCard, RefreshCw, AlertCircle } from 'lucide-react';
+import { CreditCard, RefreshCw, AlertCircle, Info } from 'lucide-react';
 
-const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
+const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset, showHelper = true }) => {
     const { currentUser } = useAuth();
     const { showToast } = useToast();
     const [linkToken, setLinkToken] = useState(null);
@@ -111,29 +111,37 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset }) => {
     }
 
     return (
-        <button
-            onClick={() => {
-                if (ready && linkToken) {
-                    open();
-                } else {
-                    setPendingOpen(true);
-                    generateLinkToken();
-                }
-            }}
-            disabled={isGenerating}
-            className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold transition-all duration-200 transform active:scale-95 ${
-                !isGenerating
-                ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-lg hover:shadow-indigo-200'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-            }`}
-        >
-            {isGenerating ? (
-                <RefreshCw size={18} className="animate-spin" />
-            ) : (
-                <CreditCard size={18} />
+        <div className="flex flex-col space-y-2">
+            <button
+                onClick={() => {
+                    if (ready && linkToken) {
+                        open();
+                    } else {
+                        setPendingOpen(true);
+                        generateLinkToken();
+                    }
+                }}
+                disabled={isGenerating}
+                className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold transition-all duration-200 transform active:scale-95 ${
+                    !isGenerating
+                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:from-indigo-700 hover:to-blue-700 shadow-lg hover:shadow-indigo-200'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                }`}
+            >
+                {isGenerating ? (
+                    <RefreshCw size={18} className="animate-spin" />
+                ) : (
+                    <CreditCard size={18} />
+                )}
+                <span>{isGenerating ? 'Initializing...' : 'Link Financial Accounts'}</span>
+            </button>
+            {showHelper && (
+                <div className="flex items-start space-x-1.5 text-[11px] text-gray-500 max-w-xs">
+                    <Info size={12} className="mt-0.5 flex-shrink-0" />
+                    <span>Secured by Plaid. Don't see your bank? Some employer 401(k)s and brokerages aren't supported — you can add them manually.</span>
+                </div>
             )}
-            <span>{isGenerating ? 'Initializing...' : 'Link Financial Accounts'}</span>
-        </button>
+        </div>
     );
 };
 
