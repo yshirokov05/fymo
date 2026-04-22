@@ -344,11 +344,17 @@ const NewGoalForm = ({ onSave, onCancel }) => {
     );
 };
 
-const Goals = ({ currentUser }) => {
+const Goals = ({ currentUser, onGoalsCountChange }) => {
     const [goals, setGoals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [error, setError] = useState(null);
+
+    // Notify parent (App.js) of current goals count so the Dashboard checklist
+    // can reflect reality. Fires on every change (fetch, create, delete).
+    useEffect(() => {
+        if (onGoalsCountChange) onGoalsCountChange(goals.length);
+    }, [goals.length, onGoalsCountChange]);
 
     const getToken = async () => {
         if (!currentUser) return null;

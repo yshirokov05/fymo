@@ -3,6 +3,7 @@ import AssetTable from './AssetTable';
 import DebtTable from './DebtTable';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Card from './Card';
+import ShowMath from './ShowMath';
 import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, Info, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 
 const COLORS = [
@@ -199,6 +200,59 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const allDebts = [...debts, ...marginDebts];
     const debtValue = allDebts.reduce((acc, debt) => acc + debt.remaining_balance, 0);
 
+    // ── Show Math row builders ──────────────────────────────────────────
+    // Group positiveAssets by rough asset class for the Total Assets breakdown
+    const assetClassRows = (() => {
+        const buckets = { Cash: 0, Investments: 0, 'Real Estate': 0, Retirement: 0, Other: 0 };
+        positiveAssets.forEach(a => {
+            const price = a.current_price || (a.shares > 0 ? a.cost_basis / a.shares : 0) || 0;
+            const value = a.shares * price;
+            const isCashTicker = liquidTickers.has(a.ticker);
+            const isCashType = liquidTypes.has(a.asset_type) || isCashTicker;
+            if (isCashType) buckets.Cash += value;
+            else if (a.asset_type === 'HOUSING') buckets['Real Estate'] += value;
+            else if (a.asset_type === 'STOCK' || a.asset_type === 'BOND') buckets.Investments += value;
+            else if (a.asset_type === 'SALARY') buckets.Other += value; // edge case
+            else buckets.Other += value;
+        });
+        // Add retirement accounts if they exist (passed separately in some paths)
+        return Object.entries(buckets)
+            .filter(([_, v]) => v > 0)
+            .map(([label, value]) => ({
+                label,
+                value: `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                indent: true,
+            }));
+    })();
+
+    const debtBreakdownRows = allDebts
+        .filter(d => d.remaining_balance > 0)
+        .slice(0, 8) // cap visual length
+        .map(d => ({
+            label: d.name || d.official_name || 'Debt',
+            value: `$${(d.remaining_balance || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+            indent: true,
+        }));
+    if (allDebts.filter(d => d.remaining_balance > 0).length > 8) {
+        debtBreakdownRows.push({
+            label: `+ ${allDebts.filter(d => d.remaining_balance > 0).length - 8} more`,
+            value: '',
+            indent: true,
+            muted: true,
+        });
+    }
+
+    const taxBreakdownRows = (() => {
+        if (!taxLiability || taxLiability.has_net_only_income) return [];
+        const rows = [];
+        if (taxLiability.federal) rows.push({ label: 'Federal', value: `$${taxLiability.federal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true });
+        if (taxLiability.state) rows.push({ label: 'State', value: `$${taxLiability.state.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true });
+        if (taxLiability.fica) rows.push({ label: 'FICA (SS + Medicare)', value: `$${taxLiability.fica.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true });
+        if (taxLiability.withheld) rows.push({ label: 'Already withheld', value: `-$${taxLiability.withheld.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true, muted: true });
+        rows.push({ divider: true, label: 'Total liability', value: `$${(taxLiability.total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` });
+        return rows;
+    })();
+
     const isDebtDemoMode = isGuest || (allDebts.length === 0 && !hasCompletedOnboarding);
 
     const debtChartData = isDebtDemoMode
@@ -218,6 +272,14 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                             Assets - Debts
                             <Info size={11} className="text-gray-400 cursor-help" title="Sum of all asset market values minus all outstanding debt balances." />
                         </p>
+                        <ShowMath
+                            rows={[
+                                { label: 'Total Assets', value: `$${(assetValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+                                { label: 'Total Debts', value: `-$${(debtValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+                                { divider: true, label: 'Net Worth', value: `$${(netWorth || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+                            ]}
+                            formula="Total Assets − Total Debts"
+                        />
                     </Card>
 
                     <Card title="Total Assets" icon={<Briefcase className="text-blue-500" />}>
@@ -226,6 +288,15 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                             All linked &amp; manual assets
                             <Info size={11} className="text-gray-400 cursor-help" title="Includes cash, checking, savings, investment holdings, real estate, and any manually entered assets." />
                         </p>
+                        {assetClassRows.length > 0 && (
+                            <ShowMath
+                                rows={[
+                                    ...assetClassRows,
+                                    { divider: true, label: 'Total Assets', value: `$${(assetValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+                                ]}
+                                formula="Sum of each asset's (shares × market price)"
+                            />
+                        )}
                     </Card>
 
                     <Card title="Total Debts" icon={<ArrowDownCircle className={debtValue === 0 && !isDebtDemoMode ? "text-green-500" : "text-red-500"} />}>
@@ -241,6 +312,15 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                             All linked &amp; manual debts
                             <Info size={11} className="text-gray-400 cursor-help" title="Includes mortgages, car loans, credit cards, margin balances, and any manually entered debts." />
                         </p>
+                        {debtBreakdownRows.length > 0 && (
+                            <ShowMath
+                                rows={[
+                                    ...debtBreakdownRows,
+                                    { divider: true, label: 'Total Debts', value: `$${(debtValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+                                ]}
+                                formula="Sum of each debt's remaining balance"
+                            />
+                        )}
                     </Card>
 
                     {caps.hasIncome && (
@@ -261,6 +341,12 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 <p className="text-2xl font-bold text-orange-600">${(taxLiability?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 <p className="text-xs text-gray-500 mt-1">Informative only</p>
                             </>
+                        )}
+                        {taxBreakdownRows.length > 0 && (
+                            <ShowMath
+                                rows={taxBreakdownRows}
+                                formula="Federal (progressive brackets) + State (50-state engine) + FICA (7.65%)"
+                            />
                         )}
                     </Card>
                     )}

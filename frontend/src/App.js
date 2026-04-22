@@ -91,6 +91,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   });
   const [userTaxInfo, setUserTaxInfo] = useState({ filing_status: 'SINGLE', state: 'CA', employment_type: 'W2', business_deductions: 0, dependents: 0 });
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [goalsCount, setGoalsCount] = useState(0);
   const [customCategories, setCustomCategories] = useState([]);
   const [ignoredSubscriptionMerchants, setIgnoredSubscriptionMerchants] = useState([]);
   const [manualSubscriptionMerchants, setManualSubscriptionMerchants] = useState([]);
@@ -142,6 +143,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
         setHasCompletedOnboarding(response.data.has_completed_onboarding || false);
         setCustomCategories(response.data.custom_categories || []);
+
+        // Lightweight goals count fetch (non-blocking) so Dashboard checklist
+        // reflects reality on initial load without needing to mount Goals tab.
+        if (!isGuest && currentUser) {
+            axios.get('/api/goals', headers)
+                .then(r => setGoalsCount((r.data.goals || []).length))
+                .catch(() => {}); // silent — not critical
+        }
         setIgnoredSubscriptionMerchants(response.data.ignored_subscription_merchants || []);
         setManualSubscriptionMerchants(response.data.manual_subscription_merchants || []);
         setIgnoredFlexibleCategories(response.data.ignored_flexible || []);
@@ -613,6 +622,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     isPremium={isPremium}
                     onGoToView={setActiveView}
                     onTrySample={handleInitializeSampleData}
+                    hasGoals={goalsCount > 0}
                 />
                 <Dashboard
                     netWorth={netWorth}
@@ -786,7 +796,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
               />
           );
       case 'goals':
-          return <Goals currentUser={currentUser} />;
+          return <Goals currentUser={currentUser} onGoalsCountChange={setGoalsCount} />;
       case 'faq':
           return <DataPrivacyFAQ />;
       case 'privacy':
