@@ -19,6 +19,7 @@ import Goals from './components/Goals';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import Onboarding from './components/Onboarding';
+import FirstRunChecklist from './components/FirstRunChecklist';
 import FeedbackModal from './components/FeedbackModal';
 import StatementUpload from './components/StatementUpload';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -607,6 +608,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                         )}
                     </div>
                 </div>
+                <FirstRunChecklist
+                    capabilities={capabilities}
+                    isPremium={isPremium}
+                    onGoToView={setActiveView}
+                    onTrySample={handleInitializeSampleData}
+                />
                 <Dashboard
                     netWorth={netWorth}
                     assets={assets}
