@@ -869,6 +869,65 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         except Exception as _pr_e:
             logging.warning(f"Period return reconstruction skipped: {_pr_e}")
 
+        # ── Weighted-ticker fallback for missing period returns ────────────
+        # The ledger-reconstruction path above requires ≥75% price coverage at each period
+        # start — it fails silently when a ticker has no history (delisted, recent IPO, or
+        # a mutual fund yfinance can't resolve). Without this fallback, the UI falls back to
+        # "All-Time Return" when the user clicks 1W/1M/etc., which is surprising and wrong.
+        #
+        # Strategy: for each period missing from period_returns, compute a value-weighted
+        # average of each current holding's own period return (using yfinance 5y history).
+        # Less precise than the reconstruction (ignores intra-period buys/sells), but a
+        # meaningful approximation — what a "buy and hold the current basket" return would
+        # have been over that period.
+        try:
+            _missing_periods = [p for p in ('1w', '1m', 'ytd', '1y', '2y', '5y') if p not in period_returns]
+            if _missing_periods and total_current_value > 100:
+                from price_service import get_multi_period_returns as _gmpr
+
+                # Build per-ticker current market value from new_assets (excluding cash-likes)
+                _ticker_mv = {}
+                _CASH_LIKE = {
+                    'CUR:USD', 'USD', 'CASH', 'VMFXX', 'SPAXX', 'FDRXX',
+                    'SWVXX', 'TMSXX', 'SNSXX', 'FZFXX', 'VBTIX', 'VUSXX',
+                }
+                for _a in new_assets:
+                    _t = (_a.ticker or '').upper().strip()
+                    if not _t or _t in _CASH_LIKE:
+                        continue
+                    _px = _a.current_price or 0
+                    _mv = max(0.0, (_a.shares or 0) * _px)
+                    if _mv > 0:
+                        _ticker_mv[_t] = _ticker_mv.get(_t, 0.0) + _mv
+
+                if _ticker_mv:
+                    # Fetch multi-period returns per ticker in parallel, capped at 8s total
+                    _per_ticker_returns = {}
+                    with ThreadPoolExecutor(max_workers=5) as _tex:
+                        _tfutures = {_tex.submit(_gmpr, t): t for t in _ticker_mv}
+                        for _tf in as_completed(_tfutures):
+                            _t = _tfutures[_tf]
+                            try:
+                                _per_ticker_returns[_t] = _tf.result(timeout=8.0) or {}
+                            except Exception:
+                                _per_ticker_returns[_t] = {}
+
+                    _total_mv = sum(_ticker_mv.values())
+                    for _pk in _missing_periods:
+                        _w_sum = 0.0
+                        _w_weight = 0.0
+                        for _t, _mv in _ticker_mv.items():
+                            _r = _per_ticker_returns.get(_t, {}).get(_pk)
+                            if _r is not None:
+                                _w_sum += _r * _mv
+                                _w_weight += _mv
+                        # Require ≥50% of portfolio value to have a valid return for this period
+                        if _w_weight > 0 and _total_mv > 0 and (_w_weight / _total_mv) >= 0.5:
+                            period_returns[_pk] = round(_w_sum / _w_weight, 2)
+                            logging.info(f"[Sync {user_id}] Fallback period return {_pk}: {period_returns[_pk]}% (weighted {_w_weight/_total_mv*100:.0f}% coverage)")
+        except Exception as _fb_e:
+            logging.warning(f"Weighted-ticker period return fallback failed: {_fb_e}")
+
         # Fetch multi-period benchmark returns for S&P 500, Nasdaq, Dow Jones (best-effort)
         benchmarks = {}
         try:
