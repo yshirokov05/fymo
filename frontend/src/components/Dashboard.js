@@ -554,7 +554,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 <option value="all">All Accounts</option>
                                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
-                            <div className="flex gap-1">
+                            <div className="flex flex-wrap gap-1">
                                 {PERIOD_ORDER.map(pk => (
                                     <button key={pk} onClick={() => setPrPeriod(pk)}
                                         className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${prPeriod === pk ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-gray-200'}`}
@@ -642,10 +642,12 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                             </span>
                                         </div>
                                         {costBasisForReturn > 0 && (() => {
-                                            // Coverage is "healthy" when: min threshold met AND not above 100% (above 100%
-                                            // means basis exceeds current value — always a red flag, either unrealized losses
-                                            // OR corrupt data. The Basis / Value Ratio row catches severe cases separately.)
-                                            const coverageHealthy = basisCoverage >= MIN_BASIS_COVERAGE && basisCoverage <= 1.0;
+                                            // Coverage is "healthy" when within the sane ratio range.
+                                            // A portfolio down on the year NATURALLY has basis > value (coverage > 100%)
+                                            // — that's just unrealized losses, not corrupt data. Only flag ⚠ when
+                                            // basis is either extremely sparse (< MIN_BASIS_COVERAGE) or absurdly high
+                                            // (> SANE_MAX_BASIS_RATIO, caught on the Ratio row).
+                                            const coverageHealthy = basisCoverage >= MIN_BASIS_COVERAGE && basisCoverage <= SANE_MAX_BASIS_RATIO;
                                             const ratioHealthy = basisRatio <= SANE_MAX_BASIS_RATIO;
                                             return (
                                                 <>

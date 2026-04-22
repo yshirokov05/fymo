@@ -418,14 +418,14 @@ const Goals = ({ currentUser, onGoalsCountChange }) => {
     return (
         <div className="space-y-6 max-w-3xl mx-auto pb-12">
             {/* Header */}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
-                    <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Goals</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Goals</h2>
                     <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Set financial goals and get AI-powered guidance on how to reach them.</p>
                 </div>
                 <button
                     onClick={() => setShowForm(true)}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shrink-0"
+                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shrink-0 self-start sm:self-auto"
                 >
                     <Plus size={16} />
                     <span>New Goal</span>

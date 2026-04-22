@@ -593,9 +593,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
       case 'dashboard':
         return (
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-bold text-gray-800">Financial Dashboard</h2>
-                    <div className="flex items-center space-x-4">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Financial Dashboard</h2>
+                    <div className="flex items-center gap-2 sm:space-x-4 flex-wrap">
                         {syncMessage && (
                             <div className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm ${syncMessage.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                                 {syncMessage.text}
@@ -652,11 +652,11 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
       case 'investments':
         return (
           <div className="space-y-6">
-            <h2 className="text-3xl font-bold text-gray-800">Investment Portfolio</h2>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-               <div className="flex justify-between items-center mb-6">
-                  <p className="text-gray-600">Total Asset Value: <span className="font-bold text-blue-600">${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0))}</span></p>
-                  <button onClick={() => openEditModal('investments')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Manage Assets</button>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Investment Portfolio</h2>
+            <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
+                  <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Total Asset Value: <span className="font-bold text-blue-600">${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0))}</span></p>
+                  <button onClick={() => openEditModal('investments')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium whitespace-nowrap">Manage Assets</button>
                </div>
                <Dashboard assets={assets} debts={[]} netWorth={0} hideSummary />
             </div>
@@ -665,23 +665,23 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
       case 'debts':
         return (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-gray-800">Debts & Liabilities</h2>
-                <button 
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Debts & Liabilities</h2>
+                <button
                     onClick={() => setIsUploadOpen(true)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium whitespace-nowrap self-start sm:self-auto"
                 >
                     <Upload size={18} />
                     <span>Import Statement</span>
                 </button>
             </div>
-               <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-                   <div className="flex justify-between items-center mb-8">
+               <div className="bg-white dark:bg-slate-800 p-4 sm:p-8 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 sm:mb-8">
                        <div>
-                           <h3 className="text-lg font-bold text-gray-800">Total Snapshot</h3>
-                           <p className="text-gray-500 text-sm">Overview of your outstanding liabilities.</p>
+                           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Total Snapshot</h3>
+                           <p className="text-gray-500 dark:text-gray-400 text-sm">Overview of your outstanding liabilities.</p>
                        </div>
-                       <p className="text-gray-600">Total Debt Balance: <span className="font-bold text-red-600">${debts.reduce((acc, d) => acc + d.remaining_balance, 0).toLocaleString()}</span></p>
+                       <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Total Debt Balance: <span className="font-bold text-red-600">${debts.reduce((acc, d) => acc + d.remaining_balance, 0).toLocaleString()}</span></p>
                    </div>
                    
                    {debts.length > 0 ? (
@@ -746,8 +746,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         const hasNetPaystubsWithNoWithholding = yearPaystubs.some(p => p.is_net_primary && !(parseFloat(p.tax_withheld) > 0));
         return (
             <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-bold text-gray-800">Tax Estimation</h2>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Tax Estimation</h2>
                     <YearSelector />
                 </div>
                 <TaxCalculator
