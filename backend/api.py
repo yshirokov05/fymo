@@ -884,6 +884,9 @@ def plaid_sync():
             'periods': {p: {'invested': 0.0, 'proceeds': 0.0, 'dividends': 0.0} for p in PERIOD_KEYS},
             'by_account': {},
             'benchmarks': {},
+            'period_returns': {},
+            # Accumulator for value-weighted period returns across institutions
+            '_pr_accum': {},  # {pk: {'sum': Σ(ret×mv), 'wt': Σmv}}
         }
         active_plaid_items = [pi for pi in plaid_items if pi.access_token]
         if not active_plaid_items:
@@ -925,11 +928,28 @@ def plaid_sync():
                     # Take first non-empty benchmarks (same market data for all institutions)
                     if not combined_investment_history['benchmarks'] and inv_history.get('benchmarks'):
                         combined_investment_history['benchmarks'] = inv_history['benchmarks']
+                    # Merge period_returns using value-weighted average across institutions.
+                    # Each institution's period return is weighted by its current market value.
+                    inst_pr = inv_history.get('period_returns', {}) or {}
+                    inst_mv = inv_history.get('current_value', 0) or 0
+                    if inst_pr and inst_mv > 0:
+                        for _pk, _ret in inst_pr.items():
+                            if _ret is None:
+                                continue
+                            accum = combined_investment_history['_pr_accum'].setdefault(_pk, {'sum': 0.0, 'wt': 0.0})
+                            accum['sum'] += _ret * inst_mv
+                            accum['wt'] += inst_mv
                     pi.last_sync = datetime.now().isoformat()
                     logging.info(f"Successfully synced institution {pi.institution_name}")
                 except Exception as e:
                     logging.error(f"Failed to sync institution {pi.institution_name}: {e}")
-        
+
+        # Finalize value-weighted period returns across all institutions
+        _accum = combined_investment_history.pop('_pr_accum', {})
+        for _pk, _a in _accum.items():
+            if _a['wt'] > 0:
+                combined_investment_history['period_returns'][_pk] = round(_a['sum'] / _a['wt'], 2)
+
         # REPLACEMENT LOGIC: Purge existing assets that belong to the institutions we successfully synced, 
         # but are not present in the fresh sync payload (e.g., sold assets, closed accounts, or stale sandbox data).
         synced_inst_names = {pi.institution_name for pi in active_plaid_items if pi.institution_name}
