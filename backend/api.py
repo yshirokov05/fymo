@@ -2111,3 +2111,137 @@ Keep the response concise and practical. Use dollar amounts where helpful. Do no
 
     return jsonify({'guidance': guidance_text})
 
+
+# ── Category Rules CRUD ───────────────────────────────────────────────────────
+
+@app.route('/api/custom_rules', methods=['GET'])
+@token_required
+def get_custom_rules():
+    """Return all custom categorization rules for the user, with match counts."""
+    if request.uid == 'guest':
+        return jsonify({'rules': []}), 200
+    try:
+        user, incomes, assets, debts, ra, ins, pi, budgets, transactions, paystubs, custom_rules, _, _, _, _ = get_user_data(user_id=request.uid)
+        # Compute how many transactions each rule currently matches
+        rules_out = []
+        for r in custom_rules:
+            match_count = sum(
+                1 for t in transactions
+                if r.merchant_name.lower() in t.name.lower() or t.name.lower() in r.merchant_name.lower()
+            )
+            rules_out.append({
+                'id': r.id,
+                'merchant_name': r.merchant_name,
+                'category': r.category,
+                'match_count': match_count,
+            })
+        # Sort by match count desc so most-impactful rules surface first
+        rules_out.sort(key=lambda x: x['match_count'], reverse=True)
+        return jsonify({'rules': rules_out})
+    except Exception as e:
+        logging.error(f"get_custom_rules error for {request.uid}: {e}")
+        return jsonify({'error': 'Could not load rules.'}), 500
+
+
+@app.route('/api/custom_rules', methods=['POST'])
+@token_required
+def create_custom_rule():
+    """Create a new rule and optionally apply it to existing transactions."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Login required.'}), 401
+    data = request.get_json() or {}
+    merchant_name = (data.get('merchant_name') or '').strip()
+    category = (data.get('category') or '').strip()
+    apply_retroactive = data.get('apply_retroactive', True)
+    if not merchant_name or not category:
+        return jsonify({'error': 'merchant_name and category are required.'}), 400
+    try:
+        from models import CustomRule
+        user, incomes, assets, debts, ra, ins, pi, budgets, transactions, paystubs, custom_rules, hco, cc, oc, igf = get_user_data(user_id=request.uid)
+        # Prevent duplicates
+        existing = next((r for r in custom_rules if r.merchant_name.lower() == merchant_name.lower()), None)
+        if existing:
+            return jsonify({'error': f'A rule for "{merchant_name}" already exists. Use PUT to update it.'}), 409
+        new_rule = CustomRule(merchant_name=merchant_name, category=category, user_id=request.uid)
+        custom_rules.append(new_rule)
+        affected = 0
+        if apply_retroactive:
+            for t in transactions:
+                if merchant_name.lower() in t.name.lower() or t.name.lower() in merchant_name.lower():
+                    t.category = category
+                    affected += 1
+        save_user_data(user, incomes, assets, debts, ra, ins, pi, budgets=budgets, transactions=transactions,
+                       paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=hco,
+                       custom_categories=cc, outstanding_checks=oc, ignored_flexible=igf, user_id=request.uid)
+        return jsonify({'rule': {'id': new_rule.id, 'merchant_name': new_rule.merchant_name,
+                                  'category': new_rule.category, 'match_count': affected},
+                        'affected_transactions': affected}), 201
+    except Exception as e:
+        logging.error(f"create_custom_rule error for {request.uid}: {e}")
+        return jsonify({'error': 'Could not create rule.'}), 500
+
+
+@app.route('/api/custom_rules/<rule_id>', methods=['PUT'])
+@token_required
+def update_custom_rule(rule_id):
+    """Update an existing rule's merchant pattern or category."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Login required.'}), 401
+    data = request.get_json() or {}
+    new_merchant = (data.get('merchant_name') or '').strip() or None
+    new_category = (data.get('category') or '').strip() or None
+    apply_retroactive = data.get('apply_retroactive', True)
+    if not new_merchant and not new_category:
+        return jsonify({'error': 'Provide at least one of merchant_name or category.'}), 400
+    try:
+        user, incomes, assets, debts, ra, ins, pi, budgets, transactions, paystubs, custom_rules, hco, cc, oc, igf = get_user_data(user_id=request.uid)
+        rule = next((r for r in custom_rules if r.id == rule_id), None)
+        if not rule:
+            return jsonify({'error': 'Rule not found.'}), 404
+        old_merchant = rule.merchant_name
+        if new_merchant:
+            rule.merchant_name = new_merchant
+        if new_category:
+            rule.category = new_category
+        affected = 0
+        if apply_retroactive:
+            pattern = rule.merchant_name.lower()
+            for t in transactions:
+                if pattern in t.name.lower() or t.name.lower() in pattern:
+                    t.category = rule.category
+                    affected += 1
+        save_user_data(user, incomes, assets, debts, ra, ins, pi, budgets=budgets, transactions=transactions,
+                       paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=hco,
+                       custom_categories=cc, outstanding_checks=oc, ignored_flexible=igf, user_id=request.uid)
+        return jsonify({'rule': {'id': rule.id, 'merchant_name': rule.merchant_name,
+                                  'category': rule.category},
+                        'affected_transactions': affected})
+    except Exception as e:
+        logging.error(f"update_custom_rule error for {request.uid}: {e}")
+        return jsonify({'error': 'Could not update rule.'}), 500
+
+
+@app.route('/api/custom_rules/<rule_id>', methods=['DELETE'])
+@token_required
+def delete_custom_rule(rule_id):
+    """Delete a rule. Existing transactions keep their current category."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Login required.'}), 401
+    try:
+        user, incomes, assets, debts, ra, ins, pi, budgets, transactions, paystubs, custom_rules, hco, cc, oc, igf = get_user_data(user_id=request.uid)
+        rule = next((r for r in custom_rules if r.id == rule_id), None)
+        if not rule:
+            return jsonify({'error': 'Rule not found.'}), 404
+        custom_rules = [r for r in custom_rules if r.id != rule_id]
+        # Also delete from subcollection directly
+        try:
+            get_db().collection('users').document(request.uid).collection('custom_rules').document(rule_id).delete()
+        except Exception:
+            pass
+        save_user_data(user, incomes, assets, debts, ra, ins, pi, budgets=budgets, transactions=transactions,
+                       paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=hco,
+                       custom_categories=cc, outstanding_checks=oc, ignored_flexible=igf, user_id=request.uid)
+        return jsonify({'message': 'Rule deleted.'})
+    except Exception as e:
+        logging.error(f"delete_custom_rule error for {request.uid}: {e}")
+        return jsonify({'error': 'Could not delete rule.'}), 500

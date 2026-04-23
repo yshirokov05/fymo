@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme, ACCENT_PRESETS } from '../context/ThemeContext';
 import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette, AlertTriangle, ExternalLink } from 'lucide-react';
 import PlaidLink from './PlaidLink';
+import CategoryRulesManager from './CategoryRulesManager';
 import axios from 'axios';
 import { useToast } from './Toast';
 
@@ -370,10 +371,27 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+            {/* ── Category Rules ── */}
+            {isPremium && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-8">
+                    <div className="p-6">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1 flex items-center">
+                            <Tag className="mr-2 text-blue-500" size={20} />
+                            Category Rules
+                        </h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                            Automatically assign categories to transactions based on merchant name patterns.
+                            Rules are applied on every Plaid sync — set them once and forget.
+                        </p>
+                        <CategoryRulesManager customCategories={customCategories} />
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-8">
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                        <Wrench className="mr-2 text-gray-600" size={20} />
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                        <Wrench className="mr-2 text-gray-600 dark:text-gray-400" size={20} />
                         Data Management
                     </h2>
                     <p className="text-sm text-gray-600 mb-6">
