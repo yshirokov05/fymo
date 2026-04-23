@@ -14,6 +14,7 @@ import axios from 'axios';
 import Layout from './components/Layout';
 import Modal from './components/Modal';
 import Login from './components/Login';
+import LandingPage from './components/LandingPage';
 import DataPrivacyFAQ from './components/DataPrivacyFAQ';
 import Goals from './components/Goals';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -868,31 +869,72 @@ function App() {
     const { currentUser } = useAuth();
     const [isGuest, setIsGuest] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
+    // Landing page can deep-link to Privacy / Terms before auth
+    const [landingView, setLandingView] = useState(null); // null | 'privacy' | 'terms'
 
     useEffect(() => {
         const handleGuest = () => setIsGuest(true);
         window.addEventListener('continue-as-guest', handleGuest);
-        
+
         const handleStartOnboarding = () => setShowOnboarding(true);
         window.addEventListener('start-onboarding', handleStartOnboarding);
+
+        // Events fired by LandingPage footer links
+        const handlePrivacy = () => setLandingView('privacy');
+        const handleTerms = () => setLandingView('terms');
+        window.addEventListener('nav-privacy', handlePrivacy);
+        window.addEventListener('nav-terms', handleTerms);
 
         return () => {
             window.removeEventListener('continue-as-guest', handleGuest);
             window.removeEventListener('start-onboarding', handleStartOnboarding);
+            window.removeEventListener('nav-privacy', handlePrivacy);
+            window.removeEventListener('nav-terms', handleTerms);
         };
     }, []);
+
+    if (landingView === 'privacy') {
+        return (
+            <ErrorBoundary>
+                <div className="min-h-screen bg-slate-900 text-white">
+                    <div className="p-4">
+                        <button onClick={() => setLandingView(null)}
+                            className="text-sm text-blue-400 hover:text-blue-300 mb-6 inline-block">
+                            ← Back
+                        </button>
+                    </div>
+                    <PrivacyPolicy />
+                </div>
+            </ErrorBoundary>
+        );
+    }
+    if (landingView === 'terms') {
+        return (
+            <ErrorBoundary>
+                <div className="min-h-screen bg-slate-900 text-white">
+                    <div className="p-4">
+                        <button onClick={() => setLandingView(null)}
+                            className="text-sm text-blue-400 hover:text-blue-300 mb-6 inline-block">
+                            ← Back
+                        </button>
+                    </div>
+                    <TermsOfService />
+                </div>
+            </ErrorBoundary>
+        );
+    }
 
     return (
         <ErrorBoundary>
             {(currentUser || isGuest) ? (
-                <MainContent 
-                  isGuest={isGuest} 
-                  onResetGuest={() => setIsGuest(false)} 
-                  showOnboarding={showOnboarding}
-                  setShowOnboarding={setShowOnboarding}
+                <MainContent
+                    isGuest={isGuest}
+                    onResetGuest={() => setIsGuest(false)}
+                    showOnboarding={showOnboarding}
+                    setShowOnboarding={setShowOnboarding}
                 />
             ) : (
-                <Login />
+                <LandingPage />
             )}
         </ErrorBoundary>
     );
