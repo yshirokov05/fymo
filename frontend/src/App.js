@@ -409,8 +409,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                   headers: { Authorization: `Bearer ${token}` }
               };
           }
-          const response = await axios.put('/api/portfolio', { custom_categories: cats }, headers);
-          setCustomCategories(response.data.custom_categories || []);
+          await axios.put('/api/portfolio', { custom_categories: cats }, headers);
+          setCustomCategories(cats);
           showToast("Categories updated successfully!", "success");
       } catch (err) {
           showToast("Failed to save categories: " + err.message, "error");

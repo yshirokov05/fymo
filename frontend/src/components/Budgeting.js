@@ -1116,25 +1116,25 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {transactions.length > 0 ? (
-                                (showAllTransactions ? transactions : transactions.slice(0, 10)).map((t) => {
+                                (showAllTransactions ? transactions : transactions.slice(0, 25)).map((t) => {
                                     const category = getTransactionCategory(t);
                                     const isIgnored = category === 'Ignore';
                                     const isPendingThisT = categoryUpdatePending?.transaction.id === t.id;
                                     const displayCategory = isPendingThisT ? categoryUpdatePending.newCategory : category;
 
                                     return (
-                                        <tr key={t.id} className={`hover:bg-gray-50/50 transition-colors group ${isIgnored ? 'bg-gray-100/50' : ''}`}>
-                                            <td className={`py-4 px-2 text-sm ${isIgnored ? 'text-gray-400 italic' : 'text-gray-500'}`}>{t.date}</td>
-                                            <td className={`py-4 px-2 text-sm font-bold leading-tight ${isIgnored ? 'text-gray-400 line-through decoration-gray-300' : 'text-gray-900'}`}>
+                                        <tr key={t.id} className={`hover:bg-gray-50/50 transition-colors group ${isIgnored ? 'opacity-40' : ''}`}>
+                                            <td className={`py-4 px-2 text-sm ${isIgnored ? 'text-gray-500' : 'text-gray-500'}`}>{t.date}</td>
+                                            <td className={`py-4 px-2 text-sm font-bold leading-tight ${isIgnored ? 'text-gray-600' : 'text-gray-900'}`}>
                                                 {t.name}
-                                                {isIgnored && <span className="ml-2 text-[8px] bg-white border border-gray-200 text-gray-400 px-1 rounded uppercase tracking-tighter">Ignored</span>}
+                                                {isIgnored && <span className="ml-2 text-[9px] bg-gray-100 border border-gray-200 text-gray-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">ignored</span>}
                                             </td>
                                             <td className="py-4 px-2 relative">
                                                 <select 
                                                     value={displayCategory} 
                                                     onChange={(e) => setCategoryUpdatePending({ transaction: t, newCategory: e.target.value })}
                                                     className={`px-2 py-1 border text-[10px] font-bold uppercase cursor-pointer transition-colors shadow-sm focus:ring-2 focus:ring-blue-500 outline-none rounded-md
-                                                        ${isIgnored ? 'bg-gray-50 border-gray-200 text-gray-400' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}
+                                                        bg-white border-gray-200 text-gray-600 hover:bg-gray-50
                                                         ${isPendingThisT ? ' ring-2 ring-blue-500 border-blue-500' : ''}`}
                                                 >
                                                     <option value="Uncategorized">UNCATEGORIZED</option>
@@ -1182,7 +1182,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className={`py-4 px-2 text-sm font-black text-right ${isIgnored ? 'text-gray-300' : (t.amount > 0 ? 'text-gray-900' : 'text-green-600')}`}>
+                                            <td className={`py-4 px-2 text-sm font-black text-right ${t.amount > 0 ? 'text-gray-900' : 'text-green-600'}`}>
                                                 ${Math.abs(t.amount).toFixed(2)}
                                             </td>
                                             <td className="py-4 px-2 text-center">
@@ -1232,7 +1232,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         </tbody>
                     </table>
                 </div>
-                {transactions.length > 10 && (
+                {transactions.length > 25 && (
                     <button 
                         onClick={() => setShowAllTransactions(!showAllTransactions)}
                         className="w-full mt-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-xl transition-colors flex items-center justify-center cursor-pointer"
