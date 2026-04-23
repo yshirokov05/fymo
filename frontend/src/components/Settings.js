@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme, ACCENT_PRESETS } from '../context/ThemeContext';
-import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette, AlertTriangle } from 'lucide-react';
+import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette, AlertTriangle, ExternalLink } from 'lucide-react';
 import PlaidLink from './PlaidLink';
 import axios from 'axios';
 import { useToast } from './Toast';
@@ -130,34 +130,40 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                     
                     {isPremium ? (
                         <div className="space-y-6">
-                            <div className="bg-green-50 border border-green-100 rounded-lg p-4 flex items-start justify-between">
-                                <div className="flex space-x-3">
-                                    <div className="bg-green-500 rounded-full p-1 text-white">
-                                        <Check size={16} />
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-700/30 rounded-lg p-4">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex space-x-3">
+                                        <div className="bg-green-500 rounded-full p-1 text-white flex-shrink-0">
+                                            <Check size={16} />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-green-800 dark:text-green-300">Premium Active</h3>
+                                            <p className="text-green-700 dark:text-green-400 text-sm">
+                                                You have full access to all features, including automatic bank syncing and advanced tax estimation.
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-green-800">Premium Active</h3>
-                                        <p className="text-green-700 text-sm">
-                                            You have full access to all features, including automatic bank syncing and advanced tax estimation.
-                                        </p>
-                                    </div>
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                const token = await currentUser.getIdToken();
+                                                const res = await axios.post('/api/create_portal_session', {}, {
+                                                    headers: { Authorization: `Bearer ${token}` }
+                                                });
+                                                window.location.href = res.data.url;
+                                            } catch (err) {
+                                                showToast("Error: " + (err.response?.data?.error || err.message), "error");
+                                            }
+                                        }}
+                                        className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 border border-blue-200 dark:border-blue-700 hover:border-blue-400 rounded-lg px-3 py-1.5 transition-colors"
+                                    >
+                                        <ExternalLink size={12} />
+                                        Manage Subscription
+                                    </button>
                                 </div>
-                                <button 
-                                    onClick={async () => {
-                                        if (!window.confirm("Are you sure you want to cancel your premium subscription? You will lose access to automated features at the end of your billing cycle.")) return;
-                                        try {
-                                            const token = await currentUser.getIdToken();
-                                            await axios.post('/api/cancel_subscription', {}, {
-                                                headers: { Authorization: `Bearer ${token}` }
-                                            });
-                                            showToast("Subscription cancellation request received. Our team will process it shortly.", "info");
-                                            fetchData();
-                                        } catch (err) { showToast("Error: " + (err.response?.data?.error || err.message), "error"); }
-                                    }}
-                                    className="text-xs font-bold text-red-600 hover:text-red-700 underline"
-                                >
-                                    Cancel Subscription
-                                </button>
+                                <p className="mt-3 ml-9 text-xs text-green-600 dark:text-green-500">
+                                    Use the billing portal to update your payment method, download invoices, or cancel anytime.
+                                </p>
                             </div>
 
                             <div className="pt-4 border-t">
@@ -168,7 +174,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                         <div className="flex-1">
                                             <p className="text-sm font-bold text-amber-900 mb-1">Not every institution works with Plaid</p>
                                             <p className="text-xs text-amber-800 leading-relaxed">
-                                                FHQ uses Plaid to sync balances, transactions, and holdings. Plaid covers 12,000+ banks and brokerages — but not all. For unsupported institutions, use <span className="font-bold">Edit Portfolio</span> on the Investments page or manual entry elsewhere. Your totals will still combine correctly.
+                                                Wealthstack uses Plaid to sync balances, transactions, and holdings. Plaid covers 12,000+ banks and brokerages — but not all. For unsupported institutions, use <span className="font-bold">Edit Portfolio</span> on the Investments page or manual entry elsewhere. Your totals will still combine correctly.
                                             </p>
                                             <button
                                                 type="button"

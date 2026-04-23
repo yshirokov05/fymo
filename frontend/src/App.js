@@ -65,7 +65,6 @@ export class ErrorBoundary extends React.Component {
 function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding }) {
   const { currentUser } = useAuth();
   const { showToast } = useToast();
-  console.log("FHQ Dashboard v1.2.1 [Final Fix]");
   const [activeView, setActiveView] = useState('dashboard');
   const [netWorth, setNetWorth] = useState(0);
   const [assets, setAssets] = useState([]);
@@ -224,6 +223,20 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, isGuest]);
+
+  // Handle Stripe redirect back to the app after checkout or portal
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const session = params.get('session');
+    if (session === 'success') {
+      showToast('Welcome to Wealthstack Premium! Your subscription is now active.', 'success');
+      // Strip the query param so it doesn't re-fire on refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Re-fetch so isPremium flips to true immediately
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = async (portfolioData) => {
     setLoading(true);

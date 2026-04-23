@@ -392,6 +392,28 @@ def stripe_webhook():
                 db.collection('whitelist').document(user_doc.id).delete()
                 logging.info(f"Subscription cancelled for uid={user_doc.id}")
 
+        elif event_type == 'customer.subscription.updated':
+            # Handles plan changes, payment method updates, and cancellations
+            # scheduled via the Customer Portal (cancel_at_period_end → eventually deleted).
+            subscription = event['data']['object']
+            customer_id = subscription.get('customer')
+            status = subscription.get('status')
+            cancel_at_period_end = subscription.get('cancel_at_period_end', False)
+            users = db.collection('users').where('stripe_customer_id', '==', customer_id).limit(1).get()
+            for user_doc in users:
+                if status in ('active', 'trialing'):
+                    # Keep active; note if they've requested end-of-period cancellation
+                    user_doc.reference.set({
+                        'is_subscribed': True,
+                        'stripe_cancel_at_period_end': cancel_at_period_end,
+                    }, merge=True)
+                    logging.info(f"Subscription updated active for uid={user_doc.id}, cancel_at_period_end={cancel_at_period_end}")
+                elif status in ('canceled', 'unpaid'):
+                    # Fully revoke — do not revoke on past_due (Stripe retries 3× before deleting)
+                    user_doc.reference.set({'is_subscribed': False, 'stripe_subscription_id': None}, merge=True)
+                    db.collection('whitelist').document(user_doc.id).delete()
+                    logging.info(f"Subscription revoked (status={status}) for uid={user_doc.id}")
+
         elif event_type == 'invoice.payment_failed':
             invoice = event['data']['object']
             logging.warning(f"Payment failed for customer={invoice.get('customer')}")
@@ -419,6 +441,29 @@ def cancel_subscription():
     except Exception as e:
         logging.error(f"Cancel subscription error for {request.uid}: {e}")
         return jsonify({'error': 'Could not cancel subscription.'}), 500
+
+@app.route('/api/create_portal_session', methods=['POST'])
+@token_required
+def create_portal_session():
+    """Create a Stripe Customer Portal session so the user can manage their
+    subscription (update payment method, download invoices, cancel) without
+    us building custom UI for each action."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Not authenticated.'}), 401
+    try:
+        user = get_user_data(user_id=request.uid)[0]
+        customer_id = getattr(user, 'stripe_customer_id', None)
+        if not customer_id:
+            return jsonify({'error': 'No Stripe customer record found. If you subscribed recently, please wait a moment and try again.'}), 404
+        portal_session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=APP_URL,
+        )
+        return jsonify({'url': portal_session.url})
+    except Exception as e:
+        logging.error(f"Portal session error for {request.uid}: {e}")
+        return jsonify({'error': 'Could not open billing portal. Please try again.'}), 500
+
 
 @app.route('/api/health')
 def health_check():
