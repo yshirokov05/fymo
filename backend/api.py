@@ -995,6 +995,55 @@ def plaid_sync():
             if _a['wt'] > 0:
                 combined_investment_history['period_returns'][_pk] = round(_a['sum'] / _a['wt'], 2)
 
+        # ── Snapshot-based period return fallback ─────────────────────────────
+        # The ticker-based fallback fails when holdings are mutual funds / ETFs
+        # that yfinance can't price. Portfolio snapshots are written on every sync
+        # and give us actual historical portfolio values — 100% reliable.
+        # Only runs for periods still missing after the ticker fallback.
+        try:
+            _all_periods = ('1w', '1m', 'ytd', '1y', '2y', '5y')
+            _missing = [p for p in _all_periods if p not in combined_investment_history['period_returns']]
+            _cur_val = combined_investment_history.get('current_value', 0)
+            if _missing and _cur_val > 100:
+                from datetime import timedelta
+                _today = datetime.now().date()
+                _period_targets = {
+                    '1w':  _today - timedelta(days=7),
+                    '1m':  _today - timedelta(days=30),
+                    'ytd': _today.replace(month=1, day=1),
+                    '1y':  _today - timedelta(days=365),
+                    '2y':  _today - timedelta(days=730),
+                    '5y':  _today - timedelta(days=1825),
+                }
+                _snap_docs = get_db().collection('users').document(request.uid) \
+                    .collection('portfolio_snapshots') \
+                    .order_by('date') \
+                    .limit(2000).get()
+                # Build sorted list of (date_str, value) — exclude today so we get historical values
+                _today_str = _today.strftime('%Y-%m-%d')
+                _snaps = sorted(
+                    [(d.get('date'), d.get('total_value', 0))
+                     for d in _snap_docs
+                     if d.get('date') and d.get('total_value', 0) > 0 and d.get('date') < _today_str],
+                    key=lambda x: x[0]
+                )
+                if _snaps:
+                    _snap_date_strs = [s[0] for s in _snaps]
+                    _snap_val_map = {s[0]: s[1] for s in _snaps}
+                    for _pk in _missing:
+                        _target = _period_targets[_pk].strftime('%Y-%m-%d')
+                        # Nearest snapshot on or before the target date
+                        _candidates = [d for d in _snap_date_strs if d <= _target]
+                        if not _candidates:
+                            continue
+                        _start_val = _snap_val_map[max(_candidates)]
+                        if _start_val > 0:
+                            _pct = (_cur_val - _start_val) / _start_val * 100
+                            combined_investment_history['period_returns'][_pk] = round(_pct, 2)
+                            logging.info(f"[Sync {request.uid}] Snapshot period return {_pk}: {_pct:.2f}%")
+        except Exception as _sp_e:
+            logging.warning(f"Snapshot period return fallback failed: {_sp_e}")
+
         # REPLACEMENT LOGIC: Purge existing assets that belong to the institutions we successfully synced, 
         # but are not present in the fresh sync payload (e.g., sold assets, closed accounts, or stale sandbox data).
         synced_inst_names = {pi.institution_name for pi in active_plaid_items if pi.institution_name}

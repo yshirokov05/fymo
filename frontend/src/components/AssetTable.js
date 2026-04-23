@@ -290,12 +290,8 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     </td>
                                     {!isLiquidGroup && (
                                         <>
-                                            {/* Cost/Sh — show avg cost per share */}
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-400">
-                                                {groupTotals.shares > 0
-                                                    ? `$${(groupTotals.cost / groupTotals.shares).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                                    : '—'}
-                                            </td>
+                                            {/* Cost/Sh — blank in totals row (avg cost/sh across different securities is meaningless) */}
+                                            <td className="px-3 md:px-6 py-4"></td>
                                             {/* Price — leave blank */}
                                             <td className="px-3 md:px-6 py-4"></td>
                                             {/* Daily */}
