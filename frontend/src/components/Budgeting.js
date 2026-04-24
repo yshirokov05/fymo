@@ -15,6 +15,8 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
     const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
     const [isSavingCategory, setIsSavingCategory] = useState(false);
     const [hiddenAnalysisCategories, setHiddenAnalysisCategories] = useState(new Set());
+    const [txSearch, setTxSearch] = useState('');
+    const [txCategoryFilter, setTxCategoryFilter] = useState('All');
     
     // Default to current month/year: "2026-04"
     const [selectedMonth, setSelectedMonth] = useState(() => {
@@ -427,8 +429,63 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
 
     const analysisData = getMonthlyAnalysis();
 
+    // Filtered transactions for the table
+    const filteredTransactions = transactions.filter(t => {
+        const matchesSearch = !txSearch || t.name.toLowerCase().includes(txSearch.toLowerCase());
+        const cat = getTransactionCategory(t);
+        const matchesCategory = txCategoryFilter === 'All' || cat === txCategoryFilter;
+        return matchesSearch && matchesCategory;
+    });
+
+    // Budget overage list for the alert banner
+    const overBudgets = budgets.filter(b => {
+        const spent = getSpentForCategory(b.category, b.period);
+        const limit = getNormalizedMonthlyLimit(b.limit_amount, b.period || 'Monthly');
+        return spent > limit;
+    });
+
+    const handleExportCSV = () => {
+        const rows = [['Date', 'Merchant', 'Category', 'Amount']];
+        filteredTransactions.forEach(t => {
+            rows.push([
+                t.date,
+                `"${(t.name || '').replace(/"/g, '""')}"`,
+                getTransactionCategory(t),
+                t.amount.toFixed(2)
+            ]);
+        });
+        const csv = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `wealthstack-transactions-${selectedMonth}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`Exported ${filteredTransactions.length} transactions`, 'success');
+    };
+
     return (
         <div className="space-y-6">
+            {/* Budget overage alert banner */}
+            {overBudgets.length > 0 && !isEditing && (
+                <div className="flex items-start space-x-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                    <Activity size={18} className="text-red-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                        <span className="text-sm font-bold text-red-700">
+                            {overBudgets.length} budget{overBudgets.length > 1 ? 's' : ''} over limit this month:&nbsp;
+                        </span>
+                        <span className="text-sm text-red-600">
+                            {overBudgets.map(b => {
+                                const spent = getSpentForCategory(b.category, b.period);
+                                const limit = getNormalizedMonthlyLimit(b.limit_amount, b.period || 'Monthly');
+                                return `${b.category} ($${(spent - limit).toFixed(0)} over)`;
+                            }).join(' · ')}
+                        </span>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="flex items-center space-x-4">
                     <h2 className="text-3xl font-bold text-gray-800">Expenditure Dashboard</h2>
@@ -1101,7 +1158,61 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 </div>
             </div>
 
-            <Card title="Recent Transactions" className="mt-8" id="recent-transactions">
+            <Card className="mt-8" id="recent-transactions">
+                {/* Transactions header row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                    <h3 className="text-base font-black text-gray-800 uppercase tracking-tight flex items-center">
+                        <Activity size={16} className="mr-2 text-blue-500" />
+                        Transactions
+                        <span className="ml-2 text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full normal-case tracking-normal">
+                            {filteredTransactions.length} shown
+                        </span>
+                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {/* Search */}
+                        <div className="relative">
+                            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                            <input
+                                type="text"
+                                value={txSearch}
+                                onChange={e => { setTxSearch(e.target.value); setShowAllTransactions(false); }}
+                                placeholder="Search merchant..."
+                                className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none w-40 bg-white"
+                            />
+                        </div>
+                        {/* Category filter */}
+                        <select
+                            value={txCategoryFilter}
+                            onChange={e => { setTxCategoryFilter(e.target.value); setShowAllTransactions(false); }}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                        >
+                            <option value="All">All Categories</option>
+                            <option value="Uncategorized">Uncategorized</option>
+                            {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                            <option value="Ignore">Ignored</option>
+                        </select>
+                        {/* Clear filters */}
+                        {(txSearch || txCategoryFilter !== 'All') && (
+                            <button
+                                onClick={() => { setTxSearch(''); setTxCategoryFilter('All'); }}
+                                className="text-xs text-gray-400 hover:text-red-500 font-bold flex items-center transition-colors"
+                            >
+                                <X size={13} className="mr-0.5" /> Clear
+                            </button>
+                        )}
+                        {/* Export CSV */}
+                        {transactions.length > 0 && (
+                            <button
+                                onClick={handleExportCSV}
+                                className="text-xs bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center space-x-1"
+                            >
+                                <Upload size={13} />
+                                <span>Export CSV</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
@@ -1115,8 +1226,27 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {transactions.length > 0 ? (
-                                (showAllTransactions ? transactions : transactions.slice(0, 25)).map((t) => {
+                            {transactions.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="py-16 text-center">
+                                        <div className="flex flex-col items-center space-y-3">
+                                            <div className="p-4 bg-blue-50 rounded-full">
+                                                <Activity size={28} className="text-blue-400" />
+                                            </div>
+                                            <p className="text-gray-700 font-bold text-sm">No transactions yet</p>
+                                            <p className="text-gray-400 text-xs max-w-xs">Connect your bank in Settings to automatically import your transaction history.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredTransactions.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="py-10 text-center text-gray-400 text-sm">
+                                        No transactions match your search.
+                                        <button onClick={() => { setTxSearch(''); setTxCategoryFilter('All'); }} className="ml-2 text-blue-500 font-bold hover:underline">Clear filters</button>
+                                    </td>
+                                </tr>
+                            ) : (
+                                (showAllTransactions ? filteredTransactions : filteredTransactions.slice(0, 25)).map((t) => {
                                     const category = getTransactionCategory(t);
                                     const isIgnored = category === 'Ignore';
                                     const isPendingThisT = categoryUpdatePending?.transaction.id === t.id;
@@ -1222,25 +1352,19 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                         </tr>
                                     );
                                 })
-                            ) : (
-                                <tr>
-                                    <td colSpan="5" className="py-12 text-center text-gray-400 text-sm italic">
-                                        No transactions found. Sync your bank in Settings to see recent activity.
-                                    </td>
-                                </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
-                {transactions.length > 25 && (
-                    <button 
+                {filteredTransactions.length > 25 && (
+                    <button
                         onClick={() => setShowAllTransactions(!showAllTransactions)}
                         className="w-full mt-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-xl transition-colors flex items-center justify-center cursor-pointer"
                     >
                         {showAllTransactions ? (
                             <><ChevronUp size={18} className="mr-2"/> Show Less</>
                         ) : (
-                            <><ChevronDown size={18} className="mr-2"/> View All {transactions.length} Transactions</>
+                            <><ChevronDown size={18} className="mr-2"/> View All {filteredTransactions.length} Transactions</>
                         )}
                     </button>
                 )}
