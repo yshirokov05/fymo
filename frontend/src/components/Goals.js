@@ -237,6 +237,17 @@ const NewGoalForm = ({ onSave, onCancel }) => {
     });
 
     const set = (field, val) => setForm(f => ({ ...f, [field]: val }));
+
+    // Listen for starter chip pre-fills from the empty state
+    useEffect(() => {
+        const handler = (e) => {
+            const { label, type, amount } = e.detail;
+            const cleanName = label.replace(/^[^\w\s]+\s*/, ''); // strip emoji
+            setForm(f => ({ ...f, name: cleanName, type: type || f.type, target_amount: amount?.toString() || f.target_amount }));
+        };
+        window.addEventListener('prefill-goal', handler);
+        return () => window.removeEventListener('prefill-goal', handler);
+    }, []);
     const valid = form.name.trim() && parseFloat(form.target_amount) > 0;
 
     return (
@@ -465,17 +476,45 @@ const Goals = ({ currentUser, onGoalsCountChange }) => {
                     <Loader2 size={32} className="animate-spin text-blue-500" />
                 </div>
             ) : goals.length === 0 && !showForm ? (
-                <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm">
-                    <Target size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-                    <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">No goals yet</h3>
-                    <p className="text-gray-400 dark:text-gray-500 text-sm mt-1 mb-5">Set a financial goal and let AI help you build a plan to reach it.</p>
-                    <button
-                        onClick={() => setShowForm(true)}
-                        className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
-                    >
-                        <Plus size={16} />
-                        <span>Create Your First Goal</span>
-                    </button>
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                    <div className="text-center pt-12 pb-8 px-6">
+                        <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Target size={32} className="text-blue-500" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Set your first goal</h3>
+                        <p className="text-gray-400 dark:text-gray-500 text-sm mt-1 mb-6 max-w-xs mx-auto">AI will build a personalized savings plan and track your progress automatically.</p>
+                        <button
+                            onClick={() => setShowForm(true)}
+                            className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+                        >
+                            <Plus size={16} />
+                            <span>Create Your First Goal</span>
+                        </button>
+                    </div>
+                    <div className="border-t border-gray-100 dark:border-slate-700 px-6 py-4 bg-gray-50 dark:bg-slate-900/50">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Popular goals to get started</p>
+                        <div className="flex flex-wrap gap-2">
+                            {[
+                                { label: '🏦 Emergency Fund', type: 'emergency_fund', amount: 15000 },
+                                { label: '🏠 House Down Payment', type: 'savings', amount: 60000 },
+                                { label: '💳 Pay Off Credit Card', type: 'debt_payoff', amount: 5000 },
+                                { label: '📈 Invest $10K', type: 'investment', amount: 10000 },
+                                { label: '✈️ Vacation Fund', type: 'savings', amount: 3000 },
+                            ].map(s => (
+                                <button
+                                    key={s.label}
+                                    onClick={() => {
+                                        setShowForm(true);
+                                        // slight delay so form mounts before we try to pre-fill
+                                        setTimeout(() => window.dispatchEvent(new CustomEvent('prefill-goal', { detail: s })), 50);
+                                    }}
+                                    className="text-xs bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-full hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                                >
+                                    {s.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             ) : (
                 <div className="space-y-4">

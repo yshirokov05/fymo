@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import logging
 import firestore_db
 import statement_processor
+from firebase_admin import firestore
 import diagnostics_service
 from concurrent.futures import ThreadPoolExecutor
 
@@ -479,6 +480,27 @@ def get_categories_config():
             return jsonify(json.load(f))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio_history', methods=['GET'])
+@token_required
+def get_portfolio_history():
+    """Return last 90 portfolio_snapshots for the sparkline chart."""
+    try:
+        db = get_db()
+        snaps = db.collection('users').document(request.uid) \
+            .collection('portfolio_snapshots') \
+            .order_by('date', direction=firestore.Query.DESCENDING) \
+            .limit(90) \
+            .get()
+        history = sorted(
+            [{'date': d.get('date'), 'value': round(d.get('total_value', 0), 2)}
+             for d in snaps if d.get('date') and d.get('total_value', 0) > 0],
+            key=lambda x: x['date']
+        )
+        return jsonify({'history': history})
+    except Exception as e:
+        return jsonify({'history': [], 'error': str(e)}), 200
+
 
 @app.route('/api/net_worth', methods=['GET'])
 @token_required

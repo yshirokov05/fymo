@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import AssetTable from './AssetTable';
 import DebtTable from './DebtTable';
-import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, YAxis } from 'recharts';
 import Card from './Card';
 import ShowMath from './ShowMath';
 import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, Info, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
@@ -49,7 +49,7 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, capabilities = null, onOpenEdit = null, onOpenLink = null }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, portfolioHistory = [], capabilities = null, onOpenEdit = null, onOpenLink = null }) => {
     // Capabilities fallback: if not passed (legacy usage), infer from data we have.
     // Lets us use Dashboard in embedded contexts (Investments tab, Debts tab) without piping.
     const caps = capabilities || {
@@ -272,6 +272,56 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                             Assets - Debts
                             <Info size={11} className="text-gray-400 cursor-help" title="Sum of all asset market values minus all outstanding debt balances." />
                         </p>
+                        {portfolioHistory.length >= 3 && (() => {
+                            const first = portfolioHistory[0].value;
+                            const last = portfolioHistory[portfolioHistory.length - 1].value;
+                            const isUp = last >= first;
+                            const pct = first > 0 ? ((last - first) / first * 100).toFixed(1) : null;
+                            return (
+                                <div className="mt-3 -mx-1">
+                                    <div className="flex items-center justify-between mb-1 px-1">
+                                        <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Portfolio trend</span>
+                                        {pct !== null && (
+                                            <span className={`text-[10px] font-black ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+                                                {isUp ? '▲' : '▼'} {Math.abs(pct)}% ({portfolioHistory.length}d)
+                                            </span>
+                                        )}
+                                    </div>
+                                    <ResponsiveContainer width="100%" height={52}>
+                                        <AreaChart data={portfolioHistory} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+                                            <defs>
+                                                <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor={isUp ? '#22c55e' : '#ef4444'} stopOpacity={0.25} />
+                                                    <stop offset="95%" stopColor={isUp ? '#22c55e' : '#ef4444'} stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <YAxis domain={['auto', 'auto']} hide />
+                                            <Tooltip
+                                                content={({ active, payload }) => {
+                                                    if (!active || !payload?.length) return null;
+                                                    const d = payload[0].payload;
+                                                    return (
+                                                        <div className="bg-white border border-gray-100 shadow-lg rounded-lg px-2 py-1 text-xs">
+                                                            <div className="font-bold text-gray-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                                            <div className="text-gray-400">{d.date}</div>
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="value"
+                                                stroke={isUp ? '#22c55e' : '#ef4444'}
+                                                strokeWidth={1.5}
+                                                fill="url(#sparkGrad)"
+                                                dot={false}
+                                                activeDot={{ r: 3 }}
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            );
+                        })()}
                         <ShowMath
                             rows={[
                                 { label: 'Total Assets', value: `$${(assetValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` },

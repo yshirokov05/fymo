@@ -81,6 +81,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [transactions, setTransactions] = useState([]);
   const [isPremium, setIsPremium] = useState(false);
   const [investmentHistory, setInvestmentHistory] = useState(null);
+  const [portfolioHistory, setPortfolioHistory] = useState([]);
   const [taxLiability, setTaxLiability] = useState({
     total: 0,
     federal: 0,
@@ -149,6 +150,11 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         if (!isGuest && currentUser) {
             axios.get('/api/goals', headers)
                 .then(r => setGoalsCount((r.data.goals || []).length))
+                .catch(() => {}); // silent — not critical
+
+            // Portfolio history for net worth sparkline (non-blocking)
+            axios.get('/api/portfolio_history', headers)
+                .then(r => setPortfolioHistory(r.data.history || []))
                 .catch(() => {}); // silent — not critical
         }
         setIgnoredSubscriptionMerchants(response.data.ignored_subscription_merchants || []);
@@ -650,6 +656,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     hasCompletedOnboarding={hasCompletedOnboarding}
                     onUpdateCostBasis={handleUpdateCostBasis}
                     investmentHistory={investmentHistory}
+                    portfolioHistory={portfolioHistory}
                     capabilities={capabilities}
                     onOpenEdit={openEditModal}
                     onOpenLink={() => setActiveView('settings')}
@@ -666,14 +673,40 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
       case 'investments':
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Investment Portfolio</h2>
-            <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
-               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
-                  <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Total Asset Value: <span className="font-bold text-blue-600">${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0))}</span></p>
-                  <button onClick={() => openEditModal('investments')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium whitespace-nowrap">Manage Assets</button>
-               </div>
-               <Dashboard assets={assets} debts={[]} netWorth={0} hideSummary />
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Investment Portfolio</h2>
+              <button onClick={() => openEditModal('investments')} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium whitespace-nowrap self-start sm:self-auto">Manage Assets</button>
             </div>
+            {assets.length === 0 ? (
+              <div className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700 p-12 text-center">
+                <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <RefreshCw className="text-blue-500" size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">No investments tracked yet</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto mb-8">
+                  Connect your brokerage via Plaid or manually add holdings to see your portfolio performance, cost basis, and sector allocation.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button
+                    onClick={() => openEditModal('investments')}
+                    className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
+                  >
+                    + Add Holdings Manually
+                  </button>
+                  <button
+                    onClick={() => setActiveView('settings')}
+                    className="border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 px-6 py-2.5 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
+                  >
+                    Connect via Plaid
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base mb-6">Total Asset Value: <span className="font-bold text-blue-600">${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0))}</span></p>
+                <Dashboard assets={assets} debts={[]} netWorth={0} hideSummary />
+              </div>
+            )}
           </div>
         );
       case 'debts':
