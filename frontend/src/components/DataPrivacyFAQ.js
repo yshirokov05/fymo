@@ -38,14 +38,14 @@ const DataPrivacyFAQ = () => {
             <div className="mb-6">
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-slate-700 pb-4">Security & Privacy FAQ</h2>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-3">
-                    Complete transparency about how Financial HQ handles your data. Click any question to expand.
+                    Complete transparency about how Wealthstack handles your data. Click any question to expand.
                 </p>
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-4 flex items-start space-x-3">
                 <Info className="text-blue-500 shrink-0 mt-0.5" size={18} />
                 <p className="text-blue-700 dark:text-blue-300 text-sm">
-                    Financial HQ is a solo-built app by Yury Shirokov. There is no VC backing, no ad model, and no data brokering. The only revenue source is Premium subscriptions.
+                    Wealthstack is a solo-built app by Yury Shirokov. There is no VC backing, no ad model, and no data brokering. The only revenue source is Premium subscriptions.
                 </p>
             </div>
 
@@ -55,10 +55,10 @@ const DataPrivacyFAQ = () => {
                 icon={<Shield size={20} />}
                 iconBg="bg-blue-100 dark:bg-blue-900/40"
                 iconColor="text-blue-600 dark:text-blue-400"
-                question="Will Financial HQ ever see my bank username or password?"
+                question="Will Wealthstack ever see my bank username or password?"
             >
-                <p><strong className="text-gray-800 dark:text-gray-100">No — never.</strong> Bank connections are handled exclusively through <strong>Plaid</strong>, a third-party service used by thousands of apps (Venmo, Robinhood, Betterment, etc.). When you link an account, you log in directly through Plaid's secure portal. Financial HQ never sees, intercepts, or stores your banking credentials.</p>
-                <p>Plaid issues Financial HQ a limited-scope <strong>access token</strong> — a long random string — that can only read balances and transactions. That's it.</p>
+                <p><strong className="text-gray-800 dark:text-gray-100">No — never.</strong> Bank connections are handled exclusively through <strong>Plaid</strong>, a third-party service used by thousands of apps (Venmo, Robinhood, Betterment, etc.). When you link an account, you log in directly through Plaid's secure portal. Wealthstack never sees, intercepts, or stores your banking credentials.</p>
+                <p>Plaid issues Wealthstack a limited-scope <strong>access token</strong> — a long random string — that can only read balances and transactions. That's it.</p>
             </FAQItem>
 
             <FAQItem
@@ -67,14 +67,14 @@ const DataPrivacyFAQ = () => {
                 iconColor="text-purple-600 dark:text-purple-400"
                 question="Can this app transfer or move my money?"
             >
-                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> The Plaid tokens granted to Financial HQ use <strong>read-only product scopes</strong> (transactions, balances, investments, liabilities). These scopes do not include payment initiation or transfer capabilities. The app is architecturally incapable of moving money — not just by policy, but by what the API token is permitted to do.</p>
+                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> The Plaid tokens granted to Wealthstack use <strong>read-only product scopes</strong> (transactions, balances, investments, liabilities). These scopes do not include payment initiation or transfer capabilities. The app is architecturally incapable of moving money — not just by policy, but by what the API token is permitted to do.</p>
             </FAQItem>
 
             <FAQItem
                 icon={<Globe size={20} />}
                 iconBg="bg-teal-100 dark:bg-teal-900/40"
                 iconColor="text-teal-600 dark:text-teal-400"
-                question="What exactly does Plaid send to Financial HQ?"
+                question="What exactly does Plaid send to Wealthstack?"
             >
                 <p>After linking, Plaid sends:</p>
                 <ul className="list-disc list-inside space-y-1 mt-1">
@@ -83,7 +83,7 @@ const DataPrivacyFAQ = () => {
                     <li>Investment holdings (ticker, shares, market value, cost basis if available)</li>
                     <li>Liability balances (credit cards, mortgages, student loans)</li>
                 </ul>
-                <p className="mt-2">Financial HQ stores this data in your Firestore document, associated with your user ID. Plaid's own data practices are governed by <a href="https://plaid.com/legal" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Plaid's End User Privacy Policy</a>.</p>
+                <p className="mt-2">Wealthstack stores this data in your Firestore document, associated with your user ID. Plaid's own data practices are governed by <a href="https://plaid.com/legal" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Plaid's End User Privacy Policy</a>.</p>
             </FAQItem>
 
             <SectionHeader title="Data Storage & Encryption" />
@@ -120,7 +120,7 @@ const DataPrivacyFAQ = () => {
             >
                 <p>Technically, as the Firebase project owner, I have admin-level access to the Firestore database. I want to be upfront about that.</p>
                 <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">In practice:</strong> I do not browse user data. There are no internal dashboards that surface individual user finances. The only scenario where I would ever look at a specific user document is if they contacted me about a bug and explicitly granted permission.</p>
-                <p className="mt-2">If this level of admin access is a concern, you can use Financial HQ in <strong>manual-entry mode only</strong> (no Plaid connection) — in which case you control exactly what data enters the system.</p>
+                <p className="mt-2">If this level of admin access is a concern, you can use Wealthstack in <strong>manual-entry mode only</strong> (no Plaid connection) — in which case you control exactly what data enters the system.</p>
             </FAQItem>
 
             <SectionHeader title="AI Features" />
@@ -140,7 +140,7 @@ const DataPrivacyFAQ = () => {
                     <li>Investment allocation summary</li>
                 </ul>
                 <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">What is NOT sent:</strong> Your name, email, account numbers, transaction merchant details, or any directly identifying information. The data is sanitized before being passed to the model.</p>
-                <p className="mt-2">Google's data handling for Gemini API calls is governed by <a href="https://ai.google.dev/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Google's Generative AI Terms</a>. Financial HQ uses the API tier, which means data is not used to train Google's models.</p>
+                <p className="mt-2">Google's data handling for Gemini API calls is governed by <a href="https://ai.google.dev/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Google's Generative AI Terms</a>. Wealthstack uses the API tier, which means data is not used to train Google's models.</p>
             </FAQItem>
 
             <FAQItem
@@ -159,10 +159,10 @@ const DataPrivacyFAQ = () => {
                 icon={<CreditCard size={20} />}
                 iconBg="bg-green-100 dark:bg-green-900/40"
                 iconColor="text-green-600 dark:text-green-400"
-                question="Does Financial HQ store my credit card information?"
+                question="Does Wealthstack store my credit card information?"
             >
-                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> All payment processing is handled by <strong>Stripe</strong>, one of the most trusted payment processors in the world. When you enter card details, they go directly to Stripe's servers — Financial HQ never sees or stores your card number, CVV, or billing address.</p>
-                <p className="mt-2">Financial HQ only stores a Stripe Customer ID and subscription status (active/inactive) in your Firestore document.</p>
+                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> All payment processing is handled by <strong>Stripe</strong>, one of the most trusted payment processors in the world. When you enter card details, they go directly to Stripe's servers — Wealthstack never sees or stores your card number, CVV, or billing address.</p>
+                <p className="mt-2">Wealthstack only stores a Stripe Customer ID and subscription status (active/inactive) in your Firestore document.</p>
             </FAQItem>
 
             <SectionHeader title="Your Rights & Data Deletion" />
@@ -187,7 +187,7 @@ const DataPrivacyFAQ = () => {
                 iconColor="text-blue-600 dark:text-blue-400"
                 question="What are my rights under CCPA / GDPR?"
             >
-                <p>Financial HQ is primarily intended for US residents, but we respect global privacy principles:</p>
+                <p>Wealthstack is primarily intended for US residents, but we respect global privacy principles:</p>
                 <ul className="list-disc list-inside space-y-1 mt-1">
                     <li><strong className="text-gray-800 dark:text-gray-100">Right to access</strong> — You can view all data stored about you (it's all visible in-app).</li>
                     <li><strong className="text-gray-800 dark:text-gray-100">Right to deletion</strong> — See above. We honor deletion requests promptly.</li>

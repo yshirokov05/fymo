@@ -620,7 +620,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 )}
 
                                 {/* Show Math — data-forward transparency. Exposes every input behind the % so
-                                    users can see exactly how the number was derived. This is the FHQ differentiator
+                                    users can see exactly how the number was derived. This is the Wealthstack differentiator
                                     over Monarch/Copilot, which hide the calculation. */}
                                 <button
                                     onClick={() => setShowMath(s => !s)}
@@ -746,7 +746,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         </div>
                         <div>
                             <h3 className="text-xl font-bold">You're in Demo Mode</h3>
-                            <p className="text-blue-100 text-sm opacity-90">Experience FHQ with sample data. Ready to setup your real profile?</p>
+                            <p className="text-blue-100 text-sm opacity-90">Experience Wealthstack with sample data. Ready to set up your real profile?</p>
                         </div>
                     </div>
                     <button 

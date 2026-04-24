@@ -169,7 +169,7 @@ const CheckTracker = ({
                     </button>
                 </div>
                 <p className="mb-4 text-[10px] text-gray-400 italic">
-                    Privacy Notice: Check images are processed securely via Gemini API. Original images are not stored on FHQ servers.
+                    Privacy Notice: Check images are processed securely via Gemini API. Original images are not stored on Wealthstack servers.
                 </p>
 
                 {ocrStatus === 'error' && (

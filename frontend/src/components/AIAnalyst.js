@@ -85,7 +85,7 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
         setBriefType(type);
         setMessages([{
             role: 'assistant',
-            content: `${greet}! I'm your FHQ AI Analyst, powered by Claude Sonnet. I've reviewed your portfolio, recent transactions, and today's market conditions. What would you like to explore?`
+            content: `${greet}! I'm your Wealthstack AI Analyst, powered by Claude Sonnet. I've reviewed your portfolio, recent transactions, and today's market conditions. What would you like to explore?`
         }]);
     }, []);
 
@@ -255,7 +255,7 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                             <Sparkles className="text-blue-400" size={26} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-white tracking-tight">FHQ AI Analyst</h2>
+                            <h2 className="text-2xl font-black text-white tracking-tight">Wealthstack AI Analyst</h2>
                             <p className="text-blue-300/70 text-sm mt-0.5">Powered by Claude Sonnet · Real-time financial intelligence</p>
                         </div>
                     </div>
