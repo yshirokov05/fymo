@@ -109,9 +109,9 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
 
         return (
             <React.Fragment key={`${asset.ticker}-${asset.institution_name}-${isSubRow ? 'sub' : 'main'}`}>
-                <tr className={`${isSubRow ? 'bg-gray-50' : 'hover:bg-gray-50'} transition-colors ${hasMultipleAccounts ? 'cursor-pointer' : ''}`} 
+                <tr className={`${isSubRow ? 'bg-gray-50 dark:bg-slate-700/30' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'} transition-colors ${hasMultipleAccounts ? 'cursor-pointer' : ''}`}
                     onClick={() => hasMultipleAccounts && toggleRow(asset.ticker)}>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 uppercase tracking-tight">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">
                         <div className="flex items-center gap-2">
                             {hasMultipleAccounts && !isSubRow && (
                                 isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
@@ -119,19 +119,19 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                             {isLiquidAsset ? 'CASH' : asset.asset_type}
                         </div>
                     </td>
-                    <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 ${isSubRow ? 'pl-8 md:pl-12' : ''}`}>
+                    <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100 ${isSubRow ? 'pl-8 md:pl-12' : ''}`}>
                         {asset.ticker}
                     </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                         <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'} font-bold text-[10px]`}>
                             {asset.tax_treatment || 'TAXABLE'}
                         </span>
                     </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                         {isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}
                     </td>
                     
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-bold">
                         {asset.shares.toLocaleString(undefined, { maximumFractionDigits: 3 })}
                     </td>
                     
@@ -175,7 +175,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                 {(asset.daily_change_usd || 0) >= 0 ? '+' : ''}${(Math.abs(asset.daily_change_usd || 0) * asset.shares).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 <span className="text-[10px] ml-1 font-bold opacity-70">({(asset.daily_change_percent || 0).toFixed(2)}%)</span>
                             </td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
                                 ${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -185,13 +185,13 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                         </>
                     ) : (
                         <>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300">—</td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300">—</td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300">—</td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
                                 ${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300">—</td>
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
                         </>
                     )}
                 </tr>
@@ -232,43 +232,43 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
 
         return (
             <div key={groupName} className="mb-6 md:mb-8">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-3 md:mb-4 px-2 md:px-0">{groupName}</h2>
-                <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 rounded-lg bg-white">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 mb-3 md:mb-4 px-2 md:px-0">{groupName}</h2>
+                <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 dark:ring-slate-700 rounded-lg bg-white dark:bg-slate-800">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                        <thead className="bg-gray-50 dark:bg-slate-700/60">
                             <tr>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Treatment</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Treatment</th>
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Account</th>
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     {isLiquidGroup ? 'Balance' : 'Shares'}
                                 </th>
                                 {!isLiquidGroup && (
                                     <>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost/Sh</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gain/Loss</th>
+                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cost/Sh</th>
+                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
+                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Daily</th>
+                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
+                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gain/Loss</th>
                                     </>
                                 )}
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                     {assetsInGroup.map((asset) => {
                                 if (isLiquidGroup) {
                                     return (
-                                        <tr key={asset.plaid_account_id || asset.ticker} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 uppercase tracking-tight">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900">{asset.ticker}</td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                        <tr key={asset.plaid_account_id || asset.ticker} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100">{asset.ticker}</td>
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                                                 <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'} font-bold text-[10px]`}>
                                                     {asset.tax_treatment || 'TAXABLE'}
                                                 </span>
                                             </td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500">{asset.institution_name || 'Manual'}</td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">{asset.institution_name || 'Manual'}</td>
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
                                                 ${asset.shares.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                         </tr>
@@ -278,14 +278,14 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                             })}
                         </tbody>
                         {(isLiquidGroup || groupName === 'Investments') && (
-                            <tfoot className="bg-gray-50 border-t-2 border-gray-100">
+                            <tfoot className="bg-gray-50 dark:bg-slate-700/60 border-t-2 border-gray-100 dark:border-slate-600">
                                 <tr className="font-black">
                                     {/* Columns: Type | Name | Treatment | Account | Shares/Balance | [Cost/Sh | Price | Daily | Value | Gain/Loss] */}
                                     <td colSpan="4" className="px-3 md:px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">
                                         {groupName} Total
                                     </td>
                                     {/* Shares / Balance column */}
-                                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
+                                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
                                         {`$${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                     </td>
                                     {!isLiquidGroup && (
@@ -299,7 +299,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                                 {groupTotals.dailyChange >= 0 ? '+' : ''}${Math.abs(groupTotals.dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             {/* Value */}
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-black">
+                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
                                                 ${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             {/* Gain/Loss */}

@@ -606,7 +606,6 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        console.log("Dismissing subscription:", s.name);
                                         handleUpdateSubscriptionPrefs([...ignoredSubscriptions, s.name], manualSubscriptions.filter(m => m !== s.name));
                                     }}
                                     className="absolute -top-2 -right-2 bg-white shadow-md border border-gray-200 rounded-full p-1 text-gray-400 hover:text-red-500 hover:scale-110 transition-all z-10"

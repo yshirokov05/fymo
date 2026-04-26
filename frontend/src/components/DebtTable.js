@@ -1,5 +1,14 @@
 import React from 'react';
 
+const fmtMonths = (months) => {
+    if (months === null) return null;
+    const yrs = Math.floor(months / 12);
+    const mo = months % 12;
+    if (yrs === 0) return `${mo} mo`;
+    if (mo === 0) return `${yrs} yr`;
+    return `${yrs} yr ${mo} mo`;
+};
+
 const DebtTable = ({ debts }) => {
     return (
         <div className="overflow-x-auto">
@@ -12,11 +21,29 @@ const DebtTable = ({ debts }) => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">APY%</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payoff</th>
                     </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                     {debts.map((debt) => {
                         const isRevolving = debt.debt_type === 'REVOLVING';
+
+                        // Payoff projection
+                        let months = null;
+                        let payoffNever = false;
+                        if (!isRevolving && debt.monthly_payment > 0 && debt.remaining_balance > 0) {
+                            const r = debt.interest_rate / 12;
+                            const P = debt.remaining_balance;
+                            const M = debt.monthly_payment;
+                            if (r === 0) {
+                                months = Math.ceil(P / M);
+                            } else if (M > r * P) {
+                                months = Math.ceil(-Math.log(1 - (r * P / M)) / Math.log(1 + r));
+                            } else {
+                                payoffNever = true;
+                            }
+                        }
+
                         return (
                             <tr key={debt.plaid_account_id || debt.name} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -34,6 +61,17 @@ const DebtTable = ({ debts }) => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-bold">${debt.remaining_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${debt.monthly_payment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">{(debt.interest_rate * 100).toFixed(2)}%</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    {isRevolving ? (
+                                        <span className="text-gray-400">—</span>
+                                    ) : payoffNever ? (
+                                        <span className="text-red-500 font-bold text-xs">Never</span>
+                                    ) : months !== null ? (
+                                        <span className="font-bold text-blue-600">{fmtMonths(months)}</span>
+                                    ) : (
+                                        <span className="text-gray-400">—</span>
+                                    )}
+                                </td>
                             </tr>
                         );
                     })}
@@ -54,6 +92,7 @@ const DebtTable = ({ debts }) => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 ${debts.reduce((sum, d) => sum + (d.monthly_payment || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
+                            <td className="px-6 py-4"></td>
                             <td className="px-6 py-4"></td>
                         </tr>
                     </tfoot>

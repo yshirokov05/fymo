@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, CheckCircle, AlertCircle, Trash2, CheckCircle2, DollarSign, Image } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Trash2, CheckCircle2, DollarSign, Image, FileText } from 'lucide-react';
 
 const CheckTracker = ({ 
     outstandingChecks, 
@@ -127,7 +127,7 @@ const CheckTracker = ({
 
     return (
         <div className="space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-gray-800">Outstanding Checks</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Outstanding Checks</h2>
             
             {/* Safe to Spend Dashboard */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -221,7 +221,13 @@ const CheckTracker = ({
                     </div>
                     <div className="p-0 overflow-y-auto max-h-[400px]">
                         {pendingChecks.length === 0 ? (
-                            <p className="text-gray-500 text-center py-6 text-sm">No pending checks.</p>
+                            <div className="flex flex-col items-center py-10 px-6 text-center">
+                                <div className="w-11 h-11 bg-amber-50 rounded-xl flex items-center justify-center mb-3">
+                                    <FileText size={20} className="text-amber-400" />
+                                </div>
+                                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No pending checks</p>
+                                <p className="text-xs text-gray-400 mt-1">Log a check above to track it here.</p>
+                            </div>
                         ) : (
                             <table className="min-w-full divide-y divide-gray-200">
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -261,7 +267,13 @@ const CheckTracker = ({
                     </div>
                     <div className="p-0 overflow-y-auto max-h-[400px]">
                         {clearedChecks.length === 0 ? (
-                            <p className="text-gray-500 text-center py-6 text-sm">No cleared checks.</p>
+                            <div className="flex flex-col items-center py-10 px-6 text-center">
+                                <div className="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center mb-3">
+                                    <CheckCircle size={20} className="text-green-400" />
+                                </div>
+                                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No cleared checks yet</p>
+                                <p className="text-xs text-gray-400 mt-1">Mark pending checks as cleared when they hit your account.</p>
+                            </div>
                         ) : (
                             <table className="min-w-full divide-y divide-gray-200">
                                 <tbody className="bg-white divide-y divide-gray-200">

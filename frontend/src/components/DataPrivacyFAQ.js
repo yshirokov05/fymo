@@ -176,7 +176,7 @@ const DataPrivacyFAQ = () => {
                 <p>You have two options:</p>
                 <ul className="list-disc list-inside space-y-2 mt-1">
                     <li><strong className="text-gray-800 dark:text-gray-100">Factory Reset</strong> — Settings → Factory Reset Account. This wipes all your financial data (assets, debts, transactions, income, etc.) while keeping your account active.</li>
-                    <li><strong className="text-gray-800 dark:text-gray-100">Full Account Deletion</strong> — Email <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">yshirokov05@gmail.com</a> to request complete deletion of your account and all associated data. Requests are fulfilled within 30 days.</li>
+                    <li><strong className="text-gray-800 dark:text-gray-100">Full Account Deletion</strong> — Email <a href="mailto:support@wealthstack.app" className="text-blue-600 dark:text-blue-400 hover:underline">support@wealthstack.app</a> to request complete deletion of your account and all associated data. Requests are fulfilled within 30 days.</li>
                 </ul>
                 <p className="mt-2">To disconnect bank accounts without deleting your account: Settings → Data Management → Clear Orphaned Plaid Data, or use the disconnect option per account in Settings.</p>
             </FAQItem>
@@ -201,7 +201,7 @@ const DataPrivacyFAQ = () => {
                 <p className="text-gray-700 dark:text-gray-200 font-semibold">Still have questions?</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Reach out directly at{' '}
-                    <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">yshirokov05@gmail.com</a>
+                    <a href="mailto:support@wealthstack.app" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">support@wealthstack.app</a>
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
                     You can also review the full{' '}

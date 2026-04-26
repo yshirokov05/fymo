@@ -81,10 +81,10 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
     if (isGuest) {
         return (
             <div className="max-w-4xl mx-auto py-8 px-4">
-                <h1 className="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-lg text-gray-700 font-medium mb-4">To access settings and premium features, please create an account.</p>
-                    <button 
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Settings</h1>
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-white/5">
+                    <p className="text-lg text-gray-700 dark:text-gray-300 font-medium mb-4">To access settings and premium features, please create an account.</p>
+                    <button
                         onClick={onResetGuest}
                         className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold"
                     >
@@ -97,24 +97,24 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
 
     return (
         <div className="max-w-4xl mx-auto py-8 px-4">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Account Settings</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Account Settings</h1>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-8">
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                         <Shield className="mr-2 text-blue-600" size={20} />
                         Account Information
                     </h2>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-500">Email Address</label>
-                            <p className="mt-1 text-gray-900 font-medium">
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">Email Address</label>
+                            <p className="mt-1 text-gray-900 dark:text-gray-200 font-medium">
                                 {currentUser?.email ? currentUser.email.replace(/(.{2}).*(@.*)/, "$1****$2") : 'N/A'}
                             </p>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-500">User ID</label>
-                            <p className="mt-1 text-xs text-gray-400 font-mono">
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">User ID</label>
+                            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 font-mono">
                                 {currentUser?.uid ? `${currentUser.uid.substring(0, 6)}...${currentUser.uid.substring(currentUser.uid.length - 4)}` : 'N/A'}
                             </p>
                         </div>
@@ -122,9 +122,9 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-8">
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                         <Star className="mr-2 text-amber-500" size={20} />
                         Subscription Status
                     </h2>
@@ -255,16 +255,16 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                                <h3 className="font-semibold text-blue-800">Free Account</h3>
-                                <p className="text-blue-700 text-sm mt-1">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700/30 rounded-lg p-4">
+                                <h3 className="font-semibold text-blue-800 dark:text-blue-300">Free Account</h3>
+                                <p className="text-blue-700 dark:text-blue-400 text-sm mt-1">
                                     Upgrade to Premium to unlock automated bank syncing through Plaid.
                                 </p>
                             </div>
 
                             <div className="grid md:grid-cols-2 gap-6">
-                                <div className="p-6 border rounded-xl bg-gray-50 opacity-60">
-                                    <h3 className="font-bold text-gray-900 text-lg mb-2 text-center">Free Plan</h3>
+                                <div className="p-6 border dark:border-white/10 rounded-xl bg-gray-50 dark:bg-slate-700/50 opacity-60">
+                                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-2 text-center">Free Plan</h3>
                                     <p className="text-3xl font-bold mb-4 text-center">$0 <span className="text-sm text-gray-500 font-normal">/ month</span></p>
                                     <ul className="space-y-2 mb-6 text-sm">
                                         <li className="flex items-center text-gray-600"><Check size={14} className="mr-2 text-green-500" /> Manual Data Entry</li>
@@ -311,20 +311,20 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
             </div>
 
             {/* ── Theme & Appearance ── */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-8">
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
                         <Palette className="mr-2 text-indigo-500" size={20} />
                         Appearance
                     </h2>
 
                     {/* Dark / Light toggle */}
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl mb-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl mb-4">
                         <div className="flex items-center space-x-3">
                             {isDark ? <Moon size={20} className="text-indigo-400" /> : <Sun size={20} className="text-amber-500" />}
                             <div>
-                                <p className="font-bold text-gray-900">{isDark ? 'Dark Mode' : 'Light Mode'}</p>
-                                <p className="text-xs text-gray-500">Toggle the interface theme</p>
+                                <p className="font-bold text-gray-900 dark:text-gray-100">{isDark ? 'Dark Mode' : 'Light Mode'}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Toggle the interface theme</p>
                             </div>
                         </div>
                         <button
@@ -342,9 +342,9 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                     </div>
 
                     {/* Accent colour picker */}
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                        <p className="font-bold text-gray-900 mb-1">Accent Colour</p>
-                        <p className="text-xs text-gray-500 mb-4">Changes highlights, active states, and buttons</p>
+                    <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                        <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">Accent Colour</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Changes highlights, active states, and buttons</p>
                         <div className="flex flex-wrap gap-3">
                             {ACCENT_PRESETS.map(preset => (
                                 <button
@@ -394,15 +394,15 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                         <Wrench className="mr-2 text-gray-600 dark:text-gray-400" size={20} />
                         Data Management
                     </h2>
-                    <p className="text-sm text-gray-600 mb-6">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                         Use these tools to clear orphaned data or reset your account if things look incorrect.
                     </p>
-                    
+
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                             <div>
-                                <h3 className="font-bold text-gray-900">Clear Orphaned Plaid Data</h3>
-                                <p className="text-xs text-gray-500">Removes assets and debts from institutions you've already disconnected.</p>
+                                <h3 className="font-bold text-gray-900 dark:text-gray-100">Clear Orphaned Plaid Data</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Removes assets and debts from institutions you've already disconnected.</p>
                             </div>
                             <button 
                                 onClick={handleClearOrphanedData}
@@ -412,10 +412,10 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                             </button>
                         </div>
 
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
                             <div>
-                                <h3 className="font-bold text-gray-900">Clear All Transactions</h3>
-                                <p className="text-xs text-gray-500">Purges your transaction history while keeping assets and budgets.</p>
+                                <h3 className="font-bold text-gray-900 dark:text-gray-100">Clear All Transactions</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Purges your transaction history while keeping assets and budgets.</p>
                             </div>
                             <button 
                                 onClick={async () => {

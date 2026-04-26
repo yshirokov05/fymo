@@ -317,7 +317,27 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                             </td>
                                         </tr>
                                     ))}
-                                    {currentYearPaystubs.length === 0 && <tr><td colSpan="6" className="py-8 text-center text-gray-400 italic">No salary records yet.</td></tr>}
+                                    {currentYearPaystubs.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6">
+                                                <div className="flex flex-col items-center py-12 px-6 text-center">
+                                                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
+                                                        <Receipt size={26} className="text-blue-400" />
+                                                    </div>
+                                                    <p className="text-sm font-bold text-gray-700 mb-1">No paystubs yet</p>
+                                                    <p className="text-xs text-gray-400 mb-5 max-w-xs">Add your first paystub manually or upload a pay stub PDF to auto-extract your salary and tax withholding.</p>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => setIsAdding(true)}
+                                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 transition-colors"
+                                                        >
+                                                            <Plus size={14} /> Add Manually
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
