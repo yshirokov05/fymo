@@ -20,7 +20,7 @@ const PrivacyPolicy = () => {
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-slate-700 pb-4">Privacy Policy</h2>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Effective Date: April 10, 2026 · Last Updated: April 10, 2026</p>
                 <p className="text-gray-600 dark:text-gray-300 mt-4 leading-relaxed">
-                    Wealthstack ("Wealthstack", "we", "our", or "us") is operated by Yury Shirokov as a solo project. This Privacy Policy describes what data we collect, why we collect it, how it is stored and protected, and your rights regarding that data. By using Wealthstack, you agree to the practices described in this policy.
+                    Fymo ("Fymo", "we", "our", or "us") is operated by Yury Shirokov as a solo project. This Privacy Policy describes what data we collect, why we collect it, how it is stored and protected, and your rights regarding that data. By using Fymo, you agree to the practices described in this policy.
                 </p>
             </div>
 
@@ -40,7 +40,7 @@ const PrivacyPolicy = () => {
                 </Section>
 
                 <Section icon={<Eye size={22} />} title="How We Use Your Data">
-                    <p>We use your data exclusively to provide the Wealthstack service to you:</p>
+                    <p>We use your data exclusively to provide the Fymo service to you:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
                         <li>Displaying your net worth, budgets, tax estimates, and financial summaries</li>
                         <li>Syncing transactions and balances from your linked bank accounts via Plaid</li>
@@ -51,7 +51,7 @@ const PrivacyPolicy = () => {
                 </Section>
 
                 <Section icon={<Shield size={22} />} title="Third-Party Services">
-                    <p>Wealthstack uses the following third-party services, each subject to their own privacy policies:</p>
+                    <p>Fymo uses the following third-party services, each subject to their own privacy policies:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
                         <li><strong className="text-gray-800 dark:text-gray-100">Google Firebase & Firestore</strong> — Authentication and database hosting (Google Privacy Policy)</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Plaid</strong> — Bank account connectivity (Plaid Privacy Policy). Plaid is subject to its own data practices with your financial institution.</li>
@@ -88,7 +88,7 @@ const PrivacyPolicy = () => {
             </div>
 
             <p className="text-xs text-gray-400 text-center pt-4">
-                This policy may be updated periodically. Continued use of Wealthstack after changes constitutes acceptance of the revised policy.
+                This policy may be updated periodically. Continued use of Fymo after changes constitutes acceptance of the revised policy.
             </p>
         </div>
     );

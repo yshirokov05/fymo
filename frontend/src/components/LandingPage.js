@@ -34,7 +34,7 @@ const MockDashboard = () => (
                     <div className="w-2 h-2 rounded-full bg-yellow-400/70" />
                     <div className="w-2 h-2 rounded-full bg-green-400/70" />
                 </div>
-                <span className="text-xs text-gray-500 font-mono">wealthstack.app</span>
+                <span className="text-xs text-gray-500 font-mono">projectfymo.com</span>
                 <div className="w-12" />
             </div>
 
@@ -274,7 +274,7 @@ const LandingPage = () => {
                             <span className="text-blue-400">Nothing hidden.</span>
                         </h1>
                         <p className="mt-5 text-lg text-gray-400 leading-relaxed max-w-lg">
-                            Wealthstack connects all your accounts, tracks every dollar, and explains every number — so you always know exactly where you stand.
+                            Fymo connects all your accounts, tracks every dollar, and explains every number — so you always know exactly where you stand.
                         </p>
                         <div className="mt-8 flex flex-col sm:flex-row gap-3">
                             <button onClick={() => setAuthModal('signup')}
@@ -311,12 +311,12 @@ const LandingPage = () => {
             {/* ── Features ── */}
             <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
                 <div className="text-center mb-12">
-                    <Pill color="purple"><Star size={11} />Why Wealthstack</Pill>
+                    <Pill color="purple"><Star size={11} />Why Fymo</Pill>
                     <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">
                         Built differently than<br />every other finance app
                     </h2>
                     <p className="mt-4 text-gray-400 max-w-lg mx-auto">
-                        Most apps show you numbers. Wealthstack shows you <em>how</em> those numbers were calculated — and what they actually mean for you.
+                        Most apps show you numbers. Fymo shows you <em>how</em> those numbers were calculated — and what they actually mean for you.
                     </p>
                 </div>
 
@@ -478,7 +478,7 @@ const LandingPage = () => {
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-privacy'))} className="hover:text-gray-400 transition-colors">Privacy Policy</button>
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-terms'))} className="hover:text-gray-400 transition-colors">Terms of Service</button>
                     </div>
-                    <span>© {new Date().getFullYear()} Wealthstack. All rights reserved.</span>
+                    <span>© {new Date().getFullYear()} Fymo. All rights reserved.</span>
                 </div>
             </footer>
         </div>

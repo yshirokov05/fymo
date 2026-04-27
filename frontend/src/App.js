@@ -235,7 +235,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     const params = new URLSearchParams(window.location.search);
     const session = params.get('session');
     if (session === 'success') {
-      showToast('Welcome to Wealthstack Premium! Your subscription is now active.', 'success');
+      showToast('Welcome to Fymo Premium! Your subscription is now active.', 'success');
       // Strip the query param so it doesn't re-fire on refresh
       window.history.replaceState({}, document.title, window.location.pathname);
       // Re-fetch so isPremium flips to true immediately

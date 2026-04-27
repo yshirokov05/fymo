@@ -58,7 +58,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
             {/* Desktop Sidebar */}
             <div className="hidden md:flex md:w-64 bg-gray-900 text-white flex-shrink-0 flex-col">
                 <div className="p-6 flex items-center justify-between">
-                    <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Wealthstack</span>
+                    <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Fymo</span>
                     {isPremium ? (
                         <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded text-[10px] font-black uppercase tracking-widest">Premium</span>
                     ) : (
@@ -108,7 +108,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                     <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsMobileMenuOpen(false)}></div>
                     <div className="relative w-full max-w-xs bg-gray-900 text-white flex flex-col h-full shadow-xl">
                         <div className="p-6 flex items-center justify-between border-b border-gray-800">
-                            <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Wealthstack</span>
+                            <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Fymo</span>
                             <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white">
                                 <X size={24} />
                             </button>
@@ -160,7 +160,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                         <Menu size={24} />
                         <span className="text-xs font-bold uppercase tracking-tight">Menu</span>
                     </button>
-                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>Wealthstack</span>
+                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>Fymo</span>
                     <div className="w-16"></div>
                 </header>
 

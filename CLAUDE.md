@@ -1,12 +1,13 @@
-# Financial Headquarters (FHQ) — Agent Context
+# Fymo — Agent Context
 
 This file is read automatically by Claude Code. It provides project context, conventions, and guardrails for AI-assisted development.
 
 ## Project Overview
 
-FHQ is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, Claude Sonnet 4.6 for all AI features. Gemini 1.5 Flash is used only for document/PDF extraction (insurance, paystubs, bank statements) via the Gemini API.
+Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, Claude Sonnet 4.6 for all AI features. Gemini 1.5 Flash is used only for document/PDF extraction (insurance, paystubs, bank statements) via the Gemini API.
 
-- **Live URL:** https://personal-finance-app-18cbc.web.app
+- **Brand:** Fymo (`projectfymo.com`)
+- **Live URL:** https://personal-finance-app-18cbc.web.app (point `projectfymo.com` → Firebase Hosting)
 - **Firebase project:** `personal-finance-app-18cbc`
 - **Current version:** v1.4.0 (Production)
 - **Current phase:** Market Launch & User Engagement (Phase 6 Stripe complete)
