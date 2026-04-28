@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 
-Sitemap: https://personal-finance-app-18cbc.web.app/sitemap.xml
+Sitemap: https://projectfymo.com/sitemap.xml
