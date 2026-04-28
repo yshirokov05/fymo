@@ -141,7 +141,7 @@ const AuthModal = ({ onClose, defaultSignup = false }) => {
                 </button>
 
                 <div className="mb-6 text-center">
-                    <span className="text-2xl font-black tracking-tight text-white">Wealth<span className="text-blue-400">stack</span></span>
+                    <span className="text-2xl font-black tracking-tight text-white">Fy<span className="text-blue-400">mo</span></span>
                     <p className="text-sm text-gray-400 mt-1">{isSignup ? 'Create your free account' : 'Welcome back'}</p>
                 </div>
 
@@ -244,7 +244,7 @@ const LandingPage = () => {
             <nav className="sticky top-0 z-40 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
                     <span className="text-xl font-black tracking-tight">
-                        Wealth<span className="text-blue-400">stack</span>
+                        Fy<span className="text-blue-400">mo</span>
                     </span>
                     <div className="flex items-center gap-2 sm:gap-3">
                         <button onClick={() => setAuthModal('signin')}
@@ -473,7 +473,7 @@ const LandingPage = () => {
             {/* ── Footer ── */}
             <footer className="border-t border-white/5 py-8">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-600">
-                    <span className="font-bold text-gray-400">Wealth<span className="text-blue-400">stack</span></span>
+                    <span className="font-bold text-gray-400">Fy<span className="text-blue-400">mo</span></span>
                     <div className="flex gap-6">
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-privacy'))} className="hover:text-gray-400 transition-colors">Privacy Policy</button>
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-terms'))} className="hover:text-gray-400 transition-colors">Terms of Service</button>
