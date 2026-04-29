@@ -869,8 +869,17 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
 
                         _coverage = _priced / len(_snap) if _snap else 0
                         if _coverage >= 0.75 and _val_at_start > 100:
-                            _ret = (total_current_value - _val_at_start) / _val_at_start * 100
-                            period_returns[_pk] = round(_ret, 2)
+                            # Modified Dietz: accounts for cash flows during the period.
+                            # net_flow ≈ invested − proceeds − dividends (proxy for external flow,
+                            # since Plaid doesn't reliably distinguish deposits from internal cash).
+                            # If user invested $25k more than they sold this period, naive (end-start)/start
+                            # treats the new $25k as growth — Mod Dietz removes that artifact.
+                            _pdata = periods.get(_pk, {})
+                            _net_flow = (_pdata.get('invested', 0) or 0) - (_pdata.get('proceeds', 0) or 0) - (_pdata.get('dividends', 0) or 0)
+                            _denom = _val_at_start + 0.5 * _net_flow
+                            if _denom > 100:  # guard against degenerate denominators
+                                _ret = (total_current_value - _val_at_start - _net_flow) / _denom * 100
+                                period_returns[_pk] = round(_ret, 2)
 
         except Exception as _pr_e:
             logging.warning(f"Period return reconstruction skipped: {_pr_e}")

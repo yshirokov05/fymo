@@ -1060,9 +1060,15 @@ def plaid_sync():
                             continue
                         _start_val = _snap_val_map[max(_candidates)]
                         if _start_val > 0:
-                            _pct = (_cur_val - _start_val) / _start_val * 100
-                            combined_investment_history['period_returns'][_pk] = round(_pct, 2)
-                            logging.info(f"[Sync {request.uid}] Snapshot period return {_pk}: {_pct:.2f}%")
+                            # Modified Dietz: adjust for cash flows during the period to avoid
+                            # treating deposits as performance.
+                            _pdata = (combined_investment_history.get('periods') or {}).get(_pk, {})
+                            _net_flow = (_pdata.get('invested', 0) or 0) - (_pdata.get('proceeds', 0) or 0) - (_pdata.get('dividends', 0) or 0)
+                            _denom = _start_val + 0.5 * _net_flow
+                            if _denom > 100:
+                                _pct = (_cur_val - _start_val - _net_flow) / _denom * 100
+                                combined_investment_history['period_returns'][_pk] = round(_pct, 2)
+                                logging.info(f"[Sync {request.uid}] Snapshot period return {_pk}: {_pct:.2f}% (start=${_start_val:.0f}, flow=${_net_flow:.0f})")
         except Exception as _sp_e:
             logging.warning(f"Snapshot period return fallback failed: {_sp_e}")
 

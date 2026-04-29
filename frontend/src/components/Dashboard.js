@@ -566,24 +566,40 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     allTimeRetDollar = curVal - costBasisForReturn;
                 }
 
-                // Period-specific return (TIER 1) takes priority when available
-                const periodRetPct = (prPeriod !== 'all' && ih?.period_returns?.[prPeriod] != null)
+                // Period-specific return takes priority when available.
+                // If a non-"all" period is selected and we couldn't compute it, show N/A —
+                // do NOT silently swap to all-time return. Showing all-time when YTD is
+                // selected is misleading; users expect the headline to match the selector.
+                const isAllPeriod = prPeriod === 'all';
+                const periodRetPct = (!isAllPeriod && ih?.period_returns?.[prPeriod] != null)
                     ? ih.period_returns[prPeriod]
                     : null;
                 const hasPeriodReturn = periodRetPct !== null;
+                const periodMissing = !isAllPeriod && !hasPeriodReturn;
 
                 // Final display values
-                const retPct = hasPeriodReturn ? periodRetPct : allTimeRetPct;
-                const retDollar = hasPeriodReturn ? null : allTimeRetDollar;
+                let retPct, retDollar, returnLabel, returnTooltip;
+                if (periodMissing) {
+                    // Honest N/A: backend couldn't compute return for the selected period.
+                    retPct = null;
+                    retDollar = null;
+                    returnLabel = `${PERIOD_LABELS[prPeriod]} unavailable`;
+                    returnTooltip = `Couldn't compute ${PERIOD_LABELS[prPeriod]} return. This requires either (a) ≥75% of your holdings priced via market data at the period start, or (b) a portfolio snapshot from on or before that date. Your account may not have enough history yet — try a longer period or "All".`;
+                } else if (hasPeriodReturn) {
+                    retPct = periodRetPct;
+                    retDollar = null;
+                    returnLabel = `${PERIOD_LABELS[prPeriod]} Return`;
+                    returnTooltip = `Modified-Dietz holding-period return for ${PERIOD_LABELS[prPeriod]}: reconstructed from your transaction history + historical prices. Adjusts for cash flows during the period so deposits and withdrawals aren't counted as performance.`;
+                } else {
+                    // All period selected — show cost-basis-based all-time return
+                    retPct = allTimeRetPct;
+                    retDollar = allTimeRetDollar;
+                    returnLabel = retPct !== null ? 'All-Time Unrealized' : 'Return Unavailable';
+                    returnTooltip = retPct !== null
+                        ? `Unrealized gain on your CURRENT holdings vs ${basisSource === 'institution' ? 'institution-reported' : 'manually entered'} cost basis. This is "what your positions are worth right now vs what you paid for them" — it does NOT include realized gains from past sales or dividends. For a true period-over-period return, click 1W/1M/YTD/etc.`
+                        : (rejectionReason || 'Return could not be computed.');
+                }
                 const pos = (retPct || 0) >= 0;
-                const returnLabel = hasPeriodReturn
-                    ? `${PERIOD_LABELS[prPeriod]} Return`
-                    : (retPct !== null ? 'All-Time Return' : 'Return Unavailable');
-                const returnTooltip = hasPeriodReturn
-                    ? `Holding-period return for ${PERIOD_LABELS[prPeriod]}: reconstructed from your Plaid transaction history + historical prices. Shows gain/loss vs portfolio value at the period start date.`
-                    : (retPct !== null
-                        ? `Unrealized gain from ${basisSource === 'institution' ? 'institution-reported cost basis' : 'your manual cost-basis entries'}. Period selector controls activity & benchmarks on the right.`
-                        : rejectionReason || 'Return could not be computed.');
 
                 // Benchmarks for selected period
                 const bench = ih?.benchmarks?.[prPeriod] || {};
@@ -628,6 +644,14 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     {returnLabel}
                                     <Info size={11} className="text-gray-500 cursor-help" title={returnTooltip} />
                                 </p>
+                                {periodMissing && (
+                                    <button
+                                        onClick={() => setPrPeriod('all')}
+                                        className="text-xs text-blue-400 hover:text-blue-300 mt-1 underline underline-offset-2"
+                                    >
+                                        See all-time return →
+                                    </button>
+                                )}
 
                                 {retDollar !== null && (
                                     <p className={`text-base font-bold mt-2 ${retDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>

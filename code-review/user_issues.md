@@ -79,6 +79,19 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ---
 
+### UX-12 — Portfolio Return: Period selector silently fell back to All-Time + ignored cash flows ✅ FIXED (v1.5.0)
+**Severity:** HIGH — misleading data on a primary dashboard metric
+**Reported:** User testing 2026-04-28
+**Problems:**
+1. **Silent fallback:** When user clicked YTD/1Y/etc. and the backend couldn't compute a return for that period, the headline silently switched to "All-Time Return" while the period pill stayed highlighted. Confusing — users expected the headline to match their selection.
+2. **Naive math:** All three calculation tiers (ledger reconstruction, snapshot fallback, value-weighted ticker average) used `(end - start) / start * 100`, which treats deposits during the period as performance. A user who deposited $25k mid-period saw inflated returns; conversely, withdrawals deflated them.
+3. **Cost-basis "All-Time Return":** Used Plaid-reported cost basis on current holdings, which reflects average cost-per-share *after* lot averaging and dividend reinvestment — NOT total cash invested. For active traders this number is small and conceptually misleading.
+
+**Fixes:**
+1. Frontend now shows explicit "N/A — {period} unavailable" when backend can't compute, with a "See all-time return →" CTA. No more silent fallback.
+2. Backend TIER 1 (ledger) and TIER 3 (snapshot) now use **Modified Dietz**: `(end - start - net_flow) / (start + 0.5 × net_flow)` where `net_flow = invested − proceeds − dividends`. Deposits/withdrawals during the period no longer count as performance.
+3. All-Time label changed to "All-Time Unrealized" with an explicit tooltip clarifying it's unrealized gain on current holdings vs cost basis, NOT period-over-period return.
+
 ### UX-11 — Category Rules: Hardcoded category list duplicated in 3 places ✅ FIXED (v1.5.0)
 **Problem:** `CategoryRulesManager.js` hardcoded `ALL_CATEGORIES` that had to stay in sync with `Budgeting.js` and `category_mapping.json` manually.
 **Fix:** Now fetches the canonical list from `/api/config/categories` on mount. Falls back to a hardcoded list only if the endpoint fails.
