@@ -60,6 +60,31 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ---
 
+### UX-8 — Category Rules: Bidirectional substring match caused false positives ✅ FIXED (v1.5.0)
+**Severity:** HIGH — silent miscategorization
+**Problem:** Match logic in `categorize_transaction()` and the 3 `/api/custom_rules` routes used `pattern in name OR name in pattern`. The second arm caused long rule patterns (e.g. "STARBUCKS STORE #5512 SEATTLE") to match every transaction containing the substring "STARBUCKS" — including unrelated short names — because any short transaction name is contained within a long pattern.
+**Fix:** Dropped the second arm everywhere. Match is now one-way: pattern must be contained in transaction name. Updated in `plaid_service.py:127`, `api.py:get_custom_rules`, `api.py:create_custom_rule`, `api.py:update_custom_rule`.
+
+---
+
+### UX-9 — Category Rules: No conflict resolution between overlapping rules ✅ FIXED (v1.5.0)
+**Problem:** When two rules could both match a transaction (e.g. "STARBUCKS" and "STARBUCKS RESERVE"), iteration order won — non-deterministic from a user's perspective.
+**Fix:** `categorize_transaction()` now sorts rules by pattern length DESC before matching, so more specific rules always win.
+
+---
+
+### UX-10 — Category Rules: No cap on rule count ✅ FIXED (v1.5.0)
+**Problem:** Users could create unlimited rules. Each rule is checked against every transaction on every Plaid sync — performance degrades linearly. A user with 500 rules and 500 transactions = 250k comparisons per sync.
+**Fix:** Soft cap of 100 rules per user, enforced in backend (400 response) and frontend (Add button disabled with tooltip when at cap).
+
+---
+
+### UX-11 — Category Rules: Hardcoded category list duplicated in 3 places ✅ FIXED (v1.5.0)
+**Problem:** `CategoryRulesManager.js` hardcoded `ALL_CATEGORIES` that had to stay in sync with `Budgeting.js` and `category_mapping.json` manually.
+**Fix:** Now fetches the canonical list from `/api/config/categories` on mount. Falls back to a hardcoded list only if the endpoint fails.
+
+---
+
 ## Open Issues
 
 ### BUG-1 — `remove_institution` Wipes ALL Plaid Data (Not Just Removed Bank) 🔴 OPEN

@@ -4,13 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
 import { Plus, Trash2, Edit2, Check, X, Tag, AlertTriangle, RefreshCw } from 'lucide-react';
 
-// Full category list — must stay in sync with Budgeting.js baseCategories + category_mapping.json
-const ALL_CATEGORIES = [
+// Fallback list — used only if /api/config/categories fails to load.
+// Source of truth is backend/category_mapping.json (served via /api/config/categories).
+const FALLBACK_CATEGORIES = [
     'Housing', 'Groceries', 'Eating Out', 'Vehicle Maintenance', 'Transportation',
     'Personal Care', 'Entertainment', 'Utilities', 'Fixed Subscriptions', 'Debit Card',
     'Shopping', 'Healthcare', 'Travel', 'Education', 'Income', 'Investment',
     'Transfers', 'Tax', 'Service', 'Other',
 ];
+
+const MAX_RULES = 100;
 
 const CategoryRulesManager = ({ customCategories = [] }) => {
     const { currentUser } = useAuth();
@@ -21,11 +24,24 @@ const CategoryRulesManager = ({ customCategories = [] }) => {
     const [editingId, setEditingId] = useState(null); // rule id being edited
     const [editForm, setEditForm] = useState({ merchant_name: '', category: '' });
     const [showAddForm, setShowAddForm] = useState(false);
-    const [addForm, setAddForm] = useState({ merchant_name: '', category: ALL_CATEGORIES[0] });
+    const [serverCategories, setServerCategories] = useState(null);
+    const [addForm, setAddForm] = useState({ merchant_name: '', category: FALLBACK_CATEGORIES[0] });
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
 
-    const allCategories = [...new Set([...ALL_CATEGORIES, ...customCategories])];
+    // Fetch the canonical category list from backend on mount.
+    useEffect(() => {
+        axios.get('/api/config/categories')
+            .then(res => {
+                // category_mapping.json is keyed by category name; "Ignore" is internal-only.
+                const cats = Object.keys(res.data || {}).filter(c => c !== 'Ignore');
+                if (cats.length > 0) setServerCategories(cats);
+            })
+            .catch(() => { /* fall back silently to FALLBACK_CATEGORIES */ });
+    }, []);
+
+    const baseCategories = serverCategories || FALLBACK_CATEGORIES;
+    const allCategories = [...new Set([...baseCategories, ...customCategories])];
 
     const loadRules = useCallback(async () => {
         if (!currentUser) return;
@@ -58,7 +74,7 @@ const CategoryRulesManager = ({ customCategories = [] }) => {
             );
             const { rule, affected_transactions } = res.data;
             setRules(prev => [rule, ...prev]);
-            setAddForm({ merchant_name: '', category: ALL_CATEGORIES[0] });
+            setAddForm({ merchant_name: '', category: baseCategories[0] });
             setShowAddForm(false);
             showToast(
                 `Rule created${affected_transactions > 0 ? ` · applied to ${affected_transactions} existing transaction${affected_transactions !== 1 ? 's' : ''}` : ''}`,
@@ -158,7 +174,9 @@ const CategoryRulesManager = ({ customCategories = [] }) => {
                     </button>
                     <button
                         onClick={() => { setShowAddForm(v => !v); setEditingId(null); }}
-                        className="flex items-center gap-1.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-3 py-1.5 transition-colors"
+                        disabled={rules.length >= MAX_RULES}
+                        title={rules.length >= MAX_RULES ? `Rule limit reached (${MAX_RULES})` : 'Add a new rule'}
+                        className="flex items-center gap-1.5 text-sm font-semibold bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-3 py-1.5 transition-colors"
                     >
                         <Plus size={14} /> Add Rule
                     </button>
@@ -324,7 +342,7 @@ const CategoryRulesManager = ({ customCategories = [] }) => {
 
             {rules.length > 0 && (
                 <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-                    {rules.length} rule{rules.length !== 1 ? 's' : ''} · Rules apply on every Plaid sync. Existing transactions keep their category until the rule is applied retroactively.
+                    {rules.length} of {MAX_RULES} rule{rules.length !== 1 ? 's' : ''} · Rules apply on every Plaid sync. More specific patterns win over generic ones (e.g. "STARBUCKS RESERVE" beats "STARBUCKS").
                 </p>
             )}
         </div>

@@ -131,9 +131,15 @@ def categorize_transaction(name, plaid_categories, custom_rules=None):
     name = name.lower()
     
     # 0. User Custom Rules Overrides (Highest Priority)
+    # Sort by pattern length DESC so more specific rules win over generic ones.
+    # E.g., "STARBUCKS RESERVE" beats "STARBUCKS" when both match.
     if custom_rules:
-        for rule in custom_rules:
-            if rule.merchant_name.lower() in name or name in rule.merchant_name.lower():
+        sorted_rules = sorted(custom_rules, key=lambda r: len(r.merchant_name), reverse=True)
+        for rule in sorted_rules:
+            # One-way substring: rule pattern must be contained in transaction name.
+            # (Previously bidirectional, which caused long rule patterns to match
+            # short transaction names — almost never the intended behavior.)
+            if rule.merchant_name.lower() in name:
                 return rule.category
                 
     config = _get_category_config()

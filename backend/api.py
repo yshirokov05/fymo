@@ -2196,10 +2196,9 @@ def get_custom_rules():
         # Compute how many transactions each rule currently matches
         rules_out = []
         for r in custom_rules:
-            match_count = sum(
-                1 for t in transactions
-                if r.merchant_name.lower() in t.name.lower() or t.name.lower() in r.merchant_name.lower()
-            )
+            # One-way substring: rule pattern must be inside the transaction name.
+            pattern_lc = r.merchant_name.lower()
+            match_count = sum(1 for t in transactions if pattern_lc in t.name.lower())
             rules_out.append({
                 'id': r.id,
                 'merchant_name': r.merchant_name,
@@ -2229,6 +2228,11 @@ def create_custom_rule():
     try:
         from models import CustomRule
         user, incomes, assets, debts, ra, ins, pi, budgets, transactions, paystubs, custom_rules, hco, cc, oc, igf = get_user_data(user_id=request.uid)
+        # Soft cap to prevent runaway rule lists (each rule is checked against every transaction
+        # on every Plaid sync — performance degrades linearly).
+        MAX_RULES = 100
+        if len(custom_rules) >= MAX_RULES:
+            return jsonify({'error': f'You\'ve reached the {MAX_RULES}-rule limit. Delete an existing rule to create a new one.'}), 400
         # Prevent duplicates
         existing = next((r for r in custom_rules if r.merchant_name.lower() == merchant_name.lower()), None)
         if existing:
@@ -2237,8 +2241,9 @@ def create_custom_rule():
         custom_rules.append(new_rule)
         affected = 0
         if apply_retroactive:
+            pattern_lc = merchant_name.lower()
             for t in transactions:
-                if merchant_name.lower() in t.name.lower() or t.name.lower() in merchant_name.lower():
+                if pattern_lc in t.name.lower():
                     t.category = category
                     affected += 1
         save_user_data(user, incomes, assets, debts, ra, ins, pi, budgets=budgets, transactions=transactions,
@@ -2278,7 +2283,7 @@ def update_custom_rule(rule_id):
         if apply_retroactive:
             pattern = rule.merchant_name.lower()
             for t in transactions:
-                if pattern in t.name.lower() or t.name.lower() in pattern:
+                if pattern in t.name.lower():
                     t.category = rule.category
                     affected += 1
         save_user_data(user, incomes, assets, debts, ra, ins, pi, budgets=budgets, transactions=transactions,
