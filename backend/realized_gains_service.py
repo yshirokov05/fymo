@@ -22,6 +22,7 @@ Limitations (documented for users):
 from collections import deque
 from datetime import datetime, date, timedelta
 import logging
+import re
 
 
 # Cash-equivalent securities — never produce realized gains worth tracking.
@@ -31,6 +32,25 @@ CASH_LIKE_TICKERS = {
 }
 
 PERIOD_KEYS = ('1w', '1m', 'ytd', '1y', '2y', '5y', 'all')
+
+# OCC standard option symbol format: SYMBOL (1-6 chars) + YYMMDD + C/P + STRIKE (8 digits)
+# Example: QQQ260210C00613000 = QQQ Feb 10 2026 Call $613.00
+_OPTION_RE = re.compile(r'^[A-Z]{1,6}\d{6}[CP]\d{8}$')
+
+
+def is_option_symbol(ticker):
+    """True if ticker matches the OCC option symbol format."""
+    if not ticker:
+        return False
+    return bool(_OPTION_RE.match(ticker))
+
+
+def parse_option_underlying(ticker):
+    """Extract the underlying ticker from an option symbol. Returns None if not an option."""
+    if not is_option_symbol(ticker):
+        return None
+    # Strip trailing 15 chars (YYMMDDCPSSSSSSSS)
+    return ticker[:-15]
 
 
 def _to_date(val):
@@ -211,7 +231,11 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
 
         # Record on per-ticker aggregation
         if ticker not in by_ticker:
-            by_ticker[ticker] = {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0, 'sells': []}
+            by_ticker[ticker] = {
+                'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0, 'sells': [],
+                'is_option': is_option_symbol(ticker),
+                'underlying': parse_option_underlying(ticker),
+            }
         by_ticker[ticker]['total'] += sell_total_gain
         by_ticker[ticker]['st'] += sell_st_gain
         by_ticker[ticker]['lt'] += sell_lt_gain
@@ -249,9 +273,23 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
     total_st = periods['all']['st']
     total_lt = periods['all']['lt']
 
+    # Split totals into stocks vs options for cleaner UI presentation.
+    # Options are conceptually different (each contract is unique, FIFO is per-strike-and-expiry)
+    # and they tend to clutter the table with many tiny rows.
+    stock_total = sum(t['total'] for t in by_ticker.values() if not t['is_option'])
+    stock_st = sum(t['st'] for t in by_ticker.values() if not t['is_option'])
+    stock_lt = sum(t['lt'] for t in by_ticker.values() if not t['is_option'])
+    stock_count = sum(t['count'] for t in by_ticker.values() if not t['is_option'])
+    options_total = sum(t['total'] for t in by_ticker.values() if t['is_option'])
+    options_st = sum(t['st'] for t in by_ticker.values() if t['is_option'])
+    options_lt = sum(t['lt'] for t in by_ticker.values() if t['is_option'])
+    options_count = sum(t['count'] for t in by_ticker.values() if t['is_option'])
+    options_ticker_count = sum(1 for t in by_ticker.values() if t['is_option'])
+
     logging.info(
         f"Realized gains: total=${total_realized:.2f} (ST=${total_st:.2f}, LT=${total_lt:.2f}) "
-        f"across {sell_count} sells, {unmatched_count} unmatched"
+        f"across {sell_count} sells, {unmatched_count} unmatched · "
+        f"stocks=${stock_total:.2f} ({stock_count} sells), options=${options_total:.2f} ({options_count} sells)"
     )
 
     return {
@@ -264,6 +302,16 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
         'unmatched_count': unmatched_count,
         'sell_count': sell_count,
         'earliest_txn_date': earliest.isoformat() if earliest else None,
+        # Split between stocks and options
+        'stock_total': round(stock_total, 2),
+        'stock_st': round(stock_st, 2),
+        'stock_lt': round(stock_lt, 2),
+        'stock_count': stock_count,
+        'options_total': round(options_total, 2),
+        'options_st': round(options_st, 2),
+        'options_lt': round(options_lt, 2),
+        'options_count': options_count,
+        'options_ticker_count': options_ticker_count,
     }
 
 
@@ -279,4 +327,13 @@ def empty_realized_gains():
         'unmatched_count': 0,
         'sell_count': 0,
         'earliest_txn_date': None,
+        'stock_total': 0.0,
+        'stock_st': 0.0,
+        'stock_lt': 0.0,
+        'stock_count': 0,
+        'options_total': 0.0,
+        'options_st': 0.0,
+        'options_lt': 0.0,
+        'options_count': 0,
+        'options_ticker_count': 0,
     }

@@ -964,6 +964,9 @@ def plaid_sync():
                 'unmatched_count': 0,
                 'sell_count': 0,
                 'earliest_txn_date': None,
+                'stock_total': 0.0, 'stock_st': 0.0, 'stock_lt': 0.0, 'stock_count': 0,
+                'options_total': 0.0, 'options_st': 0.0, 'options_lt': 0.0, 'options_count': 0,
+                'options_ticker_count': 0,
             },
         }
         active_plaid_items = [pi for pi in plaid_items if pi.access_token]
@@ -1027,6 +1030,10 @@ def plaid_sync():
                         crg['unmatched_proceeds'] += inst_rg.get('unmatched_proceeds', 0)
                         crg['unmatched_count'] += inst_rg.get('unmatched_count', 0)
                         crg['sell_count'] += inst_rg.get('sell_count', 0)
+                        for _sk in ('stock_total', 'stock_st', 'stock_lt', 'stock_count',
+                                    'options_total', 'options_st', 'options_lt', 'options_count',
+                                    'options_ticker_count'):
+                            crg[_sk] = (crg.get(_sk, 0) or 0) + (inst_rg.get(_sk, 0) or 0)
                         # Earliest date across institutions
                         inst_earliest = inst_rg.get('earliest_txn_date')
                         if inst_earliest and (not crg['earliest_txn_date'] or inst_earliest < crg['earliest_txn_date']):
@@ -1059,7 +1066,9 @@ def plaid_sync():
         # Round + trim merged realized gains
         _crg = combined_investment_history.get('realized_gains') or {}
         if _crg:
-            for _k in ('total_realized', 'total_st', 'total_lt', 'unmatched_proceeds'):
+            for _k in ('total_realized', 'total_st', 'total_lt', 'unmatched_proceeds',
+                       'stock_total', 'stock_st', 'stock_lt',
+                       'options_total', 'options_st', 'options_lt'):
                 _crg[_k] = round(_crg.get(_k, 0), 2)
             for _pk, _pd in _crg.get('periods', {}).items():
                 for _kk in ('total', 'st', 'lt'):
