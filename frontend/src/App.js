@@ -931,11 +931,16 @@ function App() {
         window.addEventListener('nav-privacy', handlePrivacy);
         window.addEventListener('nav-terms', handleTerms);
 
+        // Guest mode: "Sign Up Free" CTA from any component resets guest state → LandingPage
+        const handleOpenAuth = () => setIsGuest(false);
+        window.addEventListener('fymo:open-auth', handleOpenAuth);
+
         return () => {
             window.removeEventListener('continue-as-guest', handleGuest);
             window.removeEventListener('start-onboarding', handleStartOnboarding);
             window.removeEventListener('nav-privacy', handlePrivacy);
             window.removeEventListener('nav-terms', handleTerms);
+            window.removeEventListener('fymo:open-auth', handleOpenAuth);
         };
     }, []);
 

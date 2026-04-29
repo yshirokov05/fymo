@@ -9,8 +9,9 @@ Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask b
 - **Brand:** Fymo (`projectfymo.com`)
 - **Live URL:** https://personal-finance-app-18cbc.web.app (point `projectfymo.com` → Firebase Hosting)
 - **Firebase project:** `personal-finance-app-18cbc`
-- **Current version:** v1.4.0 (Production)
-- **Current phase:** Market Launch & User Engagement (Phase 6 Stripe complete)
+- **Current version:** v1.5.0 (Production)
+- **Current phase:** Market Launch & User Engagement (Phase 6 complete; demo-mode goal fix shipped)
+- **Codebase size:** 42 frontend JS files (~10,600 LOC) · 13 backend Python files (~5,400 LOC) · ~16,000 LOC total
 
 ## Feature Inventory
 

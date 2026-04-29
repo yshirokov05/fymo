@@ -398,7 +398,12 @@ const Goals = ({ currentUser, onGoalsCountChange }) => {
             setGoals(prev => [...prev, res.data.goal]);
             setShowForm(false);
         } catch (err) {
-            setError('Failed to create goal.');
+            if (err.response?.status === 401) {
+                setError('sign_up_required');
+                setShowForm(false);
+            } else {
+                setError('Failed to create goal.');
+            }
         }
     };
 
@@ -461,13 +466,34 @@ const Goals = ({ currentUser, onGoalsCountChange }) => {
                 </div>
             )}
 
-            {error && (
+            {error === 'sign_up_required' ? (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="flex items-start gap-3 flex-1">
+                        <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center shrink-0">
+                            <Target size={18} className="text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-blue-800 dark:text-blue-200">Create an account to save goals</p>
+                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">You're in demo mode. Sign up for free to track goals and get AI-powered guidance.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                            onClick={() => { setError(null); window.dispatchEvent(new CustomEvent('fymo:open-auth', { detail: { mode: 'signup' } })); }}
+                            className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            Sign Up Free
+                        </button>
+                        <button onClick={() => setError(null)} className="text-blue-400 hover:text-blue-600"><X size={16} /></button>
+                    </div>
+                </div>
+            ) : error ? (
                 <div className="flex items-center space-x-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 px-4 py-3 rounded-lg border border-red-200 dark:border-red-700/50">
                     <AlertCircle size={16} />
                     <span>{error}</span>
                     <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600"><X size={14} /></button>
                 </div>
-            )}
+            ) : null}
 
             {showForm && <NewGoalForm onSave={handleAdd} onCancel={() => setShowForm(false)} />}
 
