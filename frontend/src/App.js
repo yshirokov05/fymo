@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
+import RealizedGainsTable from './components/RealizedGainsTable';
 import Budgeting from './components/Budgeting';
 import Income from './components/Income';
 import Insurance from './components/Insurance';
@@ -702,10 +703,15 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 </div>
               </div>
             ) : (
-              <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
-                <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base mb-6">Total Asset Value: <span className="font-bold text-blue-600">${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0))}</span></p>
-                <Dashboard assets={assets} debts={[]} netWorth={0} hideSummary />
-              </div>
+              <>
+                <div className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                  <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base mb-6">Total Asset Value: <span className="font-bold text-blue-600">${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(assets.reduce((acc, a) => acc + (a.shares * (a.current_price || a.cost_basis/a.shares || 0)), 0))}</span></p>
+                  <Dashboard assets={assets} debts={[]} netWorth={0} hideSummary />
+                </div>
+                {investmentHistory?.realized_gains && (
+                  <RealizedGainsTable realizedGains={investmentHistory.realized_gains} />
+                )}
+              </>
             )}
           </div>
         );

@@ -718,6 +718,47 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     );
                                 })()}
 
+                                {/* Total profit summary — only shown for "All" period.
+                                    Combines unrealized + realized + dividends for an honest
+                                    "how much money has this portfolio made me" number.
+                                    The unrealized % alone is misleading for active traders. */}
+                                {isAllPeriod && allTimeRetDollar !== null && (() => {
+                                    const realizedAll = ih?.realized_gains?.total_realized || 0;
+                                    const dividendsAll = ih?.periods?.all?.dividends || 0;
+                                    const totalProfit = (allTimeRetDollar || 0) + realizedAll + dividendsAll;
+                                    const tpPos = totalProfit >= 0;
+                                    const components = [
+                                        { label: 'Unrealized', val: allTimeRetDollar || 0 },
+                                        { label: 'Realized', val: realizedAll },
+                                        { label: 'Dividends', val: dividendsAll },
+                                    ].filter(c => Math.abs(c.val) > 0.5);
+                                    const totalTooltip = `Total profit = unrealized gain on current holdings + realized gains from past sales + dividends received. Based on your full ${ih?.realized_gains?.earliest_txn_date ? `transaction history since ${ih.realized_gains.earliest_txn_date}` : '5-year transaction window'}.`;
+                                    return (
+                                        <div className="mt-4 pt-3 border-t border-white/10">
+                                            <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1">
+                                                Total Profit (All-Time)
+                                                <Info size={10} className="text-gray-500 cursor-help" title={totalTooltip} />
+                                            </p>
+                                            <p className={`text-xl font-bold ${tpPos ? 'text-green-500' : 'text-red-500'}`}>
+                                                {tpPos ? '+' : '-'}{fmt(Math.abs(totalProfit))}
+                                            </p>
+                                            {components.length > 1 && (
+                                                <p className="text-[11px] text-gray-500 mt-0.5">
+                                                    {components.map((c, idx) => (
+                                                        <span key={c.label}>
+                                                            {idx > 0 && <span className="mx-1.5 text-gray-600">·</span>}
+                                                            <span className="text-gray-400">{c.label}: </span>
+                                                            <span className={c.val >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                                                {c.val >= 0 ? '+' : '-'}{fmt(Math.abs(c.val))}
+                                                            </span>
+                                                        </span>
+                                                    ))}
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
                                 <div className="mt-3">
                                     <p className="text-xl font-semibold text-gray-300">{fmt(curVal)}</p>
                                     <p className="text-xs text-gray-500">Current Value</p>

@@ -79,6 +79,18 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ---
 
+### UX-14 — Portfolio Return: Per-ticker realized gains view + Total Profit summary ✅ ADDED (v1.5.0)
+**Severity:** FEATURE — Phase A.5 + Phase B of realized gains rollout
+**Implementation:**
+- New `RealizedGainsTable.js` component, surfaced on the Investments tab
+- Collapsible card showing total realized + ST/LT split + sell count
+- Per-ticker table sorted by absolute gain magnitude
+- Each ticker row expandable to show individual sells with date, shares, proceeds, cost basis, and ST/LT split
+- Unmatched sells flagged with asterisk + tooltip
+- Methodology note explains FIFO and 5y lookback limit
+
+**Phase B addition:** When "All" period is selected on the Dashboard's Portfolio Return card, an additional "Total Profit (All-Time)" line shows the combined unrealized + realized + dividends. This addresses the original concern that cost-basis-only "All-Time Unrealized" is misleading for active traders — the new line gives an honest "how much has this portfolio made me overall" dollar figure.
+
 ### UX-13 — Portfolio Return: Realized capital gains tracking ✅ ADDED (v1.5.0)
 **Severity:** FEATURE — fills a major gap in portfolio analytics
 **Reported:** User asking about long-term vs short-term gains, sale-of-stock income
