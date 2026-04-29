@@ -676,6 +676,48 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     );
                                 })()}
 
+                                {/* Realized capital gains for the selected period — FIFO-matched */}
+                                {(() => {
+                                    const rg = ih?.realized_gains;
+                                    if (!rg) return null;
+                                    const rgPeriod = rg.periods?.[prPeriod];
+                                    if (!rgPeriod || rgPeriod.count === 0) return null;
+                                    const rgTotal = rgPeriod.total || 0;
+                                    const rgPos = rgTotal >= 0;
+                                    const rgTooltip = `Realized gain/loss from ${rgPeriod.count} sell${rgPeriod.count !== 1 ? 's' : ''} during ${PERIOD_LABELS[prPeriod]}, computed via FIFO lot matching against your buy history. Short-term: held <1yr (taxed as ordinary income). Long-term: held ≥1yr (lower capital gains rates).${rg.unmatched_count > 0 ? ` Note: ${rg.unmatched_count} sell(s) couldn't be matched to a buy lot — likely transferred-in shares or pre-5y purchases.` : ''}`;
+                                    return (
+                                        <div className="mt-3 pt-3 border-t border-white/5">
+                                            <p className={`text-base font-bold ${rgPos ? 'text-green-500' : 'text-red-500'}`}>
+                                                {rgPos ? '+' : '-'}{fmt(Math.abs(rgTotal))}
+                                                <span className="text-xs font-normal text-gray-500 ml-1.5 inline-flex items-center gap-1">
+                                                    realized ({PERIOD_LABELS[prPeriod]})
+                                                    <Info size={10} className="text-gray-500 cursor-help" title={rgTooltip} />
+                                                </span>
+                                            </p>
+                                            {(rgPeriod.st !== 0 || rgPeriod.lt !== 0) && (
+                                                <p className="text-xs text-gray-500 mt-0.5">
+                                                    {rgPeriod.lt !== 0 && (
+                                                        <span className="mr-3">
+                                                            <span className="text-gray-400">LT:</span>{' '}
+                                                            <span className={rgPeriod.lt >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                                                {rgPeriod.lt >= 0 ? '+' : '-'}{fmt(Math.abs(rgPeriod.lt))}
+                                                            </span>
+                                                        </span>
+                                                    )}
+                                                    {rgPeriod.st !== 0 && (
+                                                        <span>
+                                                            <span className="text-gray-400">ST:</span>{' '}
+                                                            <span className={rgPeriod.st >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                                                {rgPeriod.st >= 0 ? '+' : '-'}{fmt(Math.abs(rgPeriod.st))}
+                                                            </span>
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
                                 <div className="mt-3">
                                     <p className="text-xl font-semibold text-gray-300">{fmt(curVal)}</p>
                                     <p className="text-xs text-gray-500">Current Value</p>

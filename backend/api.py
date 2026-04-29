@@ -954,6 +954,17 @@ def plaid_sync():
             'period_returns': {},
             # Accumulator for value-weighted period returns across institutions
             '_pr_accum': {},  # {pk: {'sum': Σ(ret×mv), 'wt': Σmv}}
+            'realized_gains': {
+                'total_realized': 0.0,
+                'total_st': 0.0,
+                'total_lt': 0.0,
+                'periods': {p: {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0} for p in PERIOD_KEYS},
+                'by_ticker': {},
+                'unmatched_proceeds': 0.0,
+                'unmatched_count': 0,
+                'sell_count': 0,
+                'earliest_txn_date': None,
+            },
         }
         active_plaid_items = [pi for pi in plaid_items if pi.access_token]
         if not active_plaid_items:
@@ -1006,6 +1017,34 @@ def plaid_sync():
                             accum = combined_investment_history['_pr_accum'].setdefault(_pk, {'sum': 0.0, 'wt': 0.0})
                             accum['sum'] += _ret * inst_mv
                             accum['wt'] += inst_mv
+                    # Merge realized gains across institutions (additive — they don't overlap)
+                    inst_rg = inv_history.get('realized_gains') or {}
+                    if inst_rg:
+                        crg = combined_investment_history['realized_gains']
+                        crg['total_realized'] += inst_rg.get('total_realized', 0)
+                        crg['total_st'] += inst_rg.get('total_st', 0)
+                        crg['total_lt'] += inst_rg.get('total_lt', 0)
+                        crg['unmatched_proceeds'] += inst_rg.get('unmatched_proceeds', 0)
+                        crg['unmatched_count'] += inst_rg.get('unmatched_count', 0)
+                        crg['sell_count'] += inst_rg.get('sell_count', 0)
+                        # Earliest date across institutions
+                        inst_earliest = inst_rg.get('earliest_txn_date')
+                        if inst_earliest and (not crg['earliest_txn_date'] or inst_earliest < crg['earliest_txn_date']):
+                            crg['earliest_txn_date'] = inst_earliest
+                        # Period totals additive
+                        for _pk, _pdata in (inst_rg.get('periods') or {}).items():
+                            cp = crg['periods'].setdefault(_pk, {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0})
+                            for _k in ('total', 'st', 'lt', 'count'):
+                                cp[_k] += _pdata.get(_k, 0)
+                        # Per-ticker: merge by ticker. If same ticker held at two institutions,
+                        # gains aggregate. Sells lists concatenate (then sorted/truncated below).
+                        for _tk, _tdata in (inst_rg.get('by_ticker') or {}).items():
+                            ct = crg['by_ticker'].setdefault(_tk, {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0, 'sells': []})
+                            ct['total'] += _tdata.get('total', 0)
+                            ct['st'] += _tdata.get('st', 0)
+                            ct['lt'] += _tdata.get('lt', 0)
+                            ct['count'] += _tdata.get('count', 0)
+                            ct['sells'].extend(_tdata.get('sells', []))
                     pi.last_sync = datetime.now().isoformat()
                     logging.info(f"Successfully synced institution {pi.institution_name}")
                 except Exception as e:
@@ -1016,6 +1055,21 @@ def plaid_sync():
         for _pk, _a in _accum.items():
             if _a['wt'] > 0:
                 combined_investment_history['period_returns'][_pk] = round(_a['sum'] / _a['wt'], 2)
+
+        # Round + trim merged realized gains
+        _crg = combined_investment_history.get('realized_gains') or {}
+        if _crg:
+            for _k in ('total_realized', 'total_st', 'total_lt', 'unmatched_proceeds'):
+                _crg[_k] = round(_crg.get(_k, 0), 2)
+            for _pk, _pd in _crg.get('periods', {}).items():
+                for _kk in ('total', 'st', 'lt'):
+                    _pd[_kk] = round(_pd.get(_kk, 0), 2)
+            # Trim and round per-ticker
+            for _tk, _td in _crg.get('by_ticker', {}).items():
+                for _kk in ('total', 'st', 'lt'):
+                    _td[_kk] = round(_td.get(_kk, 0), 2)
+                _td['sells'].sort(key=lambda s: s.get('date', ''), reverse=True)
+                _td['sells'] = _td['sells'][:50]
 
         # ── Snapshot-based period return fallback ─────────────────────────────
         # The ticker-based fallback fails when holdings are mutual funds / ETFs

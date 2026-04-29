@@ -79,6 +79,27 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ---
 
+### UX-13 — Portfolio Return: Realized capital gains tracking ✅ ADDED (v1.5.0)
+**Severity:** FEATURE — fills a major gap in portfolio analytics
+**Reported:** User asking about long-term vs short-term gains, sale-of-stock income
+**Problem:** Plaid's `cost_basis` field on holdings only reflects current positions and gets distorted by lot consolidation and dividend reinvestment. We had no way to see actual realized gains on past sales, no ST/LT split, and no per-ticker realized history.
+
+**Implementation:**
+- New `backend/realized_gains_service.py` — pure FIFO lot matcher
+- Walks the same 5y Plaid transaction ledger; for each sell, pops oldest matching buy lots
+- Classifies each lot: held ≥365 days = long-term, else short-term
+- Tracks unmatched sells (transferred-in shares or pre-5y purchases) separately
+- Hooked into `plaid_service.sync_plaid_data` → returned in `inv_history.realized_gains`
+- Aggregated across multiple Plaid items in `api.py` plaid_sync merge step
+- Persisted via existing `investment_history` Firestore write path
+
+**Display:** Below the "net activity" line on the Portfolio Return card, shows:
+- Total realized $ for selected period (color-coded gain/loss)
+- ST and LT breakdown when both nonzero
+- Tooltip explaining FIFO methodology and unmatched-sell caveats
+
+Tested with 6 scenarios: simple LT gain, ST loss, partial match (sell > buy), multi-lot FIFO ordering, empty input, cash-like ticker filtering.
+
 ### UX-12 — Portfolio Return: Period selector silently fell back to All-Time + ignored cash flows ✅ FIXED (v1.5.0)
 **Severity:** HIGH — misleading data on a primary dashboard metric
 **Reported:** User testing 2026-04-28

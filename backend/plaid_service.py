@@ -987,6 +987,17 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                 for _acc_data in by_account.values():
                     _acc_data['total_cost_basis'] = 0.0
 
+        # ── Realized capital gains via FIFO lot matching ─────────────────────
+        # Walks the same 5y transaction ledger to compute per-period realized gains,
+        # ST vs LT classification, and per-ticker breakdown.
+        try:
+            from realized_gains_service import compute_realized_gains
+            realized_gains = compute_realized_gains(inv_txns, inv_sec_map)
+        except Exception as _rg_e:
+            logging.warning(f"Realized gains computation failed for {user_id}: {_rg_e}")
+            from realized_gains_service import empty_realized_gains
+            realized_gains = empty_realized_gains()
+
         investment_history = {
             'current_value': round(total_current_value, 2),
             'total_cost_basis': round(total_cost_basis_from_holdings, 2),
@@ -998,6 +1009,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             'benchmarks': benchmarks,
             'period_returns': period_returns,
             'basis_sanity_flag': basis_sanity_flag,
+            'realized_gains': realized_gains,
         }
         logging.info(f"Investment history for {user_id}: txns={len(inv_txns)}, accounts={len(by_account)}, periods={list(periods.keys())}")
 
