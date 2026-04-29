@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict
+from dataclasses import dataclass, field
 from firebase_admin import credentials, firestore
 from models import User, Income, Asset, Debt, FilingStatus, USState, IncomeType, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency, HourlyType, PlaidItem, Budget, Transaction, Paystub, CustomRule, TaxTreatment, DebtType, CheckStatus, OutstandingCheck
 import logging
@@ -7,6 +8,63 @@ import os
 import firebase_admin
 from cryptography.fernet import Fernet
 import uuid
+
+
+@dataclass
+class UserData:
+    """
+    Container for a user's full financial state loaded from Firestore.
+
+    Backwards-compatible with the legacy 15-tuple unpacking pattern via __iter__,
+    so existing call sites like:
+        user, incomes, assets, debts, ... = get_user_data(uid)
+    continue to work unchanged.
+
+    New code should prefer attribute access:
+        ud = get_user_data(uid)
+        ud.assets, ud.debts, ud.transactions
+
+    FIELD ORDER IS LOAD-BEARING — the legacy tuple unpacking depends on it.
+    Do NOT reorder fields. Add new fields at the END only.
+    """
+    user: object = None
+    incomes: list = field(default_factory=list)
+    assets: list = field(default_factory=list)
+    debts: list = field(default_factory=list)
+    retirement_accounts: list = field(default_factory=list)
+    insurances: list = field(default_factory=list)
+    plaid_items: list = field(default_factory=list)
+    budgets: list = field(default_factory=list)
+    transactions: list = field(default_factory=list)
+    paystubs: list = field(default_factory=list)
+    custom_rules: list = field(default_factory=list)
+    has_completed_onboarding: bool = False
+    custom_categories: list = field(default_factory=list)
+    outstanding_checks: list = field(default_factory=list)
+    ignored_flexible: list = field(default_factory=list)
+
+    # Tuple of (attribute names) in legacy unpacking order — single source of truth.
+    _LEGACY_ORDER = (
+        'user', 'incomes', 'assets', 'debts', 'retirement_accounts', 'insurances',
+        'plaid_items', 'budgets', 'transactions', 'paystubs', 'custom_rules',
+        'has_completed_onboarding', 'custom_categories', 'outstanding_checks', 'ignored_flexible',
+    )
+
+    def __iter__(self):
+        # Enables: user, incomes, assets, ... = get_user_data(uid)
+        # Yields ATTRIBUTE REFERENCES (not copies), so callers can mutate lists in place.
+        return (getattr(self, name) for name in self._LEGACY_ORDER)
+
+    def __len__(self):
+        return len(self._LEGACY_ORDER)
+
+    def __getitem__(self, idx):
+        return getattr(self, self._LEGACY_ORDER[idx])
+
+
+def _empty_user_data():
+    """Default UserData instance for missing/error cases."""
+    return UserData(user=User(filing_status=FilingStatus.SINGLE, state=USState.CA))
 
 # SEC-2: Encryption for Plaid tokens at rest
 # In production, set FERNET_KEY in your environment/Secret Manager
@@ -79,17 +137,23 @@ def safe_enum(enum_class, value, default):
         return default
 
 def get_user_data(user_id="default_user", fields=None):
-    """Fetches user financial state with robust error handling and subcollection support."""
+    """
+    Fetches user financial state with robust error handling and subcollection support.
+
+    Returns a UserData dataclass instance. Supports legacy tuple unpacking via __iter__:
+        user, incomes, assets, debts, ... = get_user_data(uid)  # still works
+        ud = get_user_data(uid); ud.assets                       # preferred for new code
+    """
     db = get_db()
     if db is None:
-        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
-    
+        return _empty_user_data()
+
     user_ref = db.collection('users').document(user_id)
     doc = user_ref.get()
-    
+
     if not doc.exists:
         logging.info(f"User document {user_id} not found.")
-        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
+        return _empty_user_data()
     
     data = doc.to_dict()
     
@@ -235,9 +299,25 @@ def get_user_data(user_id="default_user", fields=None):
                 outstanding_checks.append(OutstandingCheck(id=doc.id, user_id=user_id, amount=c['amount'], payee=c['payee'], date_written=c['date_written'], status=safe_enum(CheckStatus, c.get('status'), CheckStatus.PENDING), plaid_transaction_id=c.get('plaid_transaction_id')))
         outstanding_checks.sort(key=lambda c: c.date_written, reverse=True)
         
-    return user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, user.has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible
+    return UserData(
+        user=user,
+        incomes=incomes,
+        assets=assets,
+        debts=debts,
+        retirement_accounts=retirement_accounts,
+        insurances=insurances,
+        plaid_items=plaid_items,
+        budgets=budgets,
+        transactions=transactions,
+        paystubs=paystubs,
+        custom_rules=custom_rules,
+        has_completed_onboarding=user.has_completed_onboarding,
+        custom_categories=custom_categories,
+        outstanding_checks=outstanding_checks,
+        ignored_flexible=ignored_flexible,
+    )
 
-def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, 
+def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances,
                    plaid_items=None, budgets=None, transactions=None, paystubs=None, custom_rules=None, 
                    has_completed_onboarding=None, custom_categories=None, outstanding_checks=None, 
                    ignored_flexible=None, user_id="default_user"):
@@ -609,13 +689,29 @@ def get_user_summary_for_brief(user_id):
         paystubs = []
         custom_rules = []
 
-        return user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible
+        return UserData(
+            user=user,
+            incomes=incomes,
+            assets=assets,
+            debts=debts,
+            retirement_accounts=retirement_accounts,
+            insurances=insurances,
+            plaid_items=plaid_items,
+            budgets=budgets,
+            transactions=transactions,
+            paystubs=paystubs,
+            custom_rules=custom_rules,
+            has_completed_onboarding=has_completed_onboarding,
+            custom_categories=custom_categories,
+            outstanding_checks=outstanding_checks,
+            ignored_flexible=ignored_flexible,
+        )
 
     except Exception as e:
         import traceback
         logging.error(f"Failed to fetch user summary for brief: {e}")
         logging.error(traceback.format_exc())
-        return User(filing_status=FilingStatus.SINGLE, state=USState.CA), [], [], [], [], [], [], [], [], [], [], False, [], [], []
+        return _empty_user_data()
 
 def update_user_fields(user_id, fields_dict):
     """

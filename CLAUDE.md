@@ -42,7 +42,7 @@ Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask b
 |------|------|
 | `frontend/src/App.js` | Top-level state manager. Controls `activeView`, fetches `/api/net_worth`, handles auth. ~1200 lines. |
 | `backend/api.py` | All Flask routes (~45 endpoints). ~1900 lines. |
-| `backend/firestore_db.py` | All Firestore reads/writes + Fernet encryption for Plaid tokens. |
+| `backend/firestore_db.py` | All Firestore reads/writes + Fernet encryption for Plaid tokens. Defines `UserData` dataclass — `get_user_data()` returns this; supports both legacy tuple unpacking and named attribute access. |
 | `backend/models.py` | Enums and dataclasses (AssetType, FilingStatus, IncomeType, etc.). |
 | `backend/calculations.py` | `calculate_net_worth()` — tax engine bridge, income aggregation. Net-primary paystubs excluded from gross. |
 | `backend/tax_logic.py` | 50-state tax engine. Federal + state + FICA for 2025/2026. |
@@ -79,6 +79,9 @@ User data is split between the main `/users/{uid}` document and subcollections t
 
 ### 1. Shadow Data Verification
 Any change to `models.py` or `firestore_db.py` requires checking `App.js` `handleSave()` and `fetchData()` to ensure frontend/backend mapping still works. These break silently.
+
+### 1a. UserData Field Order
+`UserData._LEGACY_ORDER` in `firestore_db.py` is the source of truth for tuple-unpacking compatibility. **Never reorder fields** — every call site that does `user, incomes, assets, ... = get_user_data(uid)` depends on the position. Add new fields at the end of both `_LEGACY_ORDER` and the dataclass fields, in the same order. New code should prefer attribute access (`ud.assets`).
 
 ### 2. CSS Convention
 Use CSS variables from `index.css` first. Only use Tailwind classes if no variable exists. Never inline styles.
