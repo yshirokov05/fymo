@@ -1046,12 +1046,20 @@ def plaid_sync():
                         # Per-ticker: merge by ticker. If same ticker held at two institutions,
                         # gains aggregate. Sells lists concatenate (then sorted/truncated below).
                         for _tk, _tdata in (inst_rg.get('by_ticker') or {}).items():
-                            ct = crg['by_ticker'].setdefault(_tk, {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0, 'sells': []})
+                            ct = crg['by_ticker'].setdefault(_tk, {
+                                'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0, 'sells': [],
+                                'is_option': False, 'underlying': None,
+                            })
                             ct['total'] += _tdata.get('total', 0)
                             ct['st'] += _tdata.get('st', 0)
                             ct['lt'] += _tdata.get('lt', 0)
                             ct['count'] += _tdata.get('count', 0)
                             ct['sells'].extend(_tdata.get('sells', []))
+                            # Propagate ticker-intrinsic flags (these are determined by the
+                            # ticker symbol itself, not aggregated). Always overwrite to ensure
+                            # they propagate even if the ticker dict was created via setdefault.
+                            ct['is_option'] = _tdata.get('is_option', False)
+                            ct['underlying'] = _tdata.get('underlying')
                     pi.last_sync = datetime.now().isoformat()
                     logging.info(f"Successfully synced institution {pi.institution_name}")
                 except Exception as e:

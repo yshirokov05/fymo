@@ -12,13 +12,27 @@ const RealizedGainsTable = ({ realizedGains }) => {
     const [expanded, setExpanded] = useState(false);
     const [expandedTicker, setExpandedTicker] = useState(null);
 
+    // OCC option symbol regex: SYMBOL (1-6 chars) + YYMMDD + C/P + STRIKE (8 digits)
+    // Used as a defensive client-side fallback in case backend hasn't tagged
+    // is_option (e.g. data persisted before the option-detection backend deploy).
+    const OPTION_RE = /^[A-Z]{1,6}\d{6}[CP]\d{8}$/;
+    const inferIsOption = (t) => t.is_option || OPTION_RE.test(t.ticker || '');
+    const inferUnderlying = (t) => t.underlying || (OPTION_RE.test(t.ticker || '') ? t.ticker.slice(0, t.ticker.length - 15) : null);
+
     const { stockTickers, optionTickers } = useMemo(() => {
         if (!realizedGains?.by_ticker) return { stockTickers: [], optionTickers: [] };
         const all = Object.entries(realizedGains.by_ticker)
-            .map(([ticker, data]) => ({ ticker, ...data }));
+            .map(([ticker, data]) => {
+                const enriched = { ticker, ...data };
+                // Backfill missing flags from ticker pattern if backend didn't set them
+                enriched.is_option = inferIsOption(enriched);
+                enriched.underlying = inferUnderlying(enriched);
+                return enriched;
+            });
         const stocks = all.filter(t => !t.is_option).sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
         const options = all.filter(t => t.is_option).sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
         return { stockTickers: stocks, optionTickers: options };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [realizedGains]);
 
     const [optionsExpanded, setOptionsExpanded] = useState(false);
@@ -43,10 +57,15 @@ const RealizedGainsTable = ({ realizedGains }) => {
     const sellCount = realizedGains.sell_count || 0;
     const unmatchedCount = realizedGains.unmatched_count || 0;
     const earliest = realizedGains.earliest_txn_date;
-    const stockTotal = realizedGains.stock_total || 0;
-    const optionsTotal = realizedGains.options_total || 0;
-    const optionsCount = realizedGains.options_count || 0;
-    const optionsTickerCount = realizedGains.options_ticker_count || 0;
+    // Aggregate fallbacks: if the backend aggregate fields are missing (e.g. stale
+    // persisted data from before the option-detection deploy), derive them from
+    // the filtered ticker lists so the UI still segregates correctly.
+    const stockTotal = realizedGains.stock_total ?? stockTickers.reduce((s, t) => s + (t.total || 0), 0);
+    const optionsTotal = realizedGains.options_total ?? optionTickers.reduce((s, t) => s + (t.total || 0), 0);
+    const optionsST = realizedGains.options_st ?? optionTickers.reduce((s, t) => s + (t.st || 0), 0);
+    const optionsLT = realizedGains.options_lt ?? optionTickers.reduce((s, t) => s + (t.lt || 0), 0);
+    const optionsCount = realizedGains.options_count || optionTickers.reduce((s, t) => s + (t.count || 0), 0);
+    const optionsTickerCount = optionTickers.length;  // Always derive from filtered list
     const hasOptions = optionsTickerCount > 0;
 
     return (
@@ -140,13 +159,13 @@ const RealizedGainsTable = ({ realizedGains }) => {
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{optionsCount}</td>
                                             <td className="px-4 py-3 text-right">
-                                                {realizedGains.options_lt !== 0 ? (
-                                                    <span className={`font-semibold ${realizedGains.options_lt >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmt(realizedGains.options_lt)}</span>
+                                                {optionsLT !== 0 ? (
+                                                    <span className={`font-semibold ${optionsLT >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmt(optionsLT)}</span>
                                                 ) : <span className="text-gray-300 dark:text-slate-600">—</span>}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                {realizedGains.options_st !== 0 ? (
-                                                    <span className={`font-semibold ${realizedGains.options_st >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmt(realizedGains.options_st)}</span>
+                                                {optionsST !== 0 ? (
+                                                    <span className={`font-semibold ${optionsST >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{fmt(optionsST)}</span>
                                                 ) : <span className="text-gray-300 dark:text-slate-600">—</span>}
                                             </td>
                                             <td className="px-4 sm:px-6 py-3 text-right">
