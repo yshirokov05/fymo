@@ -34,6 +34,11 @@ const TaxCalculator = ({
     estimatedFederalTax,
     estimatedStateTax,
     estimatedFicaTax,
+    estimatedFedLtcgTax = 0,
+    estimatedFedOrdinaryTax = 0,
+    realizedStGains = 0,
+    realizedLtGains = 0,
+    realizedSellCount = 0,
     totalIncome,
     totalWithheldFromPaystubs,
     netPaystubWarning = false,
@@ -217,12 +222,56 @@ const TaxCalculator = ({
                         <p className="text-2xl font-black text-gray-900">${((totalWithheldFromPaystubs || 0) + taxesWithheld).toLocaleString()}</p>
                     </div>
                 </div>
+                {/* Realized capital gains breakdown — Phase C */}
+                {realizedSellCount > 0 && (realizedStGains !== 0 || realizedLtGains !== 0) && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">
+                            Realized Capital Gains Included ({realizedSellCount} sell{realizedSellCount !== 1 ? 's' : ''})
+                        </p>
+                        {realizedStGains !== 0 && (
+                            <div className="flex justify-between text-sm text-gray-700">
+                                <span>Short-term (taxed as ordinary income)</span>
+                                <span className={`font-semibold ${realizedStGains >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    {realizedStGains >= 0 ? '+' : '-'}${Math.abs(realizedStGains).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                        )}
+                        {realizedLtGains !== 0 && (
+                            <div className="flex justify-between text-sm text-gray-700">
+                                <span>Long-term (preferential 0/15/20% rates)</span>
+                                <span className={`font-semibold ${realizedLtGains >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    {realizedLtGains >= 0 ? '+' : '-'}${Math.abs(realizedLtGains).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                        )}
+                        <p className="text-[11px] text-blue-600 mt-2">
+                            Computed via FIFO lot matching across all your linked brokerages.
+                        </p>
+                    </div>
+                )}
                 <p className="text-sm text-gray-600 mb-2">Detailed Breakdown:</p>
                 <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-700">Estimated Federal Tax:</span>
-                        <span className="font-bold text-red-600">${estimatedFederalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
+                    {estimatedFedLtcgTax > 0 ? (
+                        <>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-700 pl-4">Federal — Ordinary Income:</span>
+                                <span className="font-semibold text-red-600">${estimatedFedOrdinaryTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-700 pl-4">Federal — Long-Term Cap Gains:</span>
+                                <span className="font-semibold text-red-600">${estimatedFedLtcgTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="font-semibold text-gray-800">Federal Total:</span>
+                                <span className="font-bold text-red-600">${estimatedFederalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-700">Estimated Federal Tax:</span>
+                            <span className="font-bold text-red-600">${estimatedFederalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    )}
                     <div className="flex justify-between items-center">
                         <span className="text-gray-700">Estimated State Tax:</span>
                         <span className="font-bold text-red-600">${estimatedStateTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

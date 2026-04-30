@@ -108,7 +108,7 @@ const TaxDocumentUpload = ({ onUploadSuccess, docType = 'tax' }) => {
                 </div>
             )}
             <p className="mt-2 text-[10px] text-gray-400 text-center italic">
-                Privacy Notice: Documents are processed securely via Gemini API. We do not store your original files or PII beyond the extracted fields.
+                Privacy Notice: Documents are sent to Google Gemini for one-shot OCR/extraction only — we keep the extracted fields, not the file. (Note: AI financial guidance elsewhere in Fymo uses Anthropic Claude; only document extraction uses Gemini.)
             </p>
         </div>
     );

@@ -835,6 +835,11 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     estimatedFederalTax={taxLiability.federal}
                     estimatedStateTax={taxLiability.state}
                     estimatedFicaTax={taxLiability.fica}
+                    estimatedFedLtcgTax={taxLiability.fed_ltcg_tax}
+                    estimatedFedOrdinaryTax={taxLiability.fed_ordinary_tax}
+                    realizedStGains={taxLiability.realized_st_gains}
+                    realizedLtGains={taxLiability.realized_lt_gains}
+                    realizedSellCount={taxLiability.realized_sell_count}
                     totalWithheldFromPaystubs={taxLiability.withheld}
                     netPaystubWarning={hasNetPaystubsWithNoWithholding}
                     totalIncome={totalAnnualIncome}
