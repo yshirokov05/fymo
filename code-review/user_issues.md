@@ -79,6 +79,38 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ---
 
+### UX-15 — Tax Projection: Capital gains integration (Phase C+D) ✅ ADDED (v1.5.0)
+**Severity:** FEATURE — closes the realized gains feature loop into actual tax math
+**Implementation:**
+
+Phase C — Tax engine integration:
+- Added LTCG_BRACKETS to `tax_logic.py` (2025 IRS published, 2026 inflation-estimated)
+- Added `calculate_ltcg_tax(ltcg, ordinary_taxable_income, filing_status, year)` — handles bracket-stacking correctly when LTCG straddles the 0/15/20% boundaries. 6 unit-tested scenarios.
+- `calculations.py`: pulls realized_gains from `user.investment_history`, computes per-calendar-year ST/LT split via `_realized_gains_for_year()` helper
+- ST gains added to ordinary income (federal), LT gains taxed separately at preferential rates
+- State tax: ST + LT both taxed as ordinary income (CA + most states)
+- Backwards-compatible: zero realized data → zero impact on tax estimate
+
+Phase C frontend — Tax Projection card:
+- Show Math panel now displays realized gains as ordinary-income additions
+- Federal tax row splits into "Federal (ordinary income)" + "Federal (long-term cap gains)" when LTCG > 0
+- Formula text adapts to mention LTCG when applicable
+
+Phase D — Income tab:
+- New "Realized Gains" card appears in the YTD summary row when realized data exists
+- Shows total + LT/ST split, color-coded
+- Added to `totalIncomeYTD` aggregate
+
+Backend additions (realized_gains_service.py):
+- New `by_year` per-calendar-year aggregation alongside the existing periods (ytd/1y/etc)
+- More accurate for tax-year breakdown (vs trailing-window periods)
+- Aggregated across institutions in `api.py` plaid_sync merge
+
+Known limitations:
+- Net Investment Income Tax (NIIT 3.8% above thresholds) not yet applied
+- Capital loss carryforward ($3k/yr against ordinary income) not modeled
+- Wash-sale rule detection not implemented
+
 ### UX-14 — Portfolio Return: Per-ticker realized gains view + Total Profit summary ✅ ADDED (v1.5.0)
 **Severity:** FEATURE — Phase A.5 + Phase B of realized gains rollout
 **Implementation:**

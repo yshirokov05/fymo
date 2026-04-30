@@ -246,6 +246,89 @@ for year in STATE_TAX_BRACKETS:
     STATE_TAX_BRACKETS[year]['CA']['married_filing_separately'] = STATE_TAX_BRACKETS[year]['CA']['single']
     STATE_TAX_BRACKETS[year]['CA']['qualifying_widow'] = STATE_TAX_BRACKETS[year]['CA']['married_filing_jointly']
 
+# ─── Federal Long-Term Capital Gains Brackets ────────────────────────────────
+# LTCG rates are 0%, 15%, or 20% depending on TOTAL TAXABLE INCOME (ordinary + LTCG).
+# Format: 'zero_top' = upper bound of 0% bracket, 'fifteen_top' = upper bound of 15%.
+# Above fifteen_top → 20%.
+# 2025 IRS-published thresholds; 2026 estimated via ~2.6% inflation adjustment.
+LTCG_BRACKETS = {
+    2025: {
+        'single':                    {'zero_top': 48350,  'fifteen_top': 533400},
+        'married_filing_jointly':    {'zero_top': 96700,  'fifteen_top': 600050},
+        'married_filing_separately': {'zero_top': 48350,  'fifteen_top': 300000},
+        'head_of_household':         {'zero_top': 64750,  'fifteen_top': 566700},
+        'qualifying_widow':          {'zero_top': 96700,  'fifteen_top': 600050},
+    },
+    2026: {
+        'single':                    {'zero_top': 49600,  'fifteen_top': 547300},
+        'married_filing_jointly':    {'zero_top': 99200,  'fifteen_top': 615650},
+        'married_filing_separately': {'zero_top': 49600,  'fifteen_top': 307800},
+        'head_of_household':         {'zero_top': 66400,  'fifteen_top': 581400},
+        'qualifying_widow':          {'zero_top': 99200,  'fifteen_top': 615650},
+    },
+}
+
+
+def calculate_ltcg_tax(ltcg_amount, ordinary_taxable_income, filing_status='single', year=2026):
+    """
+    Compute federal long-term capital gains tax.
+
+    LTCG is "stacked" on top of ordinary taxable income — the bracket the LTCG
+    falls into depends on the user's total taxable income (ordinary + LTCG).
+    Gains can span multiple brackets.
+
+    Args:
+        ltcg_amount: dollars of long-term capital gains (already netted with LT losses)
+        ordinary_taxable_income: ordinary taxable income AFTER deductions (excludes LTCG)
+        filing_status: 'single', 'married_filing_jointly', etc.
+        year: 2025 or 2026
+
+    Returns:
+        Federal LTCG tax owed (float). Negative ltcg_amount returns 0
+        (LT capital losses don't generate negative tax — they offset ordinary
+        income up to $3k/year, but that flows through reductions to
+        ordinary_taxable_income at a higher level).
+    """
+    if ltcg_amount <= 0:
+        return 0
+
+    year_brackets = LTCG_BRACKETS.get(year, LTCG_BRACKETS[2026])
+    if filing_status not in year_brackets:
+        b = year_brackets['single']
+    else:
+        b = year_brackets[filing_status]
+
+    # LTCG occupies the income range from ordinary_taxable_income to ordinary+ltcg
+    bottom = max(0, ordinary_taxable_income)
+    top = bottom + ltcg_amount
+
+    tax = 0.0
+
+    # 0% bracket: income up to zero_top is untaxed
+    zero_top = b['zero_top']
+    if top > zero_top and bottom < zero_top:
+        # Some LTCG falls in 0% bracket — no tax on that portion
+        bottom = zero_top
+    elif top <= zero_top:
+        # All LTCG in 0% bracket
+        return 0
+
+    # 15% bracket: between zero_top and fifteen_top
+    fifteen_top = b['fifteen_top']
+    if top > fifteen_top and bottom < fifteen_top:
+        tax += (fifteen_top - bottom) * 0.15
+        bottom = fifteen_top
+    elif top <= fifteen_top:
+        tax += (top - bottom) * 0.15
+        return tax
+
+    # 20% bracket: anything above fifteen_top
+    if top > bottom:
+        tax += (top - bottom) * 0.20
+
+    return tax
+
+
 def calculate_federal_tax(income, filing_status='single', year=2026):
     """
     Calculates the federal tax for a given income, filing status, and year.

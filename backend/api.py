@@ -959,6 +959,7 @@ def plaid_sync():
                 'total_st': 0.0,
                 'total_lt': 0.0,
                 'periods': {p: {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0} for p in PERIOD_KEYS},
+                'by_year': {},
                 'by_ticker': {},
                 'unmatched_proceeds': 0.0,
                 'unmatched_count': 0,
@@ -1034,6 +1035,13 @@ def plaid_sync():
                                     'options_total', 'options_st', 'options_lt', 'options_count',
                                     'options_ticker_count'):
                             crg[_sk] = (crg.get(_sk, 0) or 0) + (inst_rg.get(_sk, 0) or 0)
+                        # Merge per-calendar-year aggregates (additive)
+                        if 'by_year' not in crg:
+                            crg['by_year'] = {}
+                        for _yr, _ydata in (inst_rg.get('by_year') or {}).items():
+                            cy = crg['by_year'].setdefault(_yr, {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0})
+                            for _yk in ('total', 'st', 'lt', 'count'):
+                                cy[_yk] += _ydata.get(_yk, 0)
                         # Earliest date across institutions
                         inst_earliest = inst_rg.get('earliest_txn_date')
                         if inst_earliest and (not crg['earliest_txn_date'] or inst_earliest < crg['earliest_txn_date']):
@@ -1081,6 +1089,9 @@ def plaid_sync():
             for _pk, _pd in _crg.get('periods', {}).items():
                 for _kk in ('total', 'st', 'lt'):
                     _pd[_kk] = round(_pd.get(_kk, 0), 2)
+            for _yr, _yd in _crg.get('by_year', {}).items():
+                for _kk in ('total', 'st', 'lt'):
+                    _yd[_kk] = round(_yd.get(_kk, 0), 2)
             # Trim and round per-ticker
             for _tk, _td in _crg.get('by_ticker', {}).items():
                 for _kk in ('total', 'st', 'lt'):

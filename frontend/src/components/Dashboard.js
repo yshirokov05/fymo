@@ -245,11 +245,53 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const taxBreakdownRows = (() => {
         if (!taxLiability || taxLiability.has_net_only_income) return [];
         const rows = [];
-        if (taxLiability.federal) rows.push({ label: 'Federal', value: `$${taxLiability.federal.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true });
-        if (taxLiability.state) rows.push({ label: 'State', value: `$${taxLiability.state.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true });
-        if (taxLiability.fica) rows.push({ label: 'FICA (SS + Medicare)', value: `$${taxLiability.fica.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true });
-        if (taxLiability.withheld) rows.push({ label: 'Already withheld', value: `-$${taxLiability.withheld.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, indent: true, muted: true });
-        rows.push({ divider: true, label: 'Total liability', value: `$${(taxLiability.total || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` });
+        const fmtMoney = (n) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+        // Realized capital gains (Phase C) — show contributions before tax breakdown
+        const stG = taxLiability.realized_st_gains || 0;
+        const ltG = taxLiability.realized_lt_gains || 0;
+        const sellCount = taxLiability.realized_sell_count || 0;
+        if (sellCount > 0 && (stG !== 0 || ltG !== 0)) {
+            if (stG !== 0) {
+                rows.push({
+                    label: 'ST capital gains (taxed as ordinary income)',
+                    value: fmtMoney(stG),
+                    indent: true,
+                    muted: true,
+                });
+            }
+            if (ltG !== 0) {
+                rows.push({
+                    label: 'LT capital gains (preferential rates)',
+                    value: fmtMoney(ltG),
+                    indent: true,
+                    muted: true,
+                });
+            }
+        }
+
+        if (taxLiability.federal) {
+            // Show LTCG breakdown when present
+            const ltcgTax = taxLiability.fed_ltcg_tax || 0;
+            if (ltcgTax > 0) {
+                rows.push({
+                    label: 'Federal (ordinary income)',
+                    value: fmtMoney(taxLiability.fed_ordinary_tax || 0),
+                    indent: true,
+                });
+                rows.push({
+                    label: 'Federal (long-term cap gains)',
+                    value: fmtMoney(ltcgTax),
+                    indent: true,
+                });
+            } else {
+                rows.push({ label: 'Federal', value: fmtMoney(taxLiability.federal), indent: true });
+            }
+        }
+        if (taxLiability.state) rows.push({ label: 'State', value: fmtMoney(taxLiability.state), indent: true });
+        if (taxLiability.fica) rows.push({ label: 'FICA (SS + Medicare)', value: fmtMoney(taxLiability.fica), indent: true });
+        if (taxLiability.withheld) rows.push({ label: 'Already withheld', value: `-${fmtMoney(taxLiability.withheld)}`, indent: true, muted: true });
+        rows.push({ divider: true, label: 'Total liability', value: fmtMoney(taxLiability.total || 0) });
         return rows;
     })();
 
@@ -395,7 +437,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         {taxBreakdownRows.length > 0 && (
                             <ShowMath
                                 rows={taxBreakdownRows}
-                                formula="Federal (progressive brackets) + State (50-state engine) + FICA (7.65%)"
+                                formula={
+                                    (taxLiability.fed_ltcg_tax || 0) > 0
+                                        ? "Federal ordinary brackets + LTCG (0/15/20%) + State + FICA. ST gains added to ordinary income; LT gains stacked on top at preferential rates."
+                                        : "Federal (progressive brackets) + State (50-state engine) + FICA (7.65%). Capital gains will appear here once realized."
+                                }
                             />
                         )}
                     </Card>

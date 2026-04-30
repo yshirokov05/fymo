@@ -119,6 +119,7 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
     # Aggregations
     periods = {pk: _empty_period() for pk in PERIOD_KEYS}
     by_ticker: dict = {}
+    by_year: dict = {}  # {year_str: {'total', 'st', 'lt', 'count'}} for tax-accurate annual breakdown
     unmatched_proceeds = 0.0
     unmatched_count = 0
     sell_count = 0
@@ -259,9 +260,20 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
                 periods[pk]['lt'] += sell_lt_gain
                 periods[pk]['count'] += 1
 
+        # Record on per-calendar-year aggregation (for accurate tax-year breakdown)
+        year_str = str(txn_date.year)
+        if year_str not in by_year:
+            by_year[year_str] = {'total': 0.0, 'st': 0.0, 'lt': 0.0, 'count': 0}
+        by_year[year_str]['total'] += sell_total_gain
+        by_year[year_str]['st'] += sell_st_gain
+        by_year[year_str]['lt'] += sell_lt_gain
+        by_year[year_str]['count'] += 1
+
     # Round outputs for clean JSON
     for pk in periods:
         periods[pk] = {k: (round(v, 2) if isinstance(v, float) else v) for k, v in periods[pk].items()}
+    for yr in by_year:
+        by_year[yr] = {k: (round(v, 2) if isinstance(v, float) else v) for k, v in by_year[yr].items()}
     for tk in by_ticker:
         for k in ('total', 'st', 'lt'):
             by_ticker[tk][k] = round(by_ticker[tk][k], 2)
@@ -297,6 +309,7 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
         'total_st': round(total_st, 2),
         'total_lt': round(total_lt, 2),
         'periods': periods,
+        'by_year': by_year,
         'by_ticker': by_ticker,
         'unmatched_proceeds': round(unmatched_proceeds, 2),
         'unmatched_count': unmatched_count,
@@ -322,6 +335,7 @@ def empty_realized_gains():
         'total_st': 0.0,
         'total_lt': 0.0,
         'periods': {pk: _empty_period() for pk in PERIOD_KEYS},
+        'by_year': {},
         'by_ticker': {},
         'unmatched_proceeds': 0.0,
         'unmatched_count': 0,

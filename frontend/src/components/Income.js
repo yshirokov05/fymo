@@ -44,8 +44,25 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
     const totalGrossStubsYTD = currentYearPaystubs.reduce((sum, p) => sum + p.gross_amount, 0);
     const totalTaxesWithheldYTD = currentYearPaystubs.reduce((sum, p) => sum + (p.tax_withheld || 0), 0);
     const totalOtherIncomeYTD = currentYearOther.reduce((sum, inc) => sum + (inc.amount || 0), 0);
-    
-    const totalIncomeYTD = totalGrossStubsYTD + totalOtherIncomeYTD;
+
+    // Realized capital gains for current year (Phase D — pulled from FIFO matcher)
+    const realizedGains = investmentHistory?.realized_gains || null;
+    const realizedYTD = (() => {
+        if (!realizedGains) return null;
+        // Prefer calendar-year aggregation; fall back to YTD periods bucket for legacy data
+        const byYear = realizedGains.by_year || {};
+        const yrData = byYear[String(currentYear)];
+        if (yrData) {
+            return { total: yrData.total || 0, st: yrData.st || 0, lt: yrData.lt || 0, count: yrData.count || 0 };
+        }
+        const ytd = realizedGains.periods?.ytd;
+        if (ytd) {
+            return { total: ytd.total || 0, st: ytd.st || 0, lt: ytd.lt || 0, count: ytd.count || 0 };
+        }
+        return null;
+    })();
+
+    const totalIncomeYTD = totalGrossStubsYTD + totalOtherIncomeYTD + (realizedYTD?.total || 0);
 
     const handleUploadSuccess = (data) => {
         const totalTaxes = (data.federal_taxes_withheld || 0) + 
@@ -138,11 +155,11 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${realizedYTD ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6`}>
                 <Card className="bg-gradient-to-br from-gray-900 to-gray-800 text-white border-none shadow-2xl">
                     <div className="p-1">
                         <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Total Income (YTD)</p>
-                        <p className="text-3xl font-black">${totalIncomeYTD.toLocaleString()}</p>
+                        <p className="text-3xl font-black">${totalIncomeYTD.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     </div>
                 </Card>
                 <Card title="W2 Earnings" icon={<Briefcase className="text-blue-500"/>}>
@@ -151,6 +168,35 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                 <Card title="Investments" icon={<TrendingUp className="text-green-500"/>}>
                     <p className="text-2xl font-black text-gray-900">${totalOtherIncomeYTD.toLocaleString()}</p>
                 </Card>
+                {realizedYTD && (
+                    <Card
+                        title="Realized Gains"
+                        icon={<TrendingUp className={realizedYTD.total >= 0 ? 'text-green-500' : 'text-red-500'} />}
+                    >
+                        <p className={`text-2xl font-black ${realizedYTD.total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {realizedYTD.total >= 0 ? '+' : '-'}${Math.abs(realizedYTD.total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </p>
+                        <p className="text-[10px] text-gray-500 mt-1">
+                            {realizedYTD.lt !== 0 && (
+                                <span className="mr-2">
+                                    LT: <span className={realizedYTD.lt >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        {realizedYTD.lt >= 0 ? '+' : '-'}${Math.abs(realizedYTD.lt).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </span>
+                                </span>
+                            )}
+                            {realizedYTD.st !== 0 && (
+                                <span>
+                                    ST: <span className={realizedYTD.st >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                        {realizedYTD.st >= 0 ? '+' : '-'}${Math.abs(realizedYTD.st).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </span>
+                                </span>
+                            )}
+                            {realizedYTD.lt === 0 && realizedYTD.st === 0 && (
+                                <span>{realizedYTD.count} sell{realizedYTD.count !== 1 ? 's' : ''} matched</span>
+                            )}
+                        </p>
+                    </Card>
+                )}
                 <Card title="Taxes Paid" icon={<Receipt className="text-red-500"/>}>
                     <p className="text-2xl font-black text-gray-900">${totalTaxesWithheldYTD.toLocaleString()}</p>
                 </Card>

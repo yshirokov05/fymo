@@ -175,7 +175,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             state: yearData.state_tax,
             fica: yearData.fica_tax,
             withheld: yearData.total_withheld || 0,
-            has_net_only_income: yearData.has_net_only_income || false
+            has_net_only_income: yearData.has_net_only_income || false,
+            realized_st_gains: yearData.realized_st_gains || 0,
+            realized_lt_gains: yearData.realized_lt_gains || 0,
+            realized_sell_count: yearData.realized_sell_count || 0,
+            fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
+            fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
@@ -211,7 +216,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             state: yearData.state_tax,
             fica: yearData.fica_tax,
             withheld: yearData.total_withheld || 0,
-            has_net_only_income: yearData.has_net_only_income || false
+            has_net_only_income: yearData.has_net_only_income || false,
+            realized_st_gains: yearData.realized_st_gains || 0,
+            realized_lt_gains: yearData.realized_lt_gains || 0,
+            realized_sell_count: yearData.realized_sell_count || 0,
+            fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
+            fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
         });
     }
   }, [selectedTaxYear, taxDetails]);
@@ -283,7 +293,13 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           federal: yearData.federal_tax,
           state: yearData.state_tax,
           fica: yearData.fica_tax,
-          withheld: yearData.total_withheld || 0
+          withheld: yearData.total_withheld || 0,
+          has_net_only_income: yearData.has_net_only_income || false,
+          realized_st_gains: yearData.realized_st_gains || 0,
+          realized_lt_gains: yearData.realized_lt_gains || 0,
+          realized_sell_count: yearData.realized_sell_count || 0,
+          fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
+          fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
@@ -336,7 +352,13 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           federal: yearData.federal_tax,
           state: yearData.state_tax,
           fica: yearData.fica_tax,
-          withheld: yearData.total_withheld || 0
+          withheld: yearData.total_withheld || 0,
+          has_net_only_income: yearData.has_net_only_income || false,
+          realized_st_gains: yearData.realized_st_gains || 0,
+          realized_lt_gains: yearData.realized_lt_gains || 0,
+          realized_sell_count: yearData.realized_sell_count || 0,
+          fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
+          fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
         });
         setUserTaxInfo({
             filing_status: response.data.filing_status,
