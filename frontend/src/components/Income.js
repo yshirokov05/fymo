@@ -139,6 +139,23 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
         onSaveOtherIncomes(otherIncomes.filter(inc => inc.id !== id));
     };
 
+    // Bulk action: mark every paystub in the current year as net (already-taxed take-home).
+    // For users whose all paychecks are net deposits without separate withholding tracking,
+    // this prevents the system from double-taxing them in the projection.
+    const handleMarkAllNet = () => {
+        if (!window.confirm(
+            'Mark ALL paystubs as "net" (take-home, already-taxed)?\n\n' +
+            'Use this if your direct deposits are post-tax amounts and you don\'t track withholding separately. ' +
+            'Marked paystubs are excluded from gross income in your tax projection.\n\n' +
+            'You can undo this by editing individual paystubs.'
+        )) return;
+        const updated = paystubs.map(p => ({ ...p, is_net_primary: true }));
+        onSavePaystubs(updated);
+    };
+
+    const nonNetStubsCount = currentYearPaystubs.filter(p => !p.is_net_primary).length;
+    const allStubsNet = currentYearPaystubs.length > 0 && nonNetStubsCount === 0;
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -335,6 +352,30 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
                     <Card title="W2 Paystub History" className="overflow-hidden">
+                        {currentYearPaystubs.length > 0 && (
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 -mt-2 px-6 py-3 bg-gray-50 rounded-xl border border-gray-100">
+                                <div className="text-xs text-gray-600">
+                                    {allStubsNet ? (
+                                        <span className="inline-flex items-center gap-1.5 text-green-700 font-semibold">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                            All paystubs marked net (excluded from gross income)
+                                        </span>
+                                    ) : nonNetStubsCount > 0 ? (
+                                        <span className="text-amber-700">
+                                            <strong>{nonNetStubsCount}</strong> of {currentYearPaystubs.length} paystubs counted as gross income for tax projection
+                                        </span>
+                                    ) : null}
+                                </div>
+                                <button
+                                    onClick={handleMarkAllNet}
+                                    disabled={allStubsNet}
+                                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                                    title="Mark every paystub as net deposit (already-taxed take-home pay). Use if your withholding is not tracked here."
+                                >
+                                    Mark all as net
+                                </button>
+                            </div>
+                        )}
                         <div className="overflow-x-auto -mx-6">
                             <table className="w-full min-w-[600px]">
                                 <thead className="bg-gray-50 border-b border-gray-100">
@@ -351,9 +392,17 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                     {currentYearPaystubs.map((p) => (
                                         <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
                                             <td className="py-4 px-6 text-sm text-gray-500">{p.date}</td>
-                                            <td className="py-4 px-6 text-sm font-bold text-gray-900 flex items-center">
-                                                {p.employer || '—'}
-                                                {p.linked_transaction_id && <Landmark size={12} className="ml-2 text-blue-500" title="Linked to bank transaction" />}
+                                            <td className="py-4 px-6 text-sm font-bold text-gray-900 flex items-center flex-wrap gap-1">
+                                                <span>{p.employer || '—'}</span>
+                                                {p.linked_transaction_id && <Landmark size={12} className="ml-1 text-blue-500" title="Linked to bank transaction" />}
+                                                {p.is_net_primary && (
+                                                    <span
+                                                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200"
+                                                        title="Marked net — excluded from gross income for tax projection"
+                                                    >
+                                                        NET
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="py-4 px-6 text-sm font-bold text-right text-gray-700">${p.gross_amount.toLocaleString()}</td>
                                             <td className="py-4 px-6 text-sm font-bold text-right text-red-500">-${(p.tax_withheld || 0).toLocaleString()}</td>

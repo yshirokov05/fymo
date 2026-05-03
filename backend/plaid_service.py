@@ -641,16 +641,30 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             if amt < 0 and not t.get('pending', False):
                 name_lower = t_name.lower()
                 cat_lower = [c.lower() for c in (t.get('category') or [])]
-                if any(kw in name_lower for kw in ['payroll', 'salary', 'gusto', 'adp', 'direct dep']) or 'payroll' in cat_lower:
+                # Expanded keyword list — covers more payroll providers and common patterns
+                # like "DIRECT PAY", "PPD ID:" (ACH credit), university/employer naming.
+                payroll_kws = [
+                    'payroll', 'salary', 'gusto', 'adp', 'direct dep', 'direct pay',
+                    'paychex', 'workday', 'rippling', 'justworks', 'trinet', 'sequoia',
+                    'wages', 'paycheck', 'payday', 'compensation', 'stipend',
+                    'ppd id:',  # ACH direct deposit identifier — common for university/scholarship payroll
+                ]
+                is_payroll_name = any(kw in name_lower for kw in payroll_kws)
+                is_payroll_cat = 'payroll' in cat_lower or any('payroll' in c for c in cat_lower)
+                if is_payroll_name or is_payroll_cat:
                     new_paystubs.append(Paystub(
                         id=f"paystub_{t['transaction_id']}",
                         user_id=user_id,
                         date=t_date,
-                        gross_amount=abs(amt), # Initially set to net, but flagged as net_primary
-                        net_amount=abs(amt),   # This is the actual deposit amount
+                        # Plaid transaction data has no withholding info available — these
+                        # deposits are the post-tax NET amount. Always flag as net_primary
+                        # so the tax engine excludes them from gross income (avoids
+                        # double-taxing already-withheld income).
+                        gross_amount=abs(amt),
+                        net_amount=abs(amt),
                         tax_withheld=0.0,
                         employer=t_name if t_name else "Auto-detected Payroll",
-                        is_net_primary=True
+                        is_net_primary=True,
                     ))
             
             # Auto-detect Investment Income (Dividends / Capital Gains)

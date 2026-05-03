@@ -56,7 +56,7 @@ const PrivacyPolicy = () => {
                         <li><strong className="text-gray-800 dark:text-gray-100">Google Firebase & Firestore</strong> — Authentication and database hosting (Google Privacy Policy)</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Plaid</strong> — Bank account connectivity (Plaid Privacy Policy). Plaid is subject to its own data practices with your financial institution.</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Stripe</strong> — Payment processing (Stripe Privacy Policy)</li>
-                        <li><strong className="text-gray-800 dark:text-gray-100">Google Gemini API</strong> — AI financial summaries. Data sent to Gemini is limited to your financial summary and is not used for model training per our API agreement.</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Anthropic Claude API</strong> — AI financial guidance and document extraction (paystubs, statements, insurance PDFs, check images). Data sent to Claude is limited to a sanitized financial summary or the uploaded document, and is not used for model training per Anthropic's API terms.</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Yahoo Finance</strong> — Real-time asset price lookups (no personal data sent)</li>
                     </ul>
                 </Section>

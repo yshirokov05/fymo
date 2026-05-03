@@ -131,7 +131,7 @@ const DataPrivacyFAQ = () => {
                 iconColor="text-amber-600 dark:text-amber-400"
                 question="What data is sent to the AI Analyst?"
             >
-                <p>When you use the <strong>AI Analyst</strong> feature, a financial summary is constructed from your data and sent to <strong>Google Gemini</strong> (Google's AI model). This summary includes:</p>
+                <p>When you use the <strong>AI Analyst</strong> feature (and document extraction for paystubs, insurance PDFs, statements, and check images), a financial summary or the document itself is sent to <strong>Anthropic's Claude</strong> API. The AI Analyst summary includes:</p>
                 <ul className="list-disc list-inside space-y-1 mt-1">
                     <li>Net worth, asset totals by category</li>
                     <li>Monthly income and expense totals</li>
@@ -140,7 +140,7 @@ const DataPrivacyFAQ = () => {
                     <li>Investment allocation summary</li>
                 </ul>
                 <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">What is NOT sent:</strong> Your name, email, account numbers, transaction merchant details, or any directly identifying information. The data is sanitized before being passed to the model.</p>
-                <p className="mt-2">Google's data handling for Gemini API calls is governed by <a href="https://ai.google.dev/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Google's Generative AI Terms</a>. Fymo uses the API tier, which means data is not used to train Google's models.</p>
+                <p className="mt-2">Anthropic's data handling for Claude API calls is governed by <a href="https://www.anthropic.com/legal/commercial-terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Anthropic's Commercial Terms</a>. Fymo uses the API tier, which means data is not used to train Claude.</p>
             </FAQItem>
 
             <FAQItem

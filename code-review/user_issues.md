@@ -79,6 +79,19 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ---
 
+### UX-16 — Document extraction migrated to Claude + paystub net-flag UX ✅ FIXED (v1.5.0)
+**Severity:** ARCHITECTURE + USER FRICTION
+**Reported:** User noticed privacy notices still mentioned Gemini after AI Analyst was migrated to Claude. Also: tax projection showed phantom FICA on net paystubs.
+
+**Changes:**
+1. **Backend `/api/extract-document`** (paystubs, checks, insurance): migrated from Gemini 1.5 Flash to Claude Sonnet 4.6. Uses Claude vision API for images, document API for PDFs. Defensive markdown-fence stripping in case Claude wraps the JSON.
+2. **Backend `/api/upload_statement` AI fallback** (bank/credit card statements): same migration. Increased max_tokens to 8192 to handle long statements.
+3. **Frontend privacy notices** (TaxDocumentUpload, CheckTracker, DataPrivacyFAQ, PrivacyPolicy): updated to reference Anthropic Claude API.
+4. **Income tab — "Mark all as net" button + NET badge per paystub:** lets users one-click flag every paystub as net (already-taxed) when their direct deposits are post-tax amounts. Shows "X of Y paystubs counted as gross income" warning when any are unflagged. Each paystub row now shows a green NET badge if marked.
+5. **Plaid payroll auto-detection** broadened: added paychex, workday, rippling, justworks, trinet, sequoia, paycheck, paycheck, wages, stipend, "PPD ID:", "DIRECT PAY". Also matches partial cat strings containing "payroll". All Plaid-detected paystubs always flagged `is_net_primary=True` (we never have withholding data from Plaid transactions).
+
+**Eliminates `google-generativeai` runtime dependency.** Note: it's still in requirements.txt for now — separate cleanup commit needed to remove.
+
 ### UX-15 — Tax Projection: Capital gains integration (Phase C+D) ✅ ADDED (v1.5.0)
 **Severity:** FEATURE — closes the realized gains feature loop into actual tax math
 **Implementation:**

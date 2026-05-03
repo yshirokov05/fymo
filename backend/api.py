@@ -1753,54 +1753,66 @@ def upload_statement():
         except Exception as e:
             file.seek(0)
             
-    # AI Fallback Path (PDFs, Images, and unrecognized CSVs)
-    import re
-    raw_api_key = os.environ.get('GEMINI_API_KEY', '')
-    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
-    if not api_key:
-        return jsonify({'error': "Gemini Support is currently disabled (No API Key)."}), 500
-        
+    # AI Fallback Path (PDFs, Images, and unrecognized CSVs) — Claude vision/document
     # ARCH-4: Rate Limiting specific to expensive AI features
     if not check_rate_limit(request.uid, 'extract_statement', limit_per_hour=10):
         return jsonify({'error': "Upload limit reached. Please try again later."}), 429
-        
-    import google.generativeai as genai
+
+    import base64
     import tempfile
     import json
     import uuid
     from models import Transaction
-    
-    genai.configure(api_key=api_key)
-    
+    from advisor_service import _get_client, _CLAUDE_MODEL
+
+    client, err = _get_client()
+    if err:
+        return jsonify({'error': "AI extraction is currently disabled (No API Key)."}), 500
+
+    temp_path = None
+    text_out = ""
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
             file.save(temp_file.name)
             temp_path = temp_file.name
-            
-        system_instruction = "You are an extreme-precision document data extraction pipeline. You must extract every individual transaction line item from the provided bank or credit card statement. Return ONLY a valid JSON Array of objects. Each object MUST have these exact 4 keys: 'date' (string, YYYY-MM-DD), 'name' (string, the merchant or description), 'amount' (float, MUST be negative (-) for purchases/withdrawals, and positive (+) for deposits/payments/refunds!), and 'category' (string, best guess or 'Other'). Do NOT include markdown blocks like ```json."
-        prompt = "Extract all transactions from this statement. Output a raw JSON Array, nothing else."
+        with open(temp_path, 'rb') as f:
+            file_bytes = f.read()
 
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_instruction,
-            generation_config={"response_mime_type": "application/json"}
+        b64_data = base64.standard_b64encode(file_bytes).decode('utf-8')
+        if ext == '.pdf':
+            doc_block = {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64_data}}
+        else:
+            media_type_map = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'}
+            doc_block = {"type": "image", "source": {"type": "base64", "media_type": media_type_map.get(ext, 'image/jpeg'), "data": b64_data}}
+
+        system_instruction = (
+            "You are an extreme-precision document data extraction pipeline. You must extract every individual "
+            "transaction line item from the provided bank or credit card statement. "
+            "Return ONLY a valid JSON Array of objects. Each object MUST have these exact 4 keys: "
+            "'date' (string, YYYY-MM-DD), 'name' (string, the merchant or description), "
+            "'amount' (float, MUST be negative for purchases/withdrawals, and positive for deposits/payments/refunds), "
+            "and 'category' (string, best guess or 'Other'). "
+            "Do NOT include markdown blocks. Output the raw JSON array only."
+        )
+        user_prompt = "Extract all transactions from this statement. Output a raw JSON Array, nothing else."
+
+        response = client.messages.create(
+            model=_CLAUDE_MODEL,
+            max_tokens=8192,  # statements can have many line items
+            system=system_instruction,
+            messages=[{"role": "user", "content": [doc_block, {"type": "text", "text": user_prompt}]}],
         )
 
-        if ext in {'.png', '.jpg', '.jpeg'}:
-            from PIL import Image as PILImage
-            pil_image = PILImage.open(temp_path)
-            response = model.generate_content([pil_image, prompt])
-            os.remove(temp_path)
-        else:  # PDF — pass bytes inline to avoid File API v1beta limitation
-            with open(temp_path, 'rb') as f:
-                pdf_bytes = f.read()
-            os.remove(temp_path)
-            response = model.generate_content([
-                {"mime_type": "application/pdf", "data": pdf_bytes},
-                prompt
-            ])
-            
-        parsed_array = json.loads(response.text)
+        for block in response.content:
+            if getattr(block, 'type', None) == 'text':
+                text_out += block.text
+
+        cleaned = text_out.strip()
+        if cleaned.startswith('```'):
+            cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
+            cleaned = re.sub(r'\s*```$', '', cleaned)
+
+        parsed_array = json.loads(cleaned)
         
         if not isinstance(parsed_array, list):
             return jsonify({'error': "AI returned an invalid structure. Please try again."}), 500
@@ -1821,15 +1833,22 @@ def upload_statement():
             
         if not ai_transactions:
             return jsonify({'error': "No valid transactions could be extracted."}), 400
-            
+
         return process_extracted_transactions(ai_transactions, uid)
-        
+
+    except json.JSONDecodeError as je:
+        logging.error(f"Statement extraction JSON parse error: {je}. Raw output: {text_out[:500] if text_out else 'unavailable'}")
+        return jsonify({'error': 'Could not parse extracted transactions. Try a clearer image or PDF.'}), 500
     except Exception as e:
         import traceback
         logging.error(f"AI Extraction Error: {e} - {traceback.format_exc()}")
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
         return jsonify({'error': 'Failed to analyze statement'}), 500
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
 @app.route('/api/extract-document', methods=['POST'])
 @token_required
@@ -1853,65 +1872,118 @@ def extract_document():
     if ext not in allowed_exts:
         return jsonify({'error': f"Invalid file type. Supported types: {', '.join(allowed_exts)}"}), 400
 
-    import re
-    raw_api_key = os.environ.get('GEMINI_API_KEY', '')
-    api_key = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_api_key).strip()
-    if not api_key:
-        return jsonify({'error': "API key not configured. Cannot process image."}), 500
-        
-    import google.generativeai as genai
-    import tempfile
     import json
-    
-    genai.configure(api_key=api_key)
+    import base64
+    import tempfile
+    from advisor_service import _get_client, _CLAUDE_MODEL
 
+    client, err = _get_client()
+    if err:
+        return jsonify({'error': "AI client not configured. Cannot process document."}), 500
+
+    # Per-doctype extraction schema
+    if doc_type == 'check':
+        system_instruction = (
+            "You are a precise financial document extraction API. Analyze the provided check image. "
+            "Return ONLY a valid JSON object with the following keys: "
+            "amount (float, just the numerical value), payee (string, who the check is written to), "
+            "and date_written (string, format YYYY-MM-DD). "
+            "Do not include any markdown formatting or conversational text. "
+            "If a value is missing or illegible, return 0.0 or null."
+        )
+        user_prompt = "Extract the check data from this image."
+    elif doc_type == 'insurance':
+        system_instruction = (
+            "You are a precise insurance policy auditor. Analyze the provided insurance document. "
+            "Extract 'the juice'—the key benefits, liabilities, risks, and summary of the policy. "
+            "Return ONLY a valid JSON object with the following keys: "
+            "insurance_name (string), insurance_type (string, one of: Auto, Health, Life, Home, Other), "
+            "premium_amount (float), frequency (string: MONTHLY, EVERY_6_MONTHS, YEARLY), deductible (float), "
+            "coverage_summary (string, max 500 chars summarizes benefits/limits and what is actually covered), "
+            "and advisor_observations (string, max 500 chars comparing to standards, spotting gaps, or noting value). "
+            "Do not include any markdown formatting or conversational text. "
+            "If a value is missing, return 0.0 or null."
+        )
+        user_prompt = "Audit this insurance policy and provide a rundown."
+    else:
+        system_instruction = (
+            "You are a precise financial document extraction API. Analyze the provided W-2 or paystub. "
+            "Return ONLY a valid JSON object with the following keys: "
+            "gross_income (float), net_income (float), pay_date (string, YYYY-MM-DD), "
+            "federal_taxes_withheld (float), state_taxes_withheld (float), "
+            "social_security_withheld (float), medicare_withheld (float), and employer_name (string). "
+            "Do not include any markdown formatting or conversational text. "
+            "If a value is missing or illegible, return 0.0 or null."
+        )
+        user_prompt = "Extract the financial data from this document."
+
+    temp_path = None
     try:
-        # Save to temp file
+        # Save to temp file → read bytes → base64 (Claude vision API takes base64)
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
             file.save(temp_file.name)
             temp_path = temp_file.name
-            
-        if doc_type == 'check':
-            system_instruction = "You are a precise financial document extraction API. Analyze the provided check image. Return ONLY a valid JSON object with the following keys: amount (float, just the numerical value), payee (string, who the check is written to), and date_written (string, format YYYY-MM-DD). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
-            prompt = "Extract the check data from this image."
-        elif doc_type == 'insurance':
-            system_instruction = "You are a precise insurance policy auditor. Analyze the provided insurance document. Extract 'the juice'—the key benefits, liabilities, risks, and summary of the policy. Return ONLY a valid JSON object with the following keys: insurance_name (string), insurance_type (string, one of: Auto, Health, Life, Home, Other), premium_amount (float), frequency (string: MONTHLY, EVERY_6_MONTHS, YEARLY), deductible (float), coverage_summary (string, max 500 chars summarizes benefits/limits and what is actually covered), and advisor_observations (string, max 500 chars comparing to standards, spotting gaps, or noting value). Do not include any markdown formatting or conversational text. If a value is missing, return 0.0 or null."
-            prompt = "Audit this insurance policy and provide a rundown."
-        else:
-            system_instruction = "You are a precise financial document extraction API. Analyze the provided W-2 or paystub. Return ONLY a valid JSON object with the following keys: gross_income (float), net_income (float), pay_date (string, YYYY-MM-DD), federal_taxes_withheld (float), state_taxes_withheld (float), social_security_withheld (float), medicare_withheld (float), and employer_name (string). Do not include any markdown formatting or conversational text. If a value is missing or illegible, return 0.0 or null."
-            prompt = "Extract the financial data from this document."
+        with open(temp_path, 'rb') as f:
+            file_bytes = f.read()
 
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_instruction,
-            generation_config={"response_mime_type": "application/json"}
+        b64_data = base64.standard_b64encode(file_bytes).decode('utf-8')
+        if ext == '.pdf':
+            media_type = 'application/pdf'
+            doc_block = {
+                "type": "document",
+                "source": {"type": "base64", "media_type": media_type, "data": b64_data},
+            }
+        else:
+            media_type_map = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg'}
+            media_type = media_type_map.get(ext, 'image/jpeg')
+            doc_block = {
+                "type": "image",
+                "source": {"type": "base64", "media_type": media_type, "data": b64_data},
+            }
+
+        # Claude Sonnet 4.6 supports both vision (image) and document (PDF) blocks natively.
+        # Ask for JSON output via system instruction; verify and parse defensively below.
+        response = client.messages.create(
+            model=_CLAUDE_MODEL,
+            max_tokens=1024,
+            system=system_instruction,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [doc_block, {"type": "text", "text": user_prompt}],
+                }
+            ],
         )
 
-        # Pass data inline to avoid File API v1beta limitation with gemini-1.5-flash
-        if ext in {'.png', '.jpg', '.jpeg'}:
-            from PIL import Image as PILImage
-            pil_image = PILImage.open(temp_path)
-            response = model.generate_content([pil_image, prompt])
-            os.remove(temp_path)
-        else:  # PDF — read bytes and pass inline (no File API)
-            with open(temp_path, 'rb') as f:
-                pdf_bytes = f.read()
-            os.remove(temp_path)
-            response = model.generate_content([
-                {"mime_type": "application/pdf", "data": pdf_bytes},
-                prompt
-            ])
-            
-        result_json = json.loads(response.text)
+        # Pull text content; Claude returns content as a list of blocks
+        text_out = ""
+        for block in response.content:
+            if getattr(block, 'type', None) == 'text':
+                text_out += block.text
+
+        # Strip markdown code fences defensively (in case Claude wraps the JSON)
+        cleaned = text_out.strip()
+        if cleaned.startswith('```'):
+            # remove leading ```json or ``` and trailing ```
+            cleaned = re.sub(r'^```(?:json)?\s*', '', cleaned)
+            cleaned = re.sub(r'\s*```$', '', cleaned)
+
+        result_json = json.loads(cleaned)
         return jsonify({'success': True, 'data': result_json})
-        
+
+    except json.JSONDecodeError as je:
+        logging.error(f"Document extraction JSON parse error: {je}. Raw output: {text_out[:500] if 'text_out' in locals() else 'unavailable'}")
+        return jsonify({'error': 'Could not parse extracted data. Try a clearer image or PDF.'}), 500
     except Exception as e:
         import traceback
-        logging.error(f"OCR Error: {e} - {traceback.format_exc()}")
-        # Cleanup local file if it still exists
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
+        logging.error(f"Document extraction error: {e} - {traceback.format_exc()}")
         return jsonify({'error': 'Failed to extract document'}), 500
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
 
 @app.route('/api/transactions/<transaction_id>/category', methods=['PUT'])
 @auth_required
