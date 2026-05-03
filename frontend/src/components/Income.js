@@ -187,70 +187,84 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                 </button>
             </div>
 
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${realizedYTD ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6`}>
-                <Card className="bg-gradient-to-br from-gray-900 to-gray-800 text-white border-none shadow-2xl">
-                    <div className="p-1">
-                        <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Total Income (YTD)</p>
-                        <p className="text-3xl font-black">${totalIncomeYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            {(() => {
+                // Combined "Investment Income" = manual incomes + Plaid dividends + realized gains.
+                // Conceptually all flow from the portfolio, so they belong together.
+                const investmentIncome = totalOtherIncomeYTD + plaidDividendsYTD + (realizedYTD?.total || 0);
+                const investmentPos = investmentIncome >= 0;
+                const breakdownParts = [];
+                if (totalOtherIncomeYTD > 0) breakdownParts.push({ label: 'Manual', val: totalOtherIncomeYTD });
+                if (plaidDividendsYTD > 0) breakdownParts.push({ label: 'Dividends', val: plaidDividendsYTD });
+                if (realizedYTD && realizedYTD.total !== 0) breakdownParts.push({ label: 'Realized', val: realizedYTD.total });
+                return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <Card className="bg-gradient-to-br from-gray-900 to-gray-800 text-white border-none shadow-2xl">
+                            <div className="p-1">
+                                <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Total Income (YTD)</p>
+                                <p className="text-3xl font-black">${totalIncomeYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                        </Card>
+                        <Card
+                            title={allStubsNet ? "W2 Net Deposits" : "W2 Earnings"}
+                            icon={<Briefcase className="text-blue-500"/>}
+                        >
+                            <p className="text-2xl font-black text-gray-900">${totalGrossStubsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            {allStubsNet && (
+                                <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                                    Already taxed · excluded from tax projection gross
+                                </p>
+                            )}
+                            {!allStubsNet && nonNetStubsCount > 0 && nonNetStubsCount < currentYearPaystubs.length && (
+                                <p className="text-[10px] text-amber-600 mt-1 leading-tight">
+                                    Mix of gross + net · {nonNetStubsCount} counted for tax
+                                </p>
+                            )}
+                        </Card>
+                        <Card
+                            title="Investment Income"
+                            icon={<TrendingUp className={investmentPos ? 'text-green-500' : 'text-red-500'} />}
+                        >
+                            <p className={`text-2xl font-black ${investmentPos ? 'text-green-600' : 'text-red-600'}`}>
+                                {investmentPos ? '' : '-'}${Math.abs(investmentIncome).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            {breakdownParts.length > 0 && (
+                                <p className="text-[10px] text-gray-500 mt-1 leading-tight space-x-2">
+                                    {breakdownParts.map((p, i) => (
+                                        <span key={p.label}>
+                                            {i > 0 && <span className="text-gray-300">·</span>}
+                                            <span className="ml-1">{p.label}: </span>
+                                            <span className={p.val >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                                                {p.val >= 0 ? '+' : '-'}${Math.abs(p.val).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                            </span>
+                                        </span>
+                                    ))}
+                                </p>
+                            )}
+                            {realizedYTD && (realizedYTD.lt !== 0 || realizedYTD.st !== 0) && (
+                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                    {realizedYTD.lt !== 0 && (
+                                        <span className="mr-2">
+                                            LT: <span className={realizedYTD.lt >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                {realizedYTD.lt >= 0 ? '+' : '-'}${Math.abs(realizedYTD.lt).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                            </span>
+                                        </span>
+                                    )}
+                                    {realizedYTD.st !== 0 && (
+                                        <span>
+                                            ST: <span className={realizedYTD.st >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                                {realizedYTD.st >= 0 ? '+' : '-'}${Math.abs(realizedYTD.st).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                            </span>
+                                        </span>
+                                    )}
+                                </p>
+                            )}
+                        </Card>
+                        <Card title="Taxes Paid" icon={<Receipt className="text-red-500"/>}>
+                            <p className="text-2xl font-black text-gray-900">${totalTaxesWithheldYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </Card>
                     </div>
-                </Card>
-                <Card
-                    title={allStubsNet ? "W2 Net Deposits" : "W2 Earnings"}
-                    icon={<Briefcase className="text-blue-500"/>}
-                >
-                    <p className="text-2xl font-black text-gray-900">${totalGrossStubsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    {allStubsNet && (
-                        <p className="text-[10px] text-gray-500 mt-1 leading-tight">
-                            Already taxed · excluded from tax projection gross
-                        </p>
-                    )}
-                    {!allStubsNet && nonNetStubsCount > 0 && nonNetStubsCount < currentYearPaystubs.length && (
-                        <p className="text-[10px] text-amber-600 mt-1 leading-tight">
-                            Mix of gross + net · {nonNetStubsCount} counted for tax
-                        </p>
-                    )}
-                </Card>
-                <Card title="Investments" icon={<TrendingUp className="text-green-500"/>}>
-                    <p className="text-2xl font-black text-gray-900">${(totalOtherIncomeYTD + plaidDividendsYTD).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    {plaidDividendsYTD > 0 && (
-                        <p className="text-[10px] text-gray-500 mt-1 leading-tight">
-                            Includes <span className="font-semibold text-blue-600">${plaidDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> Plaid dividends
-                        </p>
-                    )}
-                </Card>
-                {realizedYTD && (
-                    <Card
-                        title="Realized Gains"
-                        icon={<TrendingUp className={realizedYTD.total >= 0 ? 'text-green-500' : 'text-red-500'} />}
-                    >
-                        <p className={`text-2xl font-black ${realizedYTD.total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {realizedYTD.total >= 0 ? '+' : '-'}${Math.abs(realizedYTD.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-[10px] text-gray-500 mt-1">
-                            {realizedYTD.lt !== 0 && (
-                                <span className="mr-2">
-                                    LT: <span className={realizedYTD.lt >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {realizedYTD.lt >= 0 ? '+' : '-'}${Math.abs(realizedYTD.lt).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </span>
-                                </span>
-                            )}
-                            {realizedYTD.st !== 0 && (
-                                <span>
-                                    ST: <span className={realizedYTD.st >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                        {realizedYTD.st >= 0 ? '+' : '-'}${Math.abs(realizedYTD.st).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </span>
-                                </span>
-                            )}
-                            {realizedYTD.lt === 0 && realizedYTD.st === 0 && (
-                                <span>{realizedYTD.count} sell{realizedYTD.count !== 1 ? 's' : ''} matched</span>
-                            )}
-                        </p>
-                    </Card>
-                )}
-                <Card title="Taxes Paid" icon={<Receipt className="text-red-500"/>}>
-                    <p className="text-2xl font-black text-gray-900">${totalTaxesWithheldYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </Card>
-            </div>
+                );
+            })()}
 
             {isAdding && (
                 <Card className="bg-white border-2 border-blue-600 shadow-2xl relative overflow-hidden">
