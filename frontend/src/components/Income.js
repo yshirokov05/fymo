@@ -45,6 +45,11 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
     const totalTaxesWithheldYTD = currentYearPaystubs.reduce((sum, p) => sum + (p.tax_withheld || 0), 0);
     const totalOtherIncomeYTD = currentYearOther.reduce((sum, inc) => sum + (inc.amount || 0), 0);
 
+    // Plaid auto-detected investment income (dividends YTD) — also real income
+    // that should flow into Total Income. Was previously displayed only in the
+    // right-side breakdown panel, missing from the headline aggregate.
+    const plaidDividendsYTD = (investmentHistory?.periods?.ytd?.dividends) || 0;
+
     // Realized capital gains for current year (Phase D — pulled from FIFO matcher)
     const realizedGains = investmentHistory?.realized_gains || null;
     const realizedYTD = (() => {
@@ -62,7 +67,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
         return null;
     })();
 
-    const totalIncomeYTD = totalGrossStubsYTD + totalOtherIncomeYTD + (realizedYTD?.total || 0);
+    const totalIncomeYTD = totalGrossStubsYTD + totalOtherIncomeYTD + plaidDividendsYTD + (realizedYTD?.total || 0);
 
     const handleUploadSuccess = (data) => {
         const totalTaxes = (data.federal_taxes_withheld || 0) + 
@@ -147,9 +152,19 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
             'Mark ALL paystubs as "net" (take-home, already-taxed)?\n\n' +
             'Use this if your direct deposits are post-tax amounts and you don\'t track withholding separately. ' +
             'Marked paystubs are excluded from gross income in your tax projection.\n\n' +
-            'You can undo this by editing individual paystubs.'
+            'You can undo this by toggling individual paystubs.'
         )) return;
         const updated = paystubs.map(p => ({ ...p, is_net_primary: true }));
+        onSavePaystubs(updated);
+    };
+
+    // Toggle a single paystub between net (already-taxed) and gross (pre-tax) status.
+    // Useful for things like scholarship deposits that ARE gross income — no tax was
+    // withheld at source, so they should be counted in the tax projection.
+    const handleToggleNet = (id) => {
+        const updated = paystubs.map(p =>
+            p.id === id ? { ...p, is_net_primary: !p.is_net_primary } : p
+        );
         onSavePaystubs(updated);
     };
 
@@ -196,7 +211,12 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                     )}
                 </Card>
                 <Card title="Investments" icon={<TrendingUp className="text-green-500"/>}>
-                    <p className="text-2xl font-black text-gray-900">${totalOtherIncomeYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-2xl font-black text-gray-900">${(totalOtherIncomeYTD + plaidDividendsYTD).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    {plaidDividendsYTD > 0 && (
+                        <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                            Includes <span className="font-semibold text-blue-600">${plaidDividendsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span> Plaid dividends
+                        </p>
+                    )}
                 </Card>
                 {realizedYTD && (
                     <Card
@@ -408,13 +428,22 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                             <td className="py-4 px-6 text-sm font-bold text-gray-900 flex items-center flex-wrap gap-1">
                                                 <span>{p.employer || '—'}</span>
                                                 {p.linked_transaction_id && <Landmark size={12} className="ml-1 text-blue-500" title="Linked to bank transaction" />}
-                                                {p.is_net_primary && (
-                                                    <span
-                                                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200"
-                                                        title="Marked net — excluded from gross income for tax projection"
+                                                {p.is_net_primary ? (
+                                                    <button
+                                                        onClick={() => handleToggleNet(p.id)}
+                                                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 transition-colors"
+                                                        title="Currently NET (already-taxed). Click to mark as GROSS (counts in tax projection)."
                                                     >
                                                         NET
-                                                    </span>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleToggleNet(p.id)}
+                                                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors opacity-0 group-hover:opacity-100"
+                                                        title="Currently GROSS (pre-tax). Click to mark as NET (already-taxed)."
+                                                    >
+                                                        GROSS
+                                                    </button>
                                                 )}
                                             </td>
                                             <td className="py-4 px-6 text-sm font-bold text-right text-gray-700">${p.gross_amount.toLocaleString()}</td>
