@@ -592,7 +592,25 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         const response = await axios.put('/api/portfolio', { paystubs: newPaystubs }, headers);
         setPaystubs(response.data.paystubs || []);
         setOutstandingChecks(response.data.outstanding_checks || []);
-        setOutstandingChecks(response.data.outstanding_checks || []);
+
+        // Refresh tax projection too — net_primary changes affect what's counted as
+        // gross income, so federal/state/FICA need to recompute.
+        if (response.data.tax_details) {
+            const yearData = response.data.tax_details[selectedTaxYear] || {};
+            setTaxLiability({
+                total: yearData.total_tax || 0,
+                federal: yearData.federal_tax || 0,
+                state: yearData.state_tax || 0,
+                fica: yearData.fica_tax || 0,
+                withheld: yearData.total_withheld || 0,
+                has_net_only_income: yearData.has_net_only_income || false,
+                realized_st_gains: yearData.realized_st_gains || 0,
+                realized_lt_gains: yearData.realized_lt_gains || 0,
+                realized_sell_count: yearData.realized_sell_count || 0,
+                fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
+                fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
+            });
+        }
     } catch (error) {
         setError("Failed to save paystubs: " + error.message);
     }

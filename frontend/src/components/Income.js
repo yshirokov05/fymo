@@ -176,14 +176,27 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                 <Card className="bg-gradient-to-br from-gray-900 to-gray-800 text-white border-none shadow-2xl">
                     <div className="p-1">
                         <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Total Income (YTD)</p>
-                        <p className="text-3xl font-black">${totalIncomeYTD.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                        <p className="text-3xl font-black">${totalIncomeYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                 </Card>
-                <Card title="W2 Earnings" icon={<Briefcase className="text-blue-500"/>}>
-                    <p className="text-2xl font-black text-gray-900">${totalGrossStubsYTD.toLocaleString()}</p>
+                <Card
+                    title={allStubsNet ? "W2 Net Deposits" : "W2 Earnings"}
+                    icon={<Briefcase className="text-blue-500"/>}
+                >
+                    <p className="text-2xl font-black text-gray-900">${totalGrossStubsYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    {allStubsNet && (
+                        <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                            Already taxed · excluded from tax projection gross
+                        </p>
+                    )}
+                    {!allStubsNet && nonNetStubsCount > 0 && nonNetStubsCount < currentYearPaystubs.length && (
+                        <p className="text-[10px] text-amber-600 mt-1 leading-tight">
+                            Mix of gross + net · {nonNetStubsCount} counted for tax
+                        </p>
+                    )}
                 </Card>
                 <Card title="Investments" icon={<TrendingUp className="text-green-500"/>}>
-                    <p className="text-2xl font-black text-gray-900">${totalOtherIncomeYTD.toLocaleString()}</p>
+                    <p className="text-2xl font-black text-gray-900">${totalOtherIncomeYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </Card>
                 {realizedYTD && (
                     <Card
@@ -191,7 +204,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                         icon={<TrendingUp className={realizedYTD.total >= 0 ? 'text-green-500' : 'text-red-500'} />}
                     >
                         <p className={`text-2xl font-black ${realizedYTD.total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {realizedYTD.total >= 0 ? '+' : '-'}${Math.abs(realizedYTD.total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            {realizedYTD.total >= 0 ? '+' : '-'}${Math.abs(realizedYTD.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                         <p className="text-[10px] text-gray-500 mt-1">
                             {realizedYTD.lt !== 0 && (
@@ -215,7 +228,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                     </Card>
                 )}
                 <Card title="Taxes Paid" icon={<Receipt className="text-red-500"/>}>
-                    <p className="text-2xl font-black text-gray-900">${totalTaxesWithheldYTD.toLocaleString()}</p>
+                    <p className="text-2xl font-black text-gray-900">${totalTaxesWithheldYTD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </Card>
             </div>
 
