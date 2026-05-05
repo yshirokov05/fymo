@@ -792,6 +792,13 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                 for k in ('invested', 'proceeds', 'dividends'):
                     acc_data['periods'][pk][k] = round(acc_data['periods'][pk][k], 2)
 
+        # Aggregate current portfolio value — needed by the period-return reconstruction
+        # below AND re-asserted at the bottom of the function for the final payload.
+        # Bug fix: this was previously only assigned at the end of the function, so the
+        # period-returns try-block silently NameError'd and every period showed N/A.
+        total_current_value = sum(market_value_per_account.values())
+        total_cost_basis_from_holdings = sum(cost_basis_per_account.values())
+
         # ── Reconstruct period-specific portfolio returns (best-effort) ──
         # Walk the 5yr transaction ledger to compute shares held at each period start,
         # then price those positions via yfinance to get a true holding-period return %.
@@ -990,9 +997,6 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                         pass
         except Exception as _bench_e:
             logging.warning(f"Benchmark fetch failed: {_bench_e}")
-
-        total_current_value = sum(market_value_per_account.values())
-        total_cost_basis_from_holdings = sum(cost_basis_per_account.values())
 
         # Aggregate sanity guard: cost basis should not wildly exceed current market value.
         # If it does, the data is corrupt (usually one bad Plaid holding slipped through or
