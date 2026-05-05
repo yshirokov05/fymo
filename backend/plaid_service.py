@@ -692,6 +692,12 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         inv_sec_map = inv_trans_result.get('securities', {})
 
         PERIOD_KEYS = ('1w', '1m', 'ytd', '1y', '2y', '5y', 'all')
+        # Same set used in share-ledger reconstruction below — defined here so the buy
+        # aggregation loop can skip money-market purchases that don't show up in current_value.
+        CASH_LIKE_TICKERS = {
+            'CUR:USD', 'USD', 'CASH', 'VMFXX', 'SPAXX', 'FDRXX',
+            'SWVXX', 'TMSXX', 'SNSXX', 'FZFXX', 'VBTIX', 'VUSXX',
+        }
         _now_date = datetime.now().date()
         _period_starts = {
             '1w': _now_date - timedelta(days=7),
@@ -742,10 +748,18 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                         applicable_periods.append(pk)
 
             if txn_type in ('buy',) or subtype in ('buy',):
-                for pk in applicable_periods:
-                    periods[pk]['invested'] += amount
-                    if acc_id and acc_id in by_account:
-                        by_account[acc_id]['periods'][pk]['invested'] += amount
+                # Resolve security ticker to skip cash-equivalent buys.
+                # VMFXX/SPAXX etc. are excluded from current_value (end), so including
+                # them in invested inflates net_flow and distorts Modified Dietz return.
+                _sec_id = txn.get('security_id')
+                _sec_ticker = (inv_sec_map.get(_sec_id, {}).get('ticker_symbol') or '').upper() if _sec_id else ''
+                if _sec_ticker in CASH_LIKE_TICKERS:
+                    pass  # skip — money-market buys are not real investment outflows
+                else:
+                    for pk in applicable_periods:
+                        periods[pk]['invested'] += amount
+                        if acc_id and acc_id in by_account:
+                            by_account[acc_id]['periods'][pk]['invested'] += amount
             elif txn_type in ('sell',) or subtype in ('sell',):
                 for pk in applicable_periods:
                     periods[pk]['proceeds'] += abs(amount)
