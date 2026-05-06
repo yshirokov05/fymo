@@ -749,8 +749,8 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
 
             if txn_type in ('buy',) or subtype in ('buy',):
                 # Resolve security ticker to skip cash-equivalent buys.
-                # VMFXX/SPAXX etc. are excluded from current_value (end), so including
-                # them in invested inflates net_flow and distorts Modified Dietz return.
+                # VMFXX/SPAXX etc. shouldn't show up as "invested" in the activity
+                # breakdown — they're cash sweeps, not real investment outflows.
                 _sec_id = txn.get('security_id')
                 _sec_ticker = (inv_sec_map.get(_sec_id, {}).get('ticker_symbol') or '').upper() if _sec_id else ''
                 if _sec_ticker in CASH_LIKE_TICKERS:
@@ -799,148 +799,31 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         total_current_value = sum(market_value_per_account.values())
         total_cost_basis_from_holdings = sum(cost_basis_per_account.values())
 
-        # ── Reconstruct period-specific portfolio returns (best-effort) ──
-        # Walk the 5yr transaction ledger to compute shares held at each period start,
-        # then price those positions via yfinance to get a true holding-period return %.
+        # ── Period-specific portfolio returns ──
+        # Value-weighted average of per-ticker returns over each period.
+        # Mental model: "if NVDA moved +5% and RDDT +3% this week, my portfolio
+        # return is the value-weighted average across all my current holdings."
+        # This is what every retail finance app reports (Robinhood/Fidelity/Schwab).
+        #
+        # We previously tried a Modified Dietz reconstruction from Plaid's 5yr
+        # transaction ledger, but Plaid's ledger is incomplete for transferred-in
+        # positions and pre-5yr holdings, so _val_at_start systematically undercounted
+        # actual portfolio value at period start — producing absurd returns like +343%
+        # for 1W. Drop the reconstruction; rely on per-ticker yfinance returns.
+        # yfinance auto_adjust=True already includes dividends in the return %.
         period_returns = {}
         try:
-            import yfinance as _yf
-            import pandas as _pd
-            from datetime import datetime as _dt_cls
-
-            CASH_LIKE = {
-                'CUR:USD', 'USD', 'CASH', 'VMFXX', 'SPAXX', 'FDRXX',
-                'SWVXX', 'TMSXX', 'SNSXX', 'FZFXX', 'VBTIX', 'VUSXX',
-            }
-
-            # Build share ledger: (date, ticker, delta) from buy/sell transactions only
-            share_ledger = []
-            for _txn in inv_txns:
-                _sec_id = _txn.get('security_id')
-                if not _sec_id:
-                    continue
-                _sec = inv_sec_map.get(_sec_id) or {}
-                _ticker = (_sec.get('ticker_symbol') or '').upper().strip()
-                if not _ticker or _ticker in CASH_LIKE:
-                    continue
-
-                _ttype = (_txn.get('type') or '').lower()
-                _stype = (_txn.get('subtype') or '').lower()
-                _is_buy = _ttype == 'buy' or _stype == 'buy'
-                _is_sell = _ttype == 'sell' or _stype == 'sell'
-                if not _is_buy and not _is_sell:
-                    continue
-
-                _qty = abs(float(_txn.get('quantity') or 0))
-                if _qty < 0.0001:
-                    continue
-
-                _dv = _txn.get('date')
-                if not _dv:
-                    continue
-                if hasattr(_dv, 'date'):
-                    _dobj = _dv.date()
-                elif isinstance(_dv, str):
-                    _dobj = _dt_cls.strptime(_dv[:10], '%Y-%m-%d').date()
-                else:
-                    _dobj = _dv
-
-                share_ledger.append((_dobj, _ticker, _qty if _is_buy else -_qty))
-
-            share_ledger.sort(key=lambda x: x[0])
-
-            if share_ledger and total_current_value > 100:
-                # Compute cumulative shares at each period start (only txns BEFORE that date)
-                period_start_snaps = {}
-                for _pk, _start in _period_starts.items():
-                    if _start is None:
-                        continue
-                    _cum = {}
-                    for (_td, _tk, _delta) in share_ledger:
-                        if _td < _start:
-                            _cum[_tk] = _cum.get(_tk, 0.0) + _delta
-                    # Keep only open long positions
-                    period_start_snaps[_pk] = {t: s for t, s in _cum.items() if s > 0.001}
-
-                _all_hist_tickers = list({t for snap in period_start_snaps.values() for t in snap})
-
-                if _all_hist_tickers:
-                    _tickers_str = ' '.join(_all_hist_tickers)
-                    _raw = _yf.download(_tickers_str, period='5y', progress=False, auto_adjust=True)
-
-                    # Normalise to a DataFrame of Close prices keyed by ticker
-                    if isinstance(_raw.columns, _pd.MultiIndex):
-                        _close_df = _raw['Close']
-                    elif len(_all_hist_tickers) == 1:
-                        _close_df = _raw[['Close']].rename(columns={'Close': _all_hist_tickers[0]})
-                    else:
-                        _close_df = _raw.get('Close', _raw)
-
-                    # Strip timezone so Timestamp comparisons work
-                    if getattr(_close_df.index, 'tz', None) is not None:
-                        _close_df.index = _close_df.index.tz_convert(None)
-
-                    for _pk, _snap in period_start_snaps.items():
-                        if not _snap:
-                            continue
-                        _start_ts = _pd.Timestamp(_period_starts[_pk])
-                        _val_at_start = 0.0
-                        _priced = 0
-
-                        for _ticker, _shares in _snap.items():
-                            if _ticker not in _close_df.columns:
-                                continue
-                            _series = _close_df[_ticker].dropna()
-                            _after = _series[_series.index >= _start_ts]
-                            if not _after.empty:
-                                _price = float(_after.iloc[0])
-                            else:
-                                _before = _series[_series.index < _start_ts]
-                                if _before.empty:
-                                    continue
-                                _price = float(_before.iloc[-1])
-                            _val_at_start += _shares * _price
-                            _priced += 1
-
-                        _coverage = _priced / len(_snap) if _snap else 0
-                        if _coverage >= 0.75 and _val_at_start > 100:
-                            # Modified Dietz: accounts for cash flows during the period.
-                            # net_flow ≈ invested − proceeds − dividends (proxy for external flow,
-                            # since Plaid doesn't reliably distinguish deposits from internal cash).
-                            # If user invested $25k more than they sold this period, naive (end-start)/start
-                            # treats the new $25k as growth — Mod Dietz removes that artifact.
-                            _pdata = periods.get(_pk, {})
-                            _net_flow = (_pdata.get('invested', 0) or 0) - (_pdata.get('proceeds', 0) or 0) - (_pdata.get('dividends', 0) or 0)
-                            _denom = _val_at_start + 0.5 * _net_flow
-                            if _denom > 100:  # guard against degenerate denominators
-                                _ret = (total_current_value - _val_at_start - _net_flow) / _denom * 100
-                                period_returns[_pk] = round(_ret, 2)
-
-        except Exception as _pr_e:
-            logging.warning(f"Period return reconstruction skipped: {_pr_e}")
-
-        # ── Weighted-ticker fallback for missing period returns ────────────
-        # The ledger-reconstruction path above requires ≥75% price coverage at each period
-        # start — it fails silently when a ticker has no history (delisted, recent IPO, or
-        # a mutual fund yfinance can't resolve). Without this fallback, the UI falls back to
-        # "All-Time Return" when the user clicks 1W/1M/etc., which is surprising and wrong.
-        #
-        # Strategy: for each period missing from period_returns, compute a value-weighted
-        # average of each current holding's own period return (using yfinance 5y history).
-        # Less precise than the reconstruction (ignores intra-period buys/sells), but a
-        # meaningful approximation — what a "buy and hold the current basket" return would
-        # have been over that period.
-        try:
-            _missing_periods = [p for p in ('1w', '1m', 'ytd', '1y', '2y', '5y') if p not in period_returns]
-            if _missing_periods and total_current_value > 100:
+            if total_current_value > 100:
                 from price_service import get_multi_period_returns as _gmpr
 
-                # Build per-ticker current market value from new_assets (excluding cash-likes)
-                _ticker_mv = {}
+                # Cash-equivalents have no meaningful "return" — exclude from weighting
                 _CASH_LIKE = {
                     'CUR:USD', 'USD', 'CASH', 'VMFXX', 'SPAXX', 'FDRXX',
                     'SWVXX', 'TMSXX', 'SNSXX', 'FZFXX', 'VBTIX', 'VUSXX',
                 }
+
+                # Build per-ticker current market value from current holdings
+                _ticker_mv: dict[str, float] = {}
                 for _a in new_assets:
                     _t = (_a.ticker or '').upper().strip()
                     if not _t or _t in _CASH_LIKE:
@@ -951,8 +834,8 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                         _ticker_mv[_t] = _ticker_mv.get(_t, 0.0) + _mv
 
                 if _ticker_mv:
-                    # Fetch multi-period returns per ticker in parallel, capped at 8s total
-                    _per_ticker_returns = {}
+                    # Fetch multi-period returns per ticker in parallel, capped at 8s each
+                    _per_ticker_returns: dict[str, dict] = {}
                     with ThreadPoolExecutor(max_workers=5) as _tex:
                         _tfutures = {_tex.submit(_gmpr, t): t for t in _ticker_mv}
                         for _tf in as_completed(_tfutures):
@@ -963,7 +846,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                                 _per_ticker_returns[_t] = {}
 
                     _total_mv = sum(_ticker_mv.values())
-                    for _pk in _missing_periods:
+                    for _pk in ('1w', '1m', 'ytd', '1y', '2y', '5y'):
                         _w_sum = 0.0
                         _w_weight = 0.0
                         for _t, _mv in _ticker_mv.items():
@@ -971,12 +854,16 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                             if _r is not None:
                                 _w_sum += _r * _mv
                                 _w_weight += _mv
-                        # Require ≥50% of portfolio value to have a valid return for this period
+                        # Require ≥50% of portfolio value priced for this period to report a number.
+                        # Otherwise the result would lean too heavily on a small subset.
                         if _w_weight > 0 and _total_mv > 0 and (_w_weight / _total_mv) >= 0.5:
                             period_returns[_pk] = round(_w_sum / _w_weight, 2)
-                            logging.info(f"[Sync {user_id}] Fallback period return {_pk}: {period_returns[_pk]}% (weighted {_w_weight/_total_mv*100:.0f}% coverage)")
-        except Exception as _fb_e:
-            logging.warning(f"Weighted-ticker period return fallback failed: {_fb_e}")
+                            logging.info(
+                                f"[Sync {user_id}] {_pk} return: {period_returns[_pk]}% "
+                                f"({_w_weight/_total_mv*100:.0f}% value coverage)"
+                            )
+        except Exception as _pr_e:
+            logging.warning(f"Period return computation failed: {_pr_e}")
 
         # Fetch multi-period benchmark returns for S&P 500, Nasdaq, Dow Jones (best-effort)
         benchmarks = {}
