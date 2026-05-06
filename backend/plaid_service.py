@@ -444,6 +444,10 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         market_value_per_account: dict[str, float] = {}
         cost_basis_per_account: dict[str, float] = {}  # Track total cost basis from holdings per account
         margin_from_holdings_per_account: dict[str, float] = {} # Track identified debt to avoid double counting
+        # Per-ticker market value (live-priced, excluding cash sweeps and negative/margin positions).
+        # Used as weights for value-weighted period returns. Built here because the Asset model
+        # doesn't store current_price, so downstream code can't reconstruct it.
+        ticker_market_value: dict[str, float] = {}
         
         all_tickers = [s.get('ticker_symbol') for s in holdings_response['securities'] if s.get('ticker_symbol')]
         from price_service import get_multiple_prices
@@ -508,6 +512,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             # 3. Track market value for POSITIVE assets for margin calculation
             # IMPORTANT: Use Plaid's reported value here to match against Plaid's net_equity
             market_value_per_account[acc_id] = market_value_per_account.get(acc_id, 0) + plaid_reported_value
+
+            # Track per-ticker live market value for value-weighted period returns.
+            # Skip cash sweeps (no meaningful return %) and only count positive positions.
+            if ticker not in CASH_TICKERS and market_value > 0:
+                ticker_market_value[ticker] = ticker_market_value.get(ticker, 0) + market_value
 
             # 4. Add as Asset
             # Calculation of gain: Plaid often provides cost_basis as total cost.
@@ -816,22 +825,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             if total_current_value > 100:
                 from price_service import get_multi_period_returns as _gmpr
 
-                # Cash-equivalents have no meaningful "return" — exclude from weighting
-                _CASH_LIKE = {
-                    'CUR:USD', 'USD', 'CASH', 'VMFXX', 'SPAXX', 'FDRXX',
-                    'SWVXX', 'TMSXX', 'SNSXX', 'FZFXX', 'VBTIX', 'VUSXX',
-                }
-
-                # Build per-ticker current market value from current holdings
-                _ticker_mv: dict[str, float] = {}
-                for _a in new_assets:
-                    _t = (_a.ticker or '').upper().strip()
-                    if not _t or _t in _CASH_LIKE:
-                        continue
-                    _px = _a.current_price or 0
-                    _mv = max(0.0, (_a.shares or 0) * _px)
-                    if _mv > 0:
-                        _ticker_mv[_t] = _ticker_mv.get(_t, 0.0) + _mv
+                # Use the per-ticker market value built during holdings processing.
+                # Previously tried to read _a.current_price from new_assets, but that field
+                # is never populated on the Asset model — it's only on the holdings loop's
+                # local `current_price` variable, which we now capture into ticker_market_value.
+                _ticker_mv = dict(ticker_market_value)
 
                 if _ticker_mv:
                     # Fetch multi-period returns per ticker in parallel, capped at 8s each
