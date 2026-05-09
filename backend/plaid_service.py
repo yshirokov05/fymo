@@ -822,32 +822,16 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                     'SWVXX', 'TMSXX', 'SNSXX', 'FZFXX', 'VBTIX', 'VUSXX',
                 }
 
-                # Build per-ticker current market value from current holdings.
-                # The Asset model doesn't store current_price, so look it up from price_map
-                # (populated earlier in this same function via get_multiple_prices).
-                # Defensive: every step is guarded so a single bad asset can't crash sync.
+                # Build per-ticker current market value from current holdings
                 _ticker_mv: dict[str, float] = {}
-                _pm = price_map if isinstance(price_map, dict) else {}
-                for _a in (new_assets or []):
-                    try:
-                        _t = (getattr(_a, 'ticker', '') or '').upper().strip()
-                        if not _t or _t in _CASH_LIKE:
-                            continue
-                        _shares = float(getattr(_a, 'shares', 0) or 0)
-                        if _shares <= 0:
-                            continue
-                        _p_data = _pm.get(_t)
-                        _px = 0.0
-                        if isinstance(_p_data, dict):
-                            _px = float(_p_data.get('current_price') or 0)
-                        if _px <= 0:
-                            continue
-                        _mv = _shares * _px
-                        if _mv > 0:
-                            _ticker_mv[_t] = _ticker_mv.get(_t, 0.0) + _mv
-                    except Exception:
-                        # Single-asset failure shouldn't block the whole period calc
+                for _a in new_assets:
+                    _t = (_a.ticker or '').upper().strip()
+                    if not _t or _t in _CASH_LIKE:
                         continue
+                    _px = _a.current_price or 0
+                    _mv = max(0.0, (_a.shares or 0) * _px)
+                    if _mv > 0:
+                        _ticker_mv[_t] = _ticker_mv.get(_t, 0.0) + _mv
 
                 if _ticker_mv:
                     # Fetch multi-period returns per ticker in parallel, capped at 8s each
