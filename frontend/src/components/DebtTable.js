@@ -53,10 +53,14 @@ const DebtTable = ({ debts }) => {
                                     )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {isRevolving ? '-' : `$${debt.initial_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                    {isRevolving || debt.isMargin || !debt.initial_amount
+                                        ? <span className="text-gray-300">—</span>
+                                        : `$${debt.initial_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                                    {isRevolving ? '-' : `$${debt.amount_paid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                    {isRevolving || debt.isMargin || !debt.initial_amount
+                                        ? <span className="text-gray-300">—</span>
+                                        : `$${debt.amount_paid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-bold">${debt.remaining_balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${debt.monthly_payment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>

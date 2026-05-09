@@ -552,6 +552,45 @@ const Goals = ({ currentUser, onGoalsCountChange }) => {
                             onDelete={handleDelete}
                         />
                     ))}
+
+                    {/* Suggested next goals — shown when fewer than 3 goals exist */}
+                    {goals.length < 3 && !showForm && (
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-dashed border-gray-200 dark:border-slate-700 p-5">
+                            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+                                {goals.length === 0 ? 'Popular goals to get started' : 'What\'s your next goal?'}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { label: '🏦 Emergency Fund', type: 'emergency_fund', amount: 15000 },
+                                    { label: '🏠 House Down Payment', type: 'savings', amount: 60000 },
+                                    { label: '💳 Pay Off Credit Card', type: 'debt_payoff', amount: 5000 },
+                                    { label: '📈 Invest $10K', type: 'investment', amount: 10000 },
+                                    { label: '✈️ Vacation Fund', type: 'savings', amount: 3000 },
+                                    { label: '🎓 Student Loan Payoff', type: 'debt_payoff', amount: 20000 },
+                                ]
+                                    .filter(s => !goals.some(g => g.name.toLowerCase().includes(s.label.replace(/^[^\w\s]+\s*/, '').toLowerCase().split(' ')[0])))
+                                    .slice(0, 5)
+                                    .map(s => (
+                                        <button
+                                            key={s.label}
+                                            onClick={() => {
+                                                setShowForm(true);
+                                                setTimeout(() => window.dispatchEvent(new CustomEvent('prefill-goal', { detail: s })), 50);
+                                            }}
+                                            className="text-xs bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-full hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                                        >
+                                            {s.label}
+                                        </button>
+                                    ))}
+                                <button
+                                    onClick={() => setShowForm(true)}
+                                    className="text-xs bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors font-semibold"
+                                >
+                                    + Custom goal
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

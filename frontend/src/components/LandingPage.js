@@ -273,7 +273,10 @@ const LandingPage = () => {
                             financial picture.<br />
                             <span className="text-blue-400">Nothing hidden.</span>
                         </h1>
-                        <p className="mt-5 text-lg text-gray-400 leading-relaxed max-w-lg">
+                        <p className="mt-4 text-base sm:text-lg font-semibold text-white/70 italic tracking-wide">
+                            "Your end all be all solution to consolidating your finances."
+                        </p>
+                        <p className="mt-4 text-lg text-gray-400 leading-relaxed max-w-lg">
                             Fymo connects all your accounts, tracks every dollar, and explains every number — so you always know exactly where you stand.
                         </p>
                         <div className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -294,6 +297,10 @@ const LandingPage = () => {
                             <span className="flex items-center gap-1.5"><Link2 size={13} className="text-blue-400" />Plaid-powered sync</span>
                             <span className="flex items-center gap-1.5"><ShieldCheck size={13} className="text-purple-400" />Read-only access</span>
                         </div>
+                        {/* Solo-built / no-ads trust line */}
+                        <p className="mt-4 text-xs text-gray-600 border-t border-white/5 pt-4">
+                            🛡 No VC funding &nbsp;·&nbsp; No ads &nbsp;·&nbsp; No data selling &nbsp;·&nbsp; Built by one person, for real people.
+                        </p>
                     </div>
 
                     {/* Right — mock dashboard */}
@@ -452,10 +459,10 @@ const LandingPage = () => {
             <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
                 <div className="bg-gradient-to-br from-blue-600/20 via-blue-700/10 to-transparent border border-blue-500/20 rounded-3xl p-10 sm:p-16 text-center">
                     <h2 className="text-3xl sm:text-4xl font-black tracking-tight mb-4">
-                        Know exactly where<br />every dollar stands.
+                        Fymo — your end all be all<br />solution to consolidating<br />your finances.
                     </h2>
                     <p className="text-gray-400 mb-8 max-w-md mx-auto">
-                        Join users who stopped guessing and started understanding their finances.
+                        No spreadsheets. No guessing. No hidden algorithms. Just a complete, honest view of your money — all in one place.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <button onClick={() => setAuthModal('signup')}

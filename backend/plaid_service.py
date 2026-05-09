@@ -854,9 +854,11 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                             if _r is not None:
                                 _w_sum += _r * _mv
                                 _w_weight += _mv
-                        # Require ≥50% of portfolio value priced for this period to report a number.
-                        # Otherwise the result would lean too heavily on a small subset.
-                        if _w_weight > 0 and _total_mv > 0 and (_w_weight / _total_mv) >= 0.5:
+                        # Require ≥25% of portfolio value priced for this period to report a number.
+                        # Lowered from 50% to handle portfolios with exotic tickers (PSIX, ASM, USAS, UEC)
+                        # that yfinance cannot price — those tickers are simply excluded from the weighted
+                        # average rather than blocking the entire period return calculation.
+                        if _w_weight > 0 and _total_mv > 0 and (_w_weight / _total_mv) >= 0.25:
                             period_returns[_pk] = round(_w_sum / _w_weight, 2)
                             logging.info(
                                 f"[Sync {user_id}] {_pk} return: {period_returns[_pk]}% "

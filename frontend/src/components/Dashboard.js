@@ -60,7 +60,18 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         hasLinkedBank: false,  // can't infer from props
     };
     // --- Financial Health Metrics ---
-    const [prPeriod, setPrPeriod] = useState('ytd');
+    // Auto-select the best available period on mount so we never show N/A by default.
+    // Preferred order: ytd → 1m → 1w → 1y → 2y → 5y → all
+    // If period_returns has no data at all, fall through to 'all' which uses cost-basis.
+    const [prPeriod, setPrPeriod] = useState(() => {
+        const pr = investmentHistory?.period_returns;
+        if (pr) {
+            for (const p of ['ytd', '1m', '1w', '1y', '2y', '5y']) {
+                if (pr[p] != null) return p;
+            }
+        }
+        return 'all';
+    });
     const [prAccount, setPrAccount] = useState('all');
     const [showMath, setShowMath] = useState(false);
 
