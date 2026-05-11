@@ -56,48 +56,47 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-slate-950 overflow-hidden">
             {/* Desktop Sidebar */}
-            <div className="hidden md:flex md:w-64 bg-gray-900 text-white flex-shrink-0 flex-col">
-                <div className="p-6 flex items-center justify-between">
-                    <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Fymo</span>
+            <div className="hidden md:flex md:w-56 bg-slate-950 text-white flex-shrink-0 flex-col border-r border-slate-800/60">
+                <div className="px-5 py-5 flex items-center justify-between">
+                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Fymo</span>
                     {isPremium ? (
-                        <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded text-[10px] font-black uppercase tracking-widest">Premium</span>
+                        <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md text-[9px] font-black uppercase tracking-widest">Premium</span>
                     ) : (
-                        <span className="px-2 py-0.5 bg-gray-700/50 text-gray-400 border border-gray-600/50 rounded text-[10px] font-black uppercase tracking-widest">Free</span>
+                        <span className="px-2 py-0.5 bg-slate-800 text-slate-500 border border-slate-700/50 rounded-md text-[9px] font-black uppercase tracking-widest">Free</span>
                     )}
                 </div>
-                <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto pb-4 custom-scrollbar">
+                <nav className="flex-1 mt-2 px-3 space-y-0.5 overflow-y-auto pb-4 custom-scrollbar">
                     {navItems.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => handleNavClick(item.id)}
-                            style={activeView === item.id ? activeNavStyle : {}}
                             className={`
-                                w-full flex items-center space-x-3 py-3 px-4 rounded-lg transition duration-200
+                                w-full flex items-center space-x-3 py-2.5 px-3 rounded-lg transition-all duration-150 text-left
                                 ${activeView === item.id
-                                    ? 'text-white shadow-lg'
-                                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'}
+                                    ? 'bg-blue-500/10 text-blue-400 border-l-2 border-blue-500 pl-[10px]'
+                                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 border-l-2 border-transparent'}
                             `}
                         >
-                            {item.icon}
-                            <span className="font-medium">{item.label}</span>
+                            <span className={activeView === item.id ? 'text-blue-400' : 'text-slate-500'}>{item.icon}</span>
+                            <span className={`text-sm ${activeView === item.id ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
                         </button>
                     ))}
-                    <div className="pt-4 mt-4 border-t border-gray-800">
+                    <div className="pt-3 mt-3 border-t border-slate-800/60">
                         <button
                             onClick={onOpenFeedback}
-                            className="w-full flex items-center space-x-3 py-3 px-4 rounded-lg text-gray-400 hover:bg-blue-600/10 hover:text-blue-400 transition duration-200 group"
+                            className="w-full flex items-center space-x-3 py-2.5 px-3 rounded-lg text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 transition-all duration-150 border-l-2 border-transparent group"
                         >
-                            <MessageSquare size={20} className="group-hover:scale-110 transition-transform" />
-                            <span className="font-medium">Feedback</span>
+                            <MessageSquare size={20} className="text-slate-500" />
+                            <span className="text-sm font-medium">Feedback</span>
                         </button>
                     </div>
                 </nav>
-                <div className="p-4 text-[10px] text-gray-500 border-t border-gray-800 leading-tight">
-                    <p className="italic mb-2">All rights reserved. Built as a solo project by Yury Shirokov.</p>
-                    <div className="flex space-x-3">
-                        <button onClick={() => setActiveView('privacy')} className="hover:text-gray-300 underline">Privacy Policy</button>
+                <div className="px-4 py-3 text-[10px] text-slate-600 border-t border-slate-800/60 leading-tight">
+                    <p className="mb-1.5">Built by Yury Shirokov</p>
+                    <div className="flex space-x-2">
+                        <button onClick={() => setActiveView('privacy')} className="hover:text-slate-400 underline">Privacy</button>
                         <span>·</span>
-                        <button onClick={() => setActiveView('terms')} className="hover:text-gray-300 underline">Terms of Service</button>
+                        <button onClick={() => setActiveView('terms')} className="hover:text-slate-400 underline">Terms</button>
                     </div>
                 </div>
             </div>

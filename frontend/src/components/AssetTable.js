@@ -127,8 +127,10 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                             {asset.tax_treatment || 'TAXABLE'}
                         </span>
                     </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                        {isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}
+                    <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-[140px]">
+                        <span className="block truncate" title={isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}>
+                            {isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}
+                        </span>
                     </td>
                     
                     <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-bold">
@@ -267,7 +269,9 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                                     {asset.tax_treatment || 'TAXABLE'}
                                                 </span>
                                             </td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">{asset.institution_name || 'Manual'}</td>
+                                            <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-[140px]">
+                                                <span className="block truncate" title={asset.institution_name || 'Manual'}>{asset.institution_name || 'Manual'}</span>
+                                            </td>
                                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
                                                 ${asset.shares.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>

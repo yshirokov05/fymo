@@ -999,9 +999,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 data={chartData}
                                                 cx="50%"
                                                 cy="45%"
-                                                labelLine={true}
-                                                label={({ name, percent }) => `${name} (${percent}%)`}
-                                                outerRadius={100}
+                                                labelLine={false}
+                                                label={false}
+                                                outerRadius={110}
+                                                innerRadius={40}
+                                                paddingAngle={2}
                                                 fill="#8884d8"
                                                 dataKey="value"
                                             >
@@ -1010,7 +1012,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 ))}
                                             </Pie>
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend verticalAlign="bottom" height={36}/>
+                                            <Legend verticalAlign="bottom" height={48} formatter={(value) => <span style={{fontSize:'11px', color:'#94a3b8'}}>{value}</span>} />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
                                     {isDemoMode && (

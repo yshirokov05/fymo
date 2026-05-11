@@ -46,10 +46,10 @@ const DebtTable = ({ debts }) => {
 
                         return (
                             <tr key={debt.plaid_account_id || debt.name} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    <div className="font-bold">{debt.name}</div>
+                                <td className="px-6 py-4 text-sm font-medium text-gray-900 max-w-[160px]">
+                                    <div className="font-bold truncate" title={debt.name}>{debt.name}</div>
                                     {debt.official_name && debt.official_name !== debt.name && (
-                                        <div className="text-[10px] text-gray-400 font-normal uppercase tracking-wider">{debt.official_name}</div>
+                                        <div className="text-[10px] text-gray-400 font-normal uppercase tracking-wider truncate" title={debt.official_name}>{debt.official_name}</div>
                                     )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
