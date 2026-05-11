@@ -205,9 +205,10 @@ const TaxCalculator = ({
 
                 {netPaystubWarning && (
                     <div className="mb-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-                        <span className="mt-0.5">⚠️</span>
+                        <span className="mt-0.5 shrink-0">⚠️</span>
                         <span>
-                            Some paystubs were imported as <strong>net (take-home) amounts</strong> without withholding data, so the "Total Paid YTD" below may be $0 or understated. To see your actual remaining tax due, enter the withholding amount on each paystub, or upload a paystub PDF using the tool below to auto-extract it.
+                            Paychecks were imported as <strong>net deposits</strong> — withholding data missing.
+                            Upload a paystub PDF below to auto-fill taxes withheld.
                         </span>
                     </div>
                 )}
@@ -216,10 +217,14 @@ const TaxCalculator = ({
                     <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
                         <p className="text-xs font-black text-blue-600 uppercase mb-1">Projected Total Liability</p>
                         <p className="text-2xl font-black text-gray-900">${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax).toLocaleString()}</p>
+                        <p className="text-[10px] text-blue-500 mt-1">Federal + State + FICA</p>
                     </div>
                     <div className="p-4 bg-green-50 rounded-xl border border-green-100">
                         <p className="text-xs font-black text-green-600 uppercase mb-1">Total Paid YTD (Withholding)</p>
                         <p className="text-2xl font-black text-gray-900">${((totalWithheldFromPaystubs || 0) + taxesWithheld).toLocaleString()}</p>
+                        {((totalWithheldFromPaystubs || 0) + taxesWithheld) === 0 && (
+                            <p className="text-[10px] text-amber-600 mt-1">Upload a paystub PDF below to add withholding</p>
+                        )}
                     </div>
                 </div>
                 {/* Realized capital gains breakdown — Phase C */}
@@ -249,40 +254,36 @@ const TaxCalculator = ({
                         </p>
                     </div>
                 )}
-                <p className="text-sm text-gray-600 mb-2">Detailed Breakdown:</p>
-                <div className="space-y-2">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Breakdown</p>
+                <div className="space-y-1.5">
                     {estimatedFedLtcgTax > 0 ? (
                         <>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-700 pl-4">Federal — Ordinary Income:</span>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600 pl-3">Federal — Ordinary Income</span>
                                 <span className="font-semibold text-red-600">${estimatedFedOrdinaryTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-700 pl-4">Federal — Long-Term Cap Gains:</span>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-600 pl-3">Federal — Long-Term Cap Gains</span>
                                 <span className="font-semibold text-red-600">${estimatedFedLtcgTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="font-semibold text-gray-800">Federal Total:</span>
+                            <div className="flex justify-between items-center text-sm border-t border-gray-100 pt-1.5">
+                                <span className="font-medium text-gray-800">Federal Total</span>
                                 <span className="font-bold text-red-600">${estimatedFederalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </>
                     ) : (
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-700">Estimated Federal Tax:</span>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Federal</span>
                             <span className="font-bold text-red-600">${estimatedFederalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     )}
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-700">Estimated State Tax:</span>
+                    <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">State</span>
                         <span className="font-bold text-red-600">${estimatedStateTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-gray-700">Estimated Payroll Tax (FICA):</span>
+                    <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-600">Payroll (FICA)</span>
                         <span className="font-bold text-red-600">${estimatedFicaTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between items-center border-t pt-2 mt-2">
-                        <span className="text-lg font-bold text-gray-800">Total Estimated Tax:</span>
-                        <span className="text-lg font-bold text-red-600">${(estimatedFederalTax + estimatedStateTax + estimatedFicaTax).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     {((totalWithheldFromPaystubs || 0) + taxesWithheld) > 0 && (
                         <div className="flex justify-between items-center border-t pt-2 mt-2 bg-gray-50 -mx-6 px-6 pb-2 rounded-b-xl">

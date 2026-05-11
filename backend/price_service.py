@@ -134,9 +134,14 @@ def get_period_return(ticker_symbol, period='ytd'):
     except Exception:
         return None
 
-def get_multi_period_returns(ticker_symbol):
+def get_multi_period_returns(ticker_symbol, since_date=None):
     """Fetch % returns for multiple time periods from a single yfinance history query.
-    Returns dict like {'1w': 2.3, '1m': -1.5, 'ytd': 5.2, '1y': 12.1, ...}"""
+    Returns dict like {'1w': 2.3, '1m': -1.5, 'ytd': 5.2, '1y': 12.1, ...}
+
+    since_date: optional ISO date string (e.g. '2024-03-12') — when provided, the 'all'
+    period is anchored to that date rather than the full 5-year history. This ensures the
+    benchmark 'all' return matches the user's actual investment start date.
+    """
     import yfinance as yf
     from datetime import timedelta
     try:
@@ -160,10 +165,18 @@ def get_multi_period_returns(ticker_symbol):
             sc = float(ytd_sub['Close'].iloc[0])
             if sc > 0:
                 results['ytd'] = round(((last_close / sc) - 1) * 100, 2)
-        # All (full dataset)
-        sc = float(hist['Close'].iloc[0])
-        if sc > 0:
-            results['all'] = round(((last_close / sc) - 1) * 100, 2)
+        # All — anchor to since_date if provided (matches user's actual portfolio start),
+        # otherwise fall back to the earliest available data point in the 5yr window.
+        if since_date:
+            since_sub = hist[hist.index >= since_date]
+            if len(since_sub) >= 2:
+                sc = float(since_sub['Close'].iloc[0])
+                if sc > 0:
+                    results['all'] = round(((last_close / sc) - 1) * 100, 2)
+        else:
+            sc = float(hist['Close'].iloc[0])
+            if sc > 0:
+                results['all'] = round(((last_close / sc) - 1) * 100, 2)
         return results
     except Exception:
         return {}

@@ -812,6 +812,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         # for 1W. Drop the reconstruction; rely on per-ticker yfinance returns.
         # yfinance auto_adjust=True already includes dividends in the return %.
         period_returns = {}
+        period_returns_coverage = {}
         try:
             if total_current_value > 100:
                 from price_service import get_multi_period_returns as _gmpr
@@ -846,6 +847,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                                 _per_ticker_returns[_t] = {}
 
                     _total_mv = sum(_ticker_mv.values())
+                    period_returns_coverage = {}  # stores coverage % alongside returns
                     for _pk in ('1w', '1m', 'ytd', '1y', '2y', '5y'):
                         _w_sum = 0.0
                         _w_weight = 0.0
@@ -854,26 +856,32 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                             if _r is not None:
                                 _w_sum += _r * _mv
                                 _w_weight += _mv
-                        # Require ≥25% of portfolio value priced for this period to report a number.
-                        # Lowered from 50% to handle portfolios with exotic tickers (PSIX, ASM, USAS, UEC)
-                        # that yfinance cannot price — those tickers are simply excluded from the weighted
-                        # average rather than blocking the entire period return calculation.
-                        if _w_weight > 0 and _total_mv > 0 and (_w_weight / _total_mv) >= 0.25:
+                        # Require ≥5% of portfolio value priced to report a return.
+                        # Portfolios with exotic tickers (PSIX, ASM, USAS, UEC) that yfinance
+                        # cannot price are excluded from the weighted average but do NOT block
+                        # the entire period calculation. Coverage metadata is stored alongside
+                        # the return so the frontend can show a caveat when it's low.
+                        if _w_weight > 0 and _total_mv > 0 and (_w_weight / _total_mv) >= 0.05:
+                            _cov = round(_w_weight / _total_mv * 100, 0)
                             period_returns[_pk] = round(_w_sum / _w_weight, 2)
+                            period_returns_coverage[_pk] = int(_cov)
                             logging.info(
                                 f"[Sync {user_id}] {_pk} return: {period_returns[_pk]}% "
-                                f"({_w_weight/_total_mv*100:.0f}% value coverage)"
+                                f"({_cov:.0f}% value coverage)"
                             )
         except Exception as _pr_e:
             logging.warning(f"Period return computation failed: {_pr_e}")
 
-        # Fetch multi-period benchmark returns for S&P 500, Nasdaq, Dow Jones (best-effort)
+        # Fetch multi-period benchmark returns for S&P 500, Nasdaq, Dow Jones (best-effort).
+        # Pass the portfolio's earliest transaction date so the 'all' period benchmark is
+        # anchored to when the user actually started investing — not to an arbitrary 5yr window.
         benchmarks = {}
         try:
             from price_service import get_multi_period_returns
             benchmark_tickers = {'spy': 'SPY', 'qqq': 'QQQ', 'dia': 'DIA'}
+            _bench_since = earliest_txn_date  # ISO date string, e.g. '2024-03-12' or None
             with ThreadPoolExecutor(max_workers=3) as _bex:
-                bfutures = {_bex.submit(get_multi_period_returns, t): k for k, t in benchmark_tickers.items()}
+                bfutures = {_bex.submit(get_multi_period_returns, t, _bench_since): k for k, t in benchmark_tickers.items()}
                 for bf in as_completed(bfutures):
                     bkey = bfutures[bf]
                     try:
@@ -929,6 +937,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             'by_account': by_account,
             'benchmarks': benchmarks,
             'period_returns': period_returns,
+            'period_returns_coverage': period_returns_coverage,
             'basis_sanity_flag': basis_sanity_flag,
             'realized_gains': realized_gains,
         }

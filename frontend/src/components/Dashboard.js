@@ -90,8 +90,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     // Income from manually-entered sources
     const manualMonthlyIncome = incomes.reduce((sum, i) => sum + (i.monthly_income || 0), 0);
     // Income from Plaid-detected paystubs this month (gross_amount = net deposit for is_net_primary)
+    // IMPORTANT: Parse date string as local date parts (not via new Date("YYYY-MM-DD") which
+    // is treated as UTC midnight and shifts to the previous day in US timezones, causing the
+    // first-of-month paycheck to be excluded from the current month's income calculation.
     const paystubMonthlyIncome = paystubs
-        .filter(p => { const d = new Date(p.date); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); })
+        .filter(p => { const [yr, mo] = p.date.split('-').map(Number); return yr === now.getFullYear() && mo - 1 === now.getMonth(); })
         .reduce((sum, p) => sum + (p.is_net_primary ? (p.gross_amount || 0) : (p.net_amount || Math.max(0, (p.gross_amount || 0) - (p.tax_withheld || 0)))), 0);
     const monthlyIncome = manualMonthlyIncome + paystubMonthlyIncome;
 
@@ -634,6 +637,10 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 const hasPeriodReturn = periodRetPct !== null;
                 const periodMissing = !isAllPeriod && !hasPeriodReturn;
 
+                // Coverage metadata: % of portfolio value that was priceable for this period
+                const periodCoverage = ih?.period_returns_coverage?.[prPeriod] ?? null;
+                const isPartialCoverage = periodCoverage !== null && periodCoverage < 50;
+
                 // Final display values
                 let retPct, retDollar, returnLabel, returnTooltip;
                 if (periodMissing) {
@@ -641,12 +648,16 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     retPct = null;
                     retDollar = null;
                     returnLabel = `${PERIOD_LABELS[prPeriod]} unavailable`;
-                    returnTooltip = `Couldn't compute ${PERIOD_LABELS[prPeriod]} return. This requires either (a) ≥75% of your holdings priced via market data at the period start, or (b) a portfolio snapshot from on or before that date. Your account may not have enough history yet — try a longer period or "All".`;
+                    returnTooltip = `Couldn't compute ${PERIOD_LABELS[prPeriod]} return — not enough holdings could be priced for this window. Try a longer period or "All" for cost-basis return.`;
                 } else if (hasPeriodReturn) {
                     retPct = periodRetPct;
                     retDollar = null;
-                    returnLabel = `${PERIOD_LABELS[prPeriod]} Return`;
-                    returnTooltip = `Modified-Dietz holding-period return for ${PERIOD_LABELS[prPeriod]}: reconstructed from your transaction history + historical prices. Adjusts for cash flows during the period so deposits and withdrawals aren't counted as performance.`;
+                    returnLabel = isPartialCoverage
+                        ? `${PERIOD_LABELS[prPeriod]} Return (${periodCoverage}% priced)`
+                        : `${PERIOD_LABELS[prPeriod]} Return`;
+                    returnTooltip = isPartialCoverage
+                        ? `Weighted return for ${PERIOD_LABELS[prPeriod]} based on ${periodCoverage}% of your portfolio by value — some holdings (e.g. thinly-traded or OTC stocks) couldn't be priced for this window and are excluded from the weighted average.`
+                        : `Weighted holding-period return for ${PERIOD_LABELS[prPeriod]}: each ticker's return is weighted by its current market value. Tickers without pricing data are excluded.`;
                 } else {
                     // All period selected — show cost-basis-based all-time return
                     retPct = allTimeRetPct;

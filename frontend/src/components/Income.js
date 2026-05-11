@@ -540,22 +540,29 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                                 <span className="font-black text-green-600">+${ytd.dividends.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                             </div>
                                         )}
-                                        {ytd.proceeds > 0 && ytd.invested > 0 && (() => {
-                                            const ytdNetGain = ytd.proceeds - ytd.invested;
-                                            const isGain = ytdNetGain >= 0;
+                                        {/* Realized Gains — use FIFO P&L if available, else omit.
+                                             Never show raw (proceeds - invested) as income: that
+                                             figure is net cash flow from trading activity, not P&L,
+                                             and shows a large negative number for net buyers. */}
+                                        {realizedYTD && realizedYTD.count > 0 && (() => {
+                                            const gain = realizedYTD.total;
+                                            const isGain = gain >= 0;
                                             return (
                                                 <div className="flex justify-between items-center py-2 text-sm border-t border-gray-50">
                                                     <div>
-                                                        <span className="font-bold text-gray-800">Realized Trades</span>
+                                                        <span className="font-bold text-gray-800">Realized Gains</span>
                                                         <span className="ml-2 text-[10px] text-blue-500 font-bold uppercase bg-blue-50 px-1.5 py-0.5 rounded-full">Plaid</span>
+                                                        <span className="ml-1 text-[10px] text-gray-400">({realizedYTD.count} trade{realizedYTD.count !== 1 ? 's' : ''})</span>
                                                     </div>
                                                     <span className={`font-black ${isGain ? 'text-green-600' : 'text-red-500'}`}>
-                                                        {isGain ? '+' : '-'}${Math.abs(ytdNetGain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        {isGain ? '+' : '-'}${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </span>
                                                 </div>
                                             );
                                         })()}
-                                        <p className="text-[10px] text-gray-400 mt-1">Proceeds ${ytd.proceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })} · Invested ${ytd.invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                        {ytd.proceeds > 0 && ytd.invested > 0 && (
+                                            <p className="text-[10px] text-gray-400 mt-1">Trading activity — Proceeds ${ytd.proceeds.toLocaleString(undefined, { maximumFractionDigits: 0 })} · Invested ${ytd.invested.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                        )}
                                     </div>
                                 )}
                                 </>
