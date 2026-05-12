@@ -469,13 +469,13 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         <div className="space-y-6">
             {/* Budget overage alert banner */}
             {overBudgets.length > 0 && !isEditing && (
-                <div className="flex items-start space-x-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <div className="flex items-start space-x-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl px-4 py-3">
                     <Activity size={18} className="text-red-500 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                        <span className="text-sm font-bold text-red-700">
+                        <span className="text-sm font-bold text-red-700 dark:text-red-300">
                             {overBudgets.length} budget{overBudgets.length > 1 ? 's' : ''} over limit this month:&nbsp;
                         </span>
-                        <span className="text-sm text-red-600">
+                        <span className="text-sm text-red-600 dark:text-red-400">
                             {overBudgets.map(b => {
                                 const spent = getSpentForCategory(b.category, b.period);
                                 const limit = getNormalizedMonthlyLimit(b.limit_amount, b.period || 'Monthly');
@@ -488,32 +488,32 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="flex items-center space-x-4">
-                    <h2 className="text-3xl font-bold text-gray-800">Expenditure Dashboard</h2>
-                    
-                    <div className="flex items-center bg-white border border-gray-100 rounded-xl p-1 shadow-sm">
-                        <button 
+                    <h2 className="text-3xl font-bold text-gray-800 dark:text-slate-100">Expenditure Dashboard</h2>
+
+                    <div className="flex items-center bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl p-1 shadow-sm">
+                        <button
                             onClick={() => {
                                 const [y, m] = selectedMonth.split('-').map(Number);
                                 const d = new Date(y, m - 2, 1);
                                 setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
                             }}
-                            className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors"
+                            className="p-1.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg text-gray-500 dark:text-slate-400 transition-colors"
                         >
                             <ChevronLeft size={20} />
                         </button>
                         <div className="px-4 flex items-center space-x-2">
                             <Calendar size={16} className="text-blue-500" />
-                            <span className="font-bold text-gray-700 min-w-[120px] text-center">
+                            <span className="font-bold text-gray-700 dark:text-slate-200 min-w-[120px] text-center">
                                 {new Date(selectedMonth + '-02').toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                             </span>
                         </div>
-                        <button 
+                        <button
                             onClick={() => {
                                 const [y, m] = selectedMonth.split('-').map(Number);
                                 const d = new Date(y, m, 1);
                                 setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
                             }}
-                            className="p-1.5 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors"
+                            className="p-1.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg text-gray-500 dark:text-slate-400 transition-colors"
                         >
                             <ChevronRight size={20} />
                         </button>
@@ -521,21 +521,21 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 </div>
                 <div className="flex items-center space-x-3">
                     {!isEditing ? (
-                        <button 
+                        <button
                             onClick={() => setIsEditing(true)}
-                            className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                            className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 font-medium transition-colors"
                         >
                             Edit Budgets
                         </button>
                     ) : (
                         <>
-                            <button 
+                            <button
                                 onClick={() => { setEditedBudgets([...budgets]); setIsEditing(false); }}
-                                className="text-gray-500 px-4 py-2 hover:text-gray-700"
+                                className="text-gray-500 dark:text-slate-400 px-4 py-2 hover:text-gray-700 dark:hover:text-slate-200"
                             >
                                 Cancel
                             </button>
-                            <button 
+                            <button
                                 onClick={handleSave}
                                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-bold transition-all"
                             >
@@ -546,7 +546,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                     {onImportStatement && (
                         <button
                             onClick={onImportStatement}
-                            className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium transition-colors flex items-center space-x-2"
+                            className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/50 font-medium transition-colors flex items-center space-x-2"
                         >
                             <Upload size={16} />
                             <span>Import Statement</span>
@@ -573,9 +573,9 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                     <div className="text-[10px] opacity-70 mt-1 font-bold italic">{subscriptions.length} Subscriptions active</div>
                 </Card>
 
-                <Card className="bg-white">
+                <Card className="bg-white dark:bg-slate-800">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Budget Utilization</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-slate-500">Budget Utilization</span>
                         <PieChart size={16} className="text-blue-500" />
                     </div>
                     {(() => {
@@ -584,31 +584,31 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         const utilization = totalLimit > 0 ? (totalSpent / totalLimit) * 100 : 0;
                         return (
                             <>
-                                <div className="text-2xl font-black text-gray-900">{utilization.toFixed(0)}%</div>
-                                <div className="w-full bg-gray-100 rounded-full h-1 mt-2">
+                                <div className="text-2xl font-black text-gray-900 dark:text-slate-100">{utilization.toFixed(0)}%</div>
+                                <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1 mt-2">
                                     <div className="bg-blue-500 h-full rounded-full" style={{ width: `${utilization}%` }}></div>
                                 </div>
                             </>
                         );
                     })()}
                 </Card>
-                
-                <Card className="bg-white md:col-span-2 overflow-hidden relative">
+
+                <Card className="bg-white dark:bg-slate-800 md:col-span-2 overflow-hidden relative">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Detected Subscriptions</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-slate-500">Detected Subscriptions</span>
                         <Tag size={16} className="text-blue-500" />
                     </div>
                     <div className="flex space-x-3 overflow-x-auto pt-2 pr-2 pb-2 scrollbar-none no-scrollbar">
                         {subscriptions.slice(0, 5).map((s, idx) => (
-                            <div key={idx} className="flex-shrink-0 bg-gray-50 p-2 rounded-lg border border-gray-100 relative group/sub">
-                                <div className="text-[10px] font-black text-gray-900 truncate w-24">{s.name}</div>
-                                <div className="text-xs font-bold text-blue-600">${s.amount.toFixed(2)}</div>
-                                <button 
+                            <div key={idx} className="flex-shrink-0 bg-gray-50 dark:bg-slate-900 p-2 rounded-lg border border-gray-100 dark:border-slate-700 relative group/sub">
+                                <div className="text-[10px] font-black text-gray-900 dark:text-slate-100 truncate w-24">{s.name}</div>
+                                <div className="text-xs font-bold text-blue-600 dark:text-blue-400">${s.amount.toFixed(2)}</div>
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleUpdateSubscriptionPrefs([...ignoredSubscriptions, s.name], manualSubscriptions.filter(m => m !== s.name));
                                     }}
-                                    className="absolute -top-2 -right-2 bg-white shadow-md border border-gray-200 rounded-full p-1 text-gray-400 hover:text-red-500 hover:scale-110 transition-all z-10"
+                                    className="absolute -top-2 -right-2 bg-white dark:bg-slate-800 shadow-md border border-gray-200 dark:border-slate-700 rounded-full p-1 text-gray-400 dark:text-slate-500 hover:text-red-500 hover:scale-110 transition-all z-10"
                                     title="Dismiss Subscription"
                                 >
                                     <X size={12} />
@@ -625,9 +625,9 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             </div>
 
             <div className="flex items-center space-x-2 pb-2">
-                <BarChart2 className="text-blue-600" size={20} />
-                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Hard Budgets</h3>
-                <span className="text-[10px] text-gray-400 font-medium bg-gray-100 px-2 py-0.5 rounded-full">Strict Spending Limits</span>
+                <BarChart2 className="text-blue-600 dark:text-blue-400" size={20} />
+                <h3 className="text-lg font-black text-gray-900 dark:text-slate-100 uppercase tracking-tight">Hard Budgets</h3>
+                <span className="text-[10px] text-gray-400 dark:text-slate-500 font-medium bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">Strict Spending Limits</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -644,40 +644,40 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 <div>
                                     {isEditing ? (
                                         <div className="flex flex-col space-y-2">
-                                            <select 
+                                            <select
                                                 value={budget.category}
                                                 onChange={(e) => {
                                                     const nb = [...editedBudgets];
                                                     nb[index].category = e.target.value;
                                                     setEditedBudgets(nb);
                                                 }}
-                                                className="font-bold text-lg bg-gray-50 border-none rounded p-1 focus:ring-2 focus:ring-blue-500 w-full"
+                                                className="font-bold text-lg bg-gray-50 dark:bg-slate-700 dark:text-slate-100 border-none rounded p-1 focus:ring-2 focus:ring-blue-500 w-full"
                                             >
                                                 {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                                             </select>
-                                            
-                                            <select 
+
+                                            <select
                                                 value={budget.period || 'Monthly'}
                                                 onChange={(e) => {
                                                     const nb = [...editedBudgets];
                                                     nb[index].period = e.target.value;
                                                     setEditedBudgets(nb);
                                                 }}
-                                                className="text-xs font-semibold text-gray-500 bg-gray-50 border-none rounded p-1 focus:ring-2 focus:ring-blue-500 w-full"
+                                                className="text-xs font-semibold text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-700 border-none rounded p-1 focus:ring-2 focus:ring-blue-500 w-full"
                                             >
                                                 {periods.map(p => <option key={p} value={p}>{p}</option>)}
                                             </select>
                                         </div>
                                     ) : (
                                         <div>
-                                            <h3 className="font-bold text-gray-900 text-lg flex items-center">
+                                            <h3 className="font-bold text-gray-900 dark:text-slate-100 text-lg flex items-center">
                                                 {categories.find(c => c.name === budget.category)?.icon || <PieChart size={16}/>}
                                                 <span className="ml-2">{budget.category}</span>
                                             </h3>
                                             <div className="flex items-center space-x-1">
-                                                <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{budget.period || 'Monthly'}</span>
+                                                <span className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-widest">{budget.period || 'Monthly'}</span>
                                                 {(budget.period === 'Monthly' || !budget.period) && (
-                                                    <span className="text-[10px] text-gray-300 font-medium">
+                                                    <span className="text-[10px] text-gray-300 dark:text-slate-600 font-medium">
                                                         ({new Date(selectedMonth + '-02').toLocaleDateString(undefined, {month: 'short'})} 1st - {new Date(selectedMonth.split('-')[0], selectedMonth.split('-')[1], 0).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})})
                                                     </span>
                                                 )}
@@ -695,8 +695,8 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                             <div className="flex items-baseline space-x-1 mb-4">
                                 {isEditing ? (
                                     <div className="flex items-center">
-                                        <span className="text-gray-400">$</span>
-                                        <input 
+                                        <span className="text-gray-400 dark:text-slate-500">$</span>
+                                        <input
                                             type="number"
                                             value={budget.limit_amount === 0 ? '' : budget.limit_amount}
                                             placeholder="0"
@@ -705,18 +705,18 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 nb[index].limit_amount = parseFloat(e.target.value) || 0;
                                                 setEditedBudgets(nb);
                                             }}
-                                            className="w-24 font-bold text-2xl bg-gray-50 border-none rounded p-1 focus:ring-2 focus:ring-blue-500"
+                                            className="w-24 font-bold text-2xl bg-gray-50 dark:bg-slate-700 dark:text-slate-100 border-none rounded p-1 focus:ring-2 focus:ring-blue-500"
                                         />
                                     </div>
                                 ) : (
                                     <>
-                                        <span className="text-2xl font-black text-gray-900">${spent.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
-                                        <span className="text-gray-400 text-sm">of ${budget.limit_amount.toLocaleString()}</span>
+                                        <span className="text-2xl font-black text-gray-900 dark:text-slate-100">${spent.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
+                                        <span className="text-gray-400 dark:text-slate-500 text-sm">of ${budget.limit_amount.toLocaleString()}</span>
                                     </>
                                 )}
                             </div>
-    
-                            <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2 overflow-hidden">
+
+                            <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2.5 mb-2 overflow-hidden">
                                 <div 
                                     className={`h-full transition-all duration-1000 ${isOver ? 'bg-red-500' : percent > 80 ? 'bg-amber-500' : 'bg-blue-500'}`} 
                                     style={{ width: `${percent}%` }}
@@ -724,18 +724,18 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                             </div>
                                 
                             <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
-                                <span className={isOver ? 'text-red-500' : 'text-gray-400'}>
+                                <span className={isOver ? 'text-red-500' : 'text-gray-400 dark:text-slate-500'}>
                                     {isOver ? 'Over Limit' : `${percent.toFixed(0)}% Used`}
                                 </span>
-                                <span className="text-gray-400">
+                                <span className="text-gray-400 dark:text-slate-500">
                                     ${Math.max(0, normalizedLimit - spent).toLocaleString(undefined, {maximumFractionDigits: 0})} Left
                                 </span>
                             </div>
                             {/* Previous month context */}
                             {!isEditing && prevSpent > 0 && (
-                                <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between">
-                                    <span className="text-[10px] text-gray-400 font-medium">Last month</span>
-                                    <span className={`text-[10px] font-bold ${prevSpent > normalizedLimit ? 'text-red-500' : 'text-gray-500'}`}>
+                                <div className="mt-3 pt-2 border-t border-gray-100 dark:border-slate-700/50 flex items-center justify-between">
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-500 font-medium">Last month</span>
+                                    <span className={`text-[10px] font-bold ${prevSpent > normalizedLimit ? 'text-red-500' : 'text-gray-500 dark:text-slate-400'}`}>
                                         ${prevSpent.toLocaleString(undefined, {maximumFractionDigits: 0})}
                                     </span>
                                 </div>
@@ -744,16 +744,16 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                     );
                 })}
                 {!isEditing && budgets.length === 0 && (
-                    <div className="col-span-full py-12 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                        <PieChart className="mx-auto text-gray-300 mb-4" size={48} />
-                        <h3 className="text-lg font-bold text-gray-800">No Hard Budgets Set</h3>
-                        <p className="text-gray-500 text-sm max-w-xs mx-auto mt-1 mb-4">
+                    <div className="col-span-full py-12 text-center bg-gray-50 dark:bg-slate-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700">
+                        <PieChart className="mx-auto text-gray-300 dark:text-slate-600 mb-4" size={48} />
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-slate-100">No Hard Budgets Set</h3>
+                        <p className="text-gray-500 dark:text-slate-400 text-sm max-w-xs mx-auto mt-1 mb-4">
                             Add a budget to set strict spending limits for categories like Eating Out or Entertainment.
                         </p>
                         <div className="flex flex-col items-center space-y-4">
-                            <button 
+                            <button
                                 onClick={handleAddBudget}
-                                className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all transform hover:-translate-y-0.5 active:scale-95"
+                                className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 dark:shadow-blue-900/30 transition-all transform hover:-translate-y-0.5 active:scale-95"
                             >
                                 + Create Your First Budget
                             </button>
@@ -783,7 +783,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 setEditedBudgets(suggested);
                                                 setIsEditing(true);
                                             }}
-                                            className="text-gray-500 font-bold text-sm hover:text-blue-600 transition-colors flex items-center"
+                                            className="text-gray-500 dark:text-slate-400 font-bold text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center"
                                         >
                                             <TrendingUp size={14} className="mr-1" />
                                             Build from {(() => {
@@ -809,13 +809,13 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                             <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center">
                                 <TrendingUp size={24} className="mr-2 text-emerald-600" />
                                 FLEXIBLE SPENDING
-                                <span className="ml-3 px-2 py-0.5 bg-gray-50 text-gray-400 text-[10px] rounded-full font-medium border border-gray-100 flex items-center">
+                                <span className="ml-3 px-2 py-0.5 bg-gray-50 dark:bg-slate-700 text-gray-400 dark:text-slate-500 text-[10px] rounded-full font-medium border border-gray-100 dark:border-slate-600 flex items-center">
                                     No Budget Set — Tracking Only
                                 </span>
                             </h3>
                             <div className="flex items-center space-x-2">
                                 {/* Period selector */}
-                                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-bold">
+                                <div className="flex rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden text-xs font-bold">
                                     {[
                                         { id: 'month', label: 'Month' },
                                         { id: '3m',    label: '3 Mo' },
@@ -825,7 +825,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                         <button
                                             key={opt.id}
                                             onClick={() => setFlexPeriod(opt.id)}
-                                            className={`px-2.5 py-1.5 transition-colors ${flexPeriod === opt.id ? 'bg-emerald-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                            className={`px-2.5 py-1.5 transition-colors ${flexPeriod === opt.id ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700/50'}`}
                                         >
                                             {opt.label}
                                         </button>
@@ -836,7 +836,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                         setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: 'Other', limit_amount: 0, period: 'Monthly' }]);
                                         setIsEditing(true);
                                     }}
-                                    className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center"
+                                    className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex items-center"
                                     title="Explicitly track a category"
                                 >
                                     <Plus size={16} className="mr-1" />
@@ -844,16 +844,16 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 </button>
                             </div>
                         </div>
-                        <p className="text-xs text-gray-500 mb-4 font-medium leading-relaxed max-w-2xl">
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mb-4 font-medium leading-relaxed max-w-2xl">
                             {flexPeriod === 'month'
                                 ? 'Categories with spending this month but no hard budget. Track variable costs without a strict limit.'
                                 : `Showing total spending across ${getFlexDateRange().label} per category. Switch to Month view for month-over-month comparison.`}
                         </p>
                         
                         {flexibleSpending.length === 0 ? (
-                            <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <p className="text-gray-500 text-sm font-medium">No flexible spending found for this period.</p>
-                                <p className="text-gray-400 text-xs mt-1">Click "Add Tracker" to track categories without a fixed budget limit.</p>
+                            <div className="text-center py-8 bg-gray-50 dark:bg-slate-900 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
+                                <p className="text-gray-500 dark:text-slate-400 text-sm font-medium">No flexible spending found for this period.</p>
+                                <p className="text-gray-400 dark:text-slate-500 text-xs mt-1">Click "Add Tracker" to track categories without a fixed budget limit.</p>
                             </div>
                         ) : (
                         <>
@@ -863,10 +863,10 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                             const total = flexibleSpending.reduce((s, i) => s + i.amount, 0);
                             const avgMonth = months > 0 ? total / months : 0;
                             return (
-                                <div className="flex items-center space-x-6 mb-4 px-1 text-sm text-gray-500">
-                                    <span className="font-semibold text-gray-700">{label} total: <span className="text-emerald-700">${total.toLocaleString(undefined, {maximumFractionDigits: 0})}</span></span>
-                                    <span>Avg/month: <span className="font-semibold text-gray-700">${avgMonth.toLocaleString(undefined, {maximumFractionDigits: 0})}</span></span>
-                                    <span className="text-xs text-gray-400">across {flexibleSpending.length} categor{flexibleSpending.length !== 1 ? 'ies' : 'y'}</span>
+                                <div className="flex items-center space-x-6 mb-4 px-1 text-sm text-gray-500 dark:text-slate-400">
+                                    <span className="font-semibold text-gray-700 dark:text-slate-200">{label} total: <span className="text-emerald-700 dark:text-emerald-400">${total.toLocaleString(undefined, {maximumFractionDigits: 0})}</span></span>
+                                    <span>Avg/month: <span className="font-semibold text-gray-700 dark:text-slate-200">${avgMonth.toLocaleString(undefined, {maximumFractionDigits: 0})}</span></span>
+                                    <span className="text-xs text-gray-400 dark:text-slate-500">across {flexibleSpending.length} categor{flexibleSpending.length !== 1 ? 'ies' : 'y'}</span>
                                 </div>
                             );
                         })()}
@@ -881,9 +881,9 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 const suggestedLimit = Math.ceil((avgPerMonth || cardAmount) / 50) * 50 || 50;
 
                                 return (
-                                    <Card key={item.name} className={`p-4 border-l-4 hover:shadow-xl transition-all duration-300 group relative ${item.isExplicit ? 'border-l-indigo-500 bg-indigo-50/10' : 'border-l-emerald-500'} transition-transform duration-150 hover:scale-[1.02]`}>
+                                    <Card key={item.name} className={`p-4 border-l-4 hover:shadow-xl transition-all duration-300 group relative ${item.isExplicit ? 'border-l-indigo-500 bg-indigo-50/10 dark:bg-indigo-900/10' : 'border-l-emerald-500'} transition-transform duration-150 hover:scale-[1.02]`}>
                                         {item.isExplicit && (
-                                            <div className="absolute top-0 right-1/2 translate-x-1/2 -mt-2 bg-indigo-100 text-indigo-700 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm">
+                                            <div className="absolute top-0 right-1/2 translate-x-1/2 -mt-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full shadow-sm">
                                                 Manually Tracked
                                             </div>
                                         )}
@@ -894,7 +894,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                     const el = document.getElementById('recent-transactions');
                                                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                                                 }}
-                                                className="p-1.5 text-gray-500 hover:text-blue-600 bg-white/95 rounded-full shadow-lg border border-gray-100 transition-all hover:scale-110 flex items-center justify-center"
+                                                className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 bg-white/95 dark:bg-slate-800/95 rounded-full shadow-lg border border-gray-100 dark:border-slate-700 transition-all hover:scale-110 flex items-center justify-center"
                                                 title="View History"
                                             >
                                                 <Activity size={14} />
@@ -915,7 +915,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                         }
                                                     }
                                                 }}
-                                                className="p-1.5 text-gray-500 hover:text-red-600 bg-white/95 rounded-full shadow-lg border border-gray-100 transition-all hover:scale-110 flex items-center justify-center"
+                                                className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 bg-white/95 dark:bg-slate-800/95 rounded-full shadow-lg border border-gray-100 dark:border-slate-700 transition-all hover:scale-110 flex items-center justify-center"
                                                 title={item.isExplicit ? "Delete Tracker" : "Hide from dashboard"}
                                             >
                                                 <X size={14} />
@@ -923,7 +923,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                         </div>
                                         <div className="flex items-center justify-between mb-2 gap-2">
                                             <div className="min-w-0 flex-1">
-                                                <h4 className="font-bold text-gray-900 flex items-center min-w-0">
+                                                <h4 className="font-bold text-gray-900 dark:text-slate-100 flex items-center min-w-0">
                                                     <div className="shrink-0">
                                                         {categories.find(c => c.name === item.name)?.icon || <DollarSign size={16} />}
                                                     </div>
@@ -937,7 +937,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                         setEditedBudgets([...editedBudgets, { id: Date.now().toString(), category: item.name, limit_amount: suggestedLimitVal, period: 'Monthly' }]);
                                                         setIsEditing(true);
                                                     }}
-                                                    className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center space-x-1 shadow-sm font-bold"
+                                                    className="p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center space-x-1 shadow-sm font-bold"
                                                     title="Set as Hard Budget"
                                                 >
                                                     <Plus size={14} />
@@ -946,7 +946,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             </div>
                                         </div>
                                         {/* Per-card period selector */}
-                                        <div className="flex rounded-md border border-gray-200 overflow-hidden text-[9px] font-bold mb-2 w-fit">
+                                        <div className="flex rounded-md border border-gray-200 dark:border-slate-700 overflow-hidden text-[9px] font-bold mb-2 w-fit">
                                             {[
                                                 { id: 'month', label: 'Mo' },
                                                 { id: '3m',    label: '3M' },
@@ -956,26 +956,26 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 <button
                                                     key={opt.id}
                                                     onClick={() => setCardPeriods(prev => ({ ...prev, [item.name]: opt.id }))}
-                                                    className={`px-1.5 py-1 transition-colors ${cardPeriod === opt.id ? 'bg-emerald-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                                                    className={`px-1.5 py-1 transition-colors ${cardPeriod === opt.id ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-800 text-gray-400 dark:text-slate-500 hover:bg-gray-50 dark:hover:bg-slate-700/50'}`}
                                                 >
                                                     {opt.label}
                                                 </button>
                                             ))}
                                         </div>
-                                        <div className="text-2xl font-black text-gray-900">
+                                        <div className="text-2xl font-black text-gray-900 dark:text-slate-100">
                                             ${cardAmount.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}
                                         </div>
-                                        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">{cardLabel}</div>
+                                        <div className="text-[10px] text-gray-400 dark:text-slate-500 font-medium uppercase tracking-widest mt-0.5">{cardLabel}</div>
                                         {avgPerMonth !== null && (
-                                            <div className="mt-1 text-[10px] text-gray-400 font-medium">
+                                            <div className="mt-1 text-[10px] text-gray-400 dark:text-slate-500 font-medium">
                                                 ~${avgPerMonth.toLocaleString(undefined, {maximumFractionDigits: 0})}/mo avg
                                             </div>
                                         )}
                                         {cardPeriod === 'month' && prevSpent > 0 && (
                                             <div className="mt-2 flex items-center space-x-2 text-[10px]">
-                                                <span className="text-gray-400">vs last month: ${prevSpent.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                                <span className="text-gray-400 dark:text-slate-500">vs last month: ${prevSpent.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                                                 <span className={`font-bold px-1.5 py-0.5 rounded-full ${
-                                                    diff > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                                    diff > 0 ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                                                 }`}>
                                                     {diff > 0 ? '+' : ''}{diff.toFixed(0)}%
                                                 </span>
@@ -991,24 +991,24 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 );
             })()}
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-8">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6 mt-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                            <BarChart2 className="mr-2 text-blue-600" size={24} />
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 flex items-center">
+                            <BarChart2 className="mr-2 text-blue-600 dark:text-blue-400" size={24} />
                             Spending Analysis
                         </h2>
-                        <p className="text-sm text-gray-500">Compare your spending trends month-over-month.</p>
+                        <p className="text-sm text-gray-500 dark:text-slate-400">Compare your spending trends month-over-month.</p>
                     </div>
-                    
+
                     <div className="relative max-w-xs w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input 
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={16} />
+                        <input
                             type="text"
                             placeholder="Search merchant or keyword..."
                             value={analysisSearch}
                             onChange={(e) => setAnalysisSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-700 dark:text-slate-100 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                         />
                     </div>
                 </div>
@@ -1016,7 +1016,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
+                            <tr className="text-left text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest border-b border-gray-50 dark:border-slate-700/50">
                                 <th className="pb-3 px-2">Category</th>
                                 <th className="pb-3 px-2 text-right">This Month</th>
                                 <th className="pb-3 px-2 text-right">Last Month</th>
@@ -1024,7 +1024,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 <th className="pb-3 px-2"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
                             {analysisData.filter(d => !hiddenAnalysisCategories.has(d.name)).length > 0 ? (
                                 analysisData.filter(d => !hiddenAnalysisCategories.has(d.name)).map((data, idx) => {
                                     const diff = data.current - data.previous;
@@ -1032,21 +1032,21 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                     const isUp = diff > 0;
 
                                     return (
-                                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
+                                        <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors group">
                                             <td className="py-3 px-2">
                                                 <div className="flex items-center space-x-2">
-                                                    <div className="p-1.5 bg-gray-100 rounded-lg text-gray-600">
+                                                    <div className="p-1.5 bg-gray-100 dark:bg-slate-700 rounded-lg text-gray-600 dark:text-slate-300">
                                                         {categories.find(c => c.name === data.name)?.icon || <Tag size={14} />}
                                                     </div>
-                                                    <span className="font-bold text-sm text-gray-800">{data.name}</span>
+                                                    <span className="font-bold text-sm text-gray-800 dark:text-slate-200">{data.name}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-2 text-right font-black text-sm text-gray-900">${data.current.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
-                                            <td className="py-3 px-2 text-right font-bold text-sm text-gray-400">${data.previous.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                                            <td className="py-3 px-2 text-right font-black text-sm text-gray-900 dark:text-slate-100">${data.current.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
+                                            <td className="py-3 px-2 text-right font-bold text-sm text-gray-400 dark:text-slate-500">${data.previous.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</td>
                                             <td className="py-3 px-2 text-right">
                                                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                                                    data.previous === 0 ? 'bg-gray-100 text-gray-500' :
-                                                    isUp ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                                                    data.previous === 0 ? 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400' :
+                                                    isUp ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
                                                 }`}>
                                                     {data.previous === 0 ? 'NEW' : `${isUp ? '+' : ''}${percentChange.toFixed(0)}%`}
                                                 </span>
@@ -1054,7 +1054,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                             <td className="py-3 px-2 text-right">
                                                 <button
                                                     onClick={() => setHiddenAnalysisCategories(prev => new Set([...prev, data.name]))}
-                                                    className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-gray-500 transition-all"
+                                                    className="opacity-0 group-hover:opacity-100 text-gray-300 dark:text-slate-600 hover:text-gray-500 dark:hover:text-slate-300 transition-all"
                                                     title={`Hide "${data.name}" from analysis`}
                                                 >
                                                     <X size={14} />
@@ -1065,7 +1065,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="5" className="py-8 text-center text-gray-400 text-sm italic">
+                                    <td colSpan="5" className="py-8 text-center text-gray-400 dark:text-slate-500 text-sm italic">
                                         {analysisSearch ? "No spending found matching that keyword." : "No spending data found for these periods."}
                                     </td>
                                 </tr>
@@ -1076,7 +1076,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         <div className="mt-3 text-right">
                             <button
                                 onClick={() => setHiddenAnalysisCategories(new Set())}
-                                className="text-xs text-gray-400 hover:text-blue-500 transition-colors"
+                                className="text-xs text-gray-400 dark:text-slate-500 hover:text-blue-500 transition-colors"
                             >
                                 Show {hiddenAnalysisCategories.size} hidden {hiddenAnalysisCategories.size === 1 ? 'category' : 'categories'}
                             </button>
@@ -1085,19 +1085,19 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-8">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden mt-8">
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                        <Tag className="mr-2 text-indigo-600" size={20} />
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100 mb-4 flex items-center">
+                        <Tag className="mr-2 text-indigo-600 dark:text-indigo-400" size={20} />
                         Custom Budget Categories
                     </h2>
-                    <p className="text-sm text-gray-600 mb-4">Add your own categories like "Hair" or "Nails" to categorize transactions.</p>
-                    
+                    <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">Add your own categories like "Hair" or "Nails" to categorize transactions.</p>
+
                     <div className="flex flex-wrap gap-2 mb-4">
                         {customCategories.map((cat, idx) => (
-                            <div key={idx} className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold flex items-center space-x-2">
+                            <div key={idx} className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-sm font-bold flex items-center space-x-2">
                                 <span>{cat}</span>
-                                <button 
+                                <button
                                     onClick={() => {
                                         if (window.confirm(`Delete category "${cat}"?`)) {
                                             onSaveCustomCategories(customCategories.filter(c => c !== cat));
@@ -1110,17 +1110,17 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 </button>
                             </div>
                         ))}
-                        {customCategories.length === 0 && <p className="text-gray-400 text-xs italic">No custom categories added yet.</p>}
+                        {customCategories.length === 0 && <p className="text-gray-400 dark:text-slate-500 text-xs italic">No custom categories added yet.</p>}
                     </div>
 
                     <div className="flex space-x-2">
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                              value={newCategory}
                             onChange={(e) => setNewCategory(e.target.value)}
                             disabled={isSavingCategory}
-                            placeholder={isSavingCategory ? "Saving..." : "Add category (e.g. Nails)"} 
-                            className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isSavingCategory ? 'bg-gray-50 opacity-60' : 'bg-white'}`}
+                            placeholder={isSavingCategory ? "Saving..." : "Add category (e.g. Nails)"}
+                            className={`flex-1 px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-sm dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isSavingCategory ? 'bg-gray-50 dark:bg-slate-900 opacity-60' : 'bg-white dark:bg-slate-700'}`}
                             onKeyPress={async (e) => {
                                 if (e.key === 'Enter' && newCategory.trim() && !isSavingCategory) {
                                     setIsSavingCategory(true);
@@ -1160,30 +1160,30 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             <Card className="mt-8" id="recent-transactions">
                 {/* Transactions header row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-                    <h3 className="text-base font-black text-gray-800 uppercase tracking-tight flex items-center">
+                    <h3 className="text-base font-black text-gray-800 dark:text-slate-200 uppercase tracking-tight flex items-center">
                         <Activity size={16} className="mr-2 text-blue-500" />
                         Transactions
-                        <span className="ml-2 text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full normal-case tracking-normal">
+                        <span className="ml-2 text-[10px] font-bold text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full normal-case tracking-normal">
                             {filteredTransactions.length} shown
                         </span>
                     </h3>
                     <div className="flex items-center gap-2 flex-wrap">
                         {/* Search */}
                         <div className="relative">
-                            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 pointer-events-none" />
                             <input
                                 type="text"
                                 value={txSearch}
                                 onChange={e => { setTxSearch(e.target.value); setShowAllTransactions(false); }}
                                 placeholder="Search merchant..."
-                                className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none w-40 bg-white"
+                                className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none w-40 bg-white dark:bg-slate-700 dark:text-slate-100"
                             />
                         </div>
                         {/* Category filter */}
                         <select
                             value={txCategoryFilter}
                             onChange={e => { setTxCategoryFilter(e.target.value); setShowAllTransactions(false); }}
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                            className="text-xs border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
                         >
                             <option value="All">All Categories</option>
                             <option value="Uncategorized">Uncategorized</option>
@@ -1194,7 +1194,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         {(txSearch || txCategoryFilter !== 'All') && (
                             <button
                                 onClick={() => { setTxSearch(''); setTxCategoryFilter('All'); }}
-                                className="text-xs text-gray-400 hover:text-red-500 font-bold flex items-center transition-colors"
+                                className="text-xs text-gray-400 dark:text-slate-500 hover:text-red-500 font-bold flex items-center transition-colors"
                             >
                                 <X size={13} className="mr-0.5" /> Clear
                             </button>
@@ -1203,7 +1203,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                         {transactions.length > 0 && (
                             <button
                                 onClick={handleExportCSV}
-                                className="text-xs bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center space-x-1"
+                                className="text-xs bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center space-x-1"
                             >
                                 <Upload size={13} />
                                 <span>Export CSV</span>
@@ -1215,7 +1215,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="text-left text-xs font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
+                            <tr className="text-left text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest border-b border-gray-50 dark:border-slate-700/50">
                                 <th className="pb-4 px-2">Date</th>
                                 <th className="pb-4 px-2">Merchant</th>
                                 <th className="pb-4 px-2">Category</th>
@@ -1224,22 +1224,22 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                 <th className="pb-4 px-2"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50">
                             {transactions.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="py-16 text-center">
                                         <div className="flex flex-col items-center space-y-3">
-                                            <div className="p-4 bg-blue-50 rounded-full">
+                                            <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-full">
                                                 <Activity size={28} className="text-blue-400" />
                                             </div>
-                                            <p className="text-gray-700 font-bold text-sm">No transactions yet</p>
-                                            <p className="text-gray-400 text-xs max-w-xs">Connect your bank in Settings to automatically import your transaction history.</p>
+                                            <p className="text-gray-700 dark:text-slate-200 font-bold text-sm">No transactions yet</p>
+                                            <p className="text-gray-400 dark:text-slate-500 text-xs max-w-xs">Connect your bank in Settings to automatically import your transaction history.</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : filteredTransactions.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="py-10 text-center text-gray-400 text-sm">
+                                    <td colSpan="6" className="py-10 text-center text-gray-400 dark:text-slate-500 text-sm">
                                         No transactions match your search.
                                         <button onClick={() => { setTxSearch(''); setTxCategoryFilter('All'); }} className="ml-2 text-blue-500 font-bold hover:underline">Clear filters</button>
                                     </td>
@@ -1252,18 +1252,18 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                     const displayCategory = isPendingThisT ? categoryUpdatePending.newCategory : category;
 
                                     return (
-                                        <tr key={t.id} className={`hover:bg-gray-50/50 transition-colors group ${isIgnored ? 'opacity-40' : ''}`}>
-                                            <td className={`py-4 px-2 text-sm ${isIgnored ? 'text-gray-500' : 'text-gray-500'}`}>{t.date}</td>
-                                            <td className={`py-4 px-2 text-sm font-bold leading-tight ${isIgnored ? 'text-gray-600' : 'text-gray-900'}`}>
+                                        <tr key={t.id} className={`hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors group ${isIgnored ? 'opacity-40' : ''}`}>
+                                            <td className={`py-4 px-2 text-sm ${isIgnored ? 'text-gray-500 dark:text-slate-400' : 'text-gray-500 dark:text-slate-400'}`}>{t.date}</td>
+                                            <td className={`py-4 px-2 text-sm font-bold leading-tight ${isIgnored ? 'text-gray-600 dark:text-slate-300' : 'text-gray-900 dark:text-slate-100'}`}>
                                                 {t.name}
-                                                {isIgnored && <span className="ml-2 text-[9px] bg-gray-100 border border-gray-200 text-gray-400 px-1.5 py-0.5 rounded-full uppercase tracking-wide">ignored</span>}
+                                                {isIgnored && <span className="ml-2 text-[9px] bg-gray-100 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 px-1.5 py-0.5 rounded-full uppercase tracking-wide">ignored</span>}
                                             </td>
                                             <td className="py-4 px-2 relative">
-                                                <select 
-                                                    value={displayCategory} 
+                                                <select
+                                                    value={displayCategory}
                                                     onChange={(e) => setCategoryUpdatePending({ transaction: t, newCategory: e.target.value })}
                                                     className={`px-2 py-1 border text-[10px] font-bold uppercase cursor-pointer transition-colors shadow-sm focus:ring-2 focus:ring-blue-500 outline-none rounded-md
-                                                        bg-white border-gray-200 text-gray-600 hover:bg-gray-50
+                                                        bg-white dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/50
                                                         ${isPendingThisT ? ' ring-2 ring-blue-500 border-blue-500' : ''}`}
                                                 >
                                                     <option value="Uncategorized">UNCATEGORIZED</option>
@@ -1272,14 +1272,14 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                 </select>
                                                 
                                                 {isPendingThisT && (
-                                                    <div className="absolute z-[100] mt-2 bg-white border-2 border-blue-600 shadow-2xl rounded-2xl p-5 w-72 -translate-x-1/2 left-1/2">
+                                                    <div className="absolute z-[100] mt-2 bg-white dark:bg-slate-800 border-2 border-blue-600 shadow-2xl rounded-2xl p-5 w-72 -translate-x-1/2 left-1/2">
                                                         <div className="flex items-center space-x-2 mb-3">
-                                                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                                            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
                                                                 <Tag size={20} />
                                                             </div>
-                                                            <h4 className="text-sm font-black text-gray-900">Update Merchant?</h4>
+                                                            <h4 className="text-sm font-black text-gray-900 dark:text-slate-100">Update Merchant?</h4>
                                                         </div>
-                                                        <p className="text-[11px] text-gray-600 mb-5 leading-relaxed">
+                                                        <p className="text-[11px] text-gray-600 dark:text-slate-300 mb-5 leading-relaxed">
                                                             Would you like to apply the <b>{categoryUpdatePending.newCategory}</b> category to <b>all future</b> instances of {t.name}, or just this one?
                                                         </p>
                                                         <div className="flex flex-col space-y-2">
@@ -1292,30 +1292,30 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                                 {isUpdatingCategory && <RefreshCw size={14} className="animate-spin" />}
                                                                 <span>Update All Future</span>
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 disabled={isUpdatingCategory}
                                                                 onClick={() => handleCategoryChange(t, categoryUpdatePending.newCategory, false)}
-                                                                className={`w-full bg-white border border-gray-200 text-gray-700 text-xs font-black py-3 rounded-xl hover:bg-gray-50 transition-all active:scale-[0.98] flex items-center justify-center space-x-2
+                                                                className={`w-full bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-200 text-xs font-black py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-all active:scale-[0.98] flex items-center justify-center space-x-2
                                                                     ${isUpdatingCategory ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                             >
                                                                 {isUpdatingCategory && <RefreshCw size={14} className="animate-spin" />}
                                                                 <span>Just This One</span>
                                                             </button>
                                                         </div>
-                                                        <button 
+                                                        <button
                                                             onClick={() => setCategoryUpdatePending(null)}
-                                                            className="mt-3 w-full text-[10px] text-gray-400 hover:text-red-500 font-bold py-1 transition-colors uppercase tracking-widest"
+                                                            className="mt-3 w-full text-[10px] text-gray-400 dark:text-slate-500 hover:text-red-500 font-bold py-1 transition-colors uppercase tracking-widest"
                                                         >
                                                             Cancel
                                                         </button>
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className={`py-4 px-2 text-sm font-black text-right ${t.amount > 0 ? 'text-gray-900' : 'text-green-600'}`}>
+                                            <td className={`py-4 px-2 text-sm font-black text-right ${t.amount > 0 ? 'text-gray-900 dark:text-slate-100' : 'text-green-600 dark:text-green-400'}`}>
                                                 ${Math.abs(t.amount).toFixed(2)}
                                             </td>
                                             <td className="py-4 px-2 text-center">
-                                                <button 
+                                                <button
                                                     onClick={() => {
                                                         const isManual = manualSubscriptions.includes(t.name);
                                                         if (isManual) {
@@ -1324,14 +1324,14 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                             handleUpdateSubscriptionPrefs(ignoredSubscriptions.filter(i => i !== t.name), [...manualSubscriptions, t.name]);
                                                         }
                                                     }}
-                                                    className={`transition-colors ${manualSubscriptions.includes(t.name) ? 'text-amber-500 hover:text-amber-600' : 'text-gray-200 hover:text-gray-400'}`}
+                                                    className={`transition-colors ${manualSubscriptions.includes(t.name) ? 'text-amber-500 hover:text-amber-600' : 'text-gray-200 dark:text-slate-600 hover:text-gray-400 dark:hover:text-slate-400'}`}
                                                     title={manualSubscriptions.includes(t.name) ? "Remove from Subscriptions" : "Mark as Subscription"}
                                                 >
                                                     <Star size={16} fill={manualSubscriptions.includes(t.name) ? "currentColor" : "none"} />
                                                 </button>
                                             </td>
                                             <td className="py-4 px-2 text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button 
+                                                <button
                                                     onClick={async () => {
                                                         if (window.confirm("Delete this transaction?")) {
                                                             try {
@@ -1343,7 +1343,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                                                             } catch (err) { showToast("Failed to delete", "error"); }
                                                         }
                                                     }}
-                                                    className="text-gray-300 hover:text-red-500"
+                                                    className="text-gray-300 dark:text-slate-600 hover:text-red-500"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
@@ -1358,7 +1358,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
                 {filteredTransactions.length > 25 && (
                     <button
                         onClick={() => setShowAllTransactions(!showAllTransactions)}
-                        className="w-full mt-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-xl transition-colors flex items-center justify-center cursor-pointer"
+                        className="w-full mt-4 py-3 bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 font-bold rounded-xl transition-colors flex items-center justify-center cursor-pointer"
                     >
                         {showAllTransactions ? (
                             <><ChevronUp size={18} className="mr-2"/> Show Less</>

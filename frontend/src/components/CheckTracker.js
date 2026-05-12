@@ -229,18 +229,18 @@ const CheckTracker = ({
                                 <p className="text-xs text-gray-400 mt-1">Log a check above to track it here.</p>
                             </div>
                         ) : (
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <tbody className="bg-white divide-y divide-gray-200">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                                     {pendingChecks.map((check) => (
-                                        <tr key={check.id} className="hover:bg-gray-50 transition-colors">
+                                        <tr key={check.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-medium text-gray-900">{check.payee}</span>
-                                                    <span className="text-xs text-gray-500">{check.date_written}</span>
+                                                    <span className="text-sm font-medium text-gray-900 dark:text-slate-100">{check.payee}</span>
+                                                    <span className="text-xs text-gray-500 dark:text-slate-400">{check.date_written}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <span className="text-sm font-bold text-gray-900">${check.amount.toFixed(2)}</span>
+                                                <span className="text-sm font-bold text-gray-900 dark:text-slate-100">${check.amount.toFixed(2)}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right space-x-2">
                                                 <button onClick={() => handleMarkCleared(check.id)} title="Mark Cleared (Manual)" className="text-green-600 hover:text-green-900 p-1 hover:bg-green-100 rounded transition-colors">
@@ -275,24 +275,24 @@ const CheckTracker = ({
                                 <p className="text-xs text-gray-400 mt-1">Mark pending checks as cleared when they hit your account.</p>
                             </div>
                         ) : (
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <tbody className="bg-white divide-y divide-gray-200">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                                     {clearedChecks.map((check) => (
-                                        <tr key={check.id} className="hover:bg-gray-50 transition-colors opacity-75">
+                                        <tr key={check.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors opacity-75">
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-medium text-gray-900 line-through">{check.payee}</span>
-                                                    <span className="text-xs text-gray-500">
+                                                    <span className="text-sm font-medium text-gray-900 dark:text-slate-100 line-through">{check.payee}</span>
+                                                    <span className="text-xs text-gray-500 dark:text-slate-400">
                                                         Written: {check.date_written}
                                                         {check.plaid_transaction_id && " • Auto-Synced"}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                                                <span className="text-sm font-medium text-gray-500">${check.amount.toFixed(2)}</span>
+                                                <span className="text-sm font-medium text-gray-500 dark:text-slate-400">${check.amount.toFixed(2)}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button onClick={() => handleDeleteCheck(check.id)} className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors">
+                                                <button onClick={() => handleDeleteCheck(check.id)} className="text-gray-400 dark:text-slate-500 hover:text-red-500 p-1 rounded transition-colors">
                                                     <Trash2 size={16} />
                                                 </button>
                                             </td>

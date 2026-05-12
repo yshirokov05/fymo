@@ -29,17 +29,17 @@ const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-white p-4 border rounded shadow-lg z-50">
-                <p className="font-bold text-gray-800 border-b pb-1 mb-2">{data.name}: {data.percent}%</p>
+            <div className="bg-white dark:bg-slate-800 p-4 border border-gray-200 dark:border-slate-600 rounded shadow-lg z-50">
+                <p className="font-bold text-gray-800 dark:text-slate-100 border-b border-gray-200 dark:border-slate-600 pb-1 mb-2">{data.name}: {data.percent}%</p>
                 <div className="max-h-48 overflow-y-auto space-y-1 pr-2">
                     {data.assets.map((asset, idx) => (
-                        <div key={idx} className="flex justify-between text-xs text-gray-600 gap-8">
+                        <div key={idx} className="flex justify-between text-xs text-gray-600 dark:text-slate-400 gap-8">
                             <span className="font-medium">{asset.ticker}</span>
-                            <span className="font-mono text-gray-500">${asset.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="font-mono text-gray-500 dark:text-slate-500">${asset.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     ))}
                 </div>
-                <div className="mt-2 pt-2 border-t font-bold text-sm text-blue-600 flex justify-between">
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-600 font-bold text-sm text-blue-500 dark:text-blue-400 flex justify-between">
                     <span>Total</span>
                     <span>${data.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
@@ -357,9 +357,9 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                     if (!active || !payload?.length) return null;
                                                     const d = payload[0].payload;
                                                     return (
-                                                        <div className="bg-white border border-gray-100 shadow-lg rounded-lg px-2 py-1 text-xs">
-                                                            <div className="font-bold text-gray-800">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-                                                            <div className="text-gray-400">{d.date}</div>
+                                                        <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700/50 shadow-lg rounded-lg px-2 py-1 text-xs">
+                                                            <div className="font-bold text-gray-800 dark:text-slate-200">${d.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+                                                            <div className="text-gray-400 dark:text-slate-500">{d.date}</div>
                                                         </div>
                                                     );
                                                 }}
@@ -476,7 +476,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 {topYtdCategories.length > 0 && (
                                     <div className="mt-3 space-y-1">
                                         {topYtdCategories.map(([cat, amt]) => (
-                                            <div key={cat} className="flex justify-between text-xs text-gray-600">
+                                            <div key={cat} className="flex justify-between text-xs text-gray-600 dark:text-slate-400">
                                                 <span className="truncate mr-2">{cat}</span>
                                                 <span className="font-mono font-semibold shrink-0">${amt.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                                             </div>
@@ -738,7 +738,8 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                         <p className={`text-sm font-semibold mt-1 ${plPos ? 'text-green-400' : 'text-red-400'}`}>
                                             {plPos ? '+' : '-'}{fmt(Math.abs(netPL))}
                                             <span className="text-xs font-normal text-gray-500 ml-1">
-                                                net activity ({PERIOD_LABELS[prPeriod]})
+                                                net cash deployed ({PERIOD_LABELS[prPeriod]})
+                                                <span className="ml-1 cursor-help" title="Cash in minus cash out for this period. A negative number means more was invested than sold — not a loss.">ⓘ</span>
                                             </span>
                                         </p>
                                     );
@@ -814,7 +815,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 <p className="text-[11px] text-gray-500 mt-0.5">
                                                     {components.map((c, idx) => (
                                                         <span key={c.label}>
-                                                            {idx > 0 && <span className="mx-1.5 text-gray-600">·</span>}
+                                                            {idx > 0 && <span className="mx-1.5 text-gray-600 dark:text-slate-400">·</span>}
                                                             <span className="text-gray-400">{c.label}: </span>
                                                             <span className={c.val >= 0 ? 'text-green-400' : 'text-red-400'}>
                                                                 {c.val >= 0 ? '+' : '-'}{fmt(Math.abs(c.val))}
@@ -833,7 +834,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 </div>
 
                                 {ih?.earliest_date && (
-                                    <p className="text-[10px] text-gray-500 mt-4">Since {ih.earliest_date} · {ih.transaction_count} txns</p>
+                                    <p className="text-[10px] text-gray-500 mt-4">Since {ih.earliest_date} · {ih.transaction_count} transactions</p>
                                 )}
 
                                 {/* Rejection warning — shown when guards tripped (corrupt data path) */}

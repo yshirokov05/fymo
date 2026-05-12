@@ -122,12 +122,12 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                     <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100 ${isSubRow ? 'pl-8 md:pl-12' : ''}`}>
                         {asset.ticker}
                     </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                        <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'} font-bold text-[10px]`}>
+                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-slate-400">
+                        <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'} font-bold text-[10px]`}>
                             {asset.tax_treatment || 'TAXABLE'}
                         </span>
                     </td>
-                    <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-[140px]">
+                    <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
                         <span className="block truncate" title={isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}>
                             {isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}
                         </span>
@@ -139,21 +139,21 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                     
                     {!isHousing ? (
                         <>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 group/cb">
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 group/cb">
                                 {editingCostBasis?.id === asset.plaid_account_id ? (
                                     <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
-                                        <span className="text-gray-400 text-xs">$</span>
+                                        <span className="text-gray-400 dark:text-slate-500 text-xs">$</span>
                                         <input
                                             type="number"
                                             value={editingCostBasis.value}
                                             onChange={e => setEditingCostBasis(prev => ({ ...prev, value: e.target.value }))}
-                                            className="w-20 text-xs border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none bg-white"
+                                            className="w-20 text-xs border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none bg-white dark:bg-slate-700 dark:text-slate-100"
                                             autoFocus
                                             step="0.01"
                                             min="0"
                                         />
-                                        <button onClick={e => confirmEdit(e, asset.plaid_account_id)} className="text-green-600 hover:text-green-800 p-0.5"><Check size={13} /></button>
-                                        <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 p-0.5"><X size={13} /></button>
+                                        <button onClick={e => confirmEdit(e, asset.plaid_account_id)} className="text-green-600 dark:text-green-400 hover:text-green-800 p-0.5"><Check size={13} /></button>
+                                        <button onClick={cancelEdit} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 p-0.5"><X size={13} /></button>
                                     </div>
                                 ) : (
                                     <div className="flex items-center space-x-1">
@@ -161,7 +161,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                         {onUpdateCostBasis && (
                                             <button
                                                 onClick={e => startEdit(e, asset.plaid_account_id, asset.cost_basis)}
-                                                className="opacity-0 group-hover/cb:opacity-100 transition-opacity text-gray-300 hover:text-blue-500 p-0.5"
+                                                className="opacity-0 group-hover/cb:opacity-100 transition-opacity text-gray-300 dark:text-slate-600 hover:text-blue-500 p-0.5"
                                                 title="Edit cost basis"
                                             >
                                                 <Pencil size={11} />
@@ -170,17 +170,17 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     </div>
                                 )}
                             </td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-bold">
+                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-bold">
                                 ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${(asset.daily_change_usd || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${(asset.daily_change_usd || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {(asset.daily_change_usd || 0) >= 0 ? '+' : ''}${(Math.abs(asset.daily_change_usd || 0) * asset.shares).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 <span className="text-[10px] ml-1 font-bold opacity-70">({(asset.daily_change_percent || 0).toFixed(2)}%)</span>
                             </td>
                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
                                 ${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {gainLoss >= 0 ? '+' : ''}${Math.abs(gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 <div className="text-[10px] font-bold opacity-70">({gainLossPercent.toFixed(2)}%)</div>
                             </td>
@@ -265,11 +265,11 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
                                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100">{asset.ticker}</td>
                                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                                                <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'} font-bold text-[10px]`}>
+                                                <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'} font-bold text-[10px]`}>
                                                     {asset.tax_treatment || 'TAXABLE'}
                                                 </span>
                                             </td>
-                                            <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-[140px]">
+                                            <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
                                                 <span className="block truncate" title={asset.institution_name || 'Manual'}>{asset.institution_name || 'Manual'}</span>
                                             </td>
                                             <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
@@ -285,7 +285,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                             <tfoot className="bg-gray-50 dark:bg-slate-700/60 border-t-2 border-gray-100 dark:border-slate-600">
                                 <tr className="font-black">
                                     {/* Columns: Type | Name | Treatment | Account | Shares/Balance | [Cost/Sh | Price | Daily | Value | Gain/Loss] */}
-                                    <td colSpan="4" className="px-3 md:px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                    <td colSpan="4" className="px-3 md:px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-slate-500">
                                         {groupName} Total
                                     </td>
                                     {/* Shares / Balance column */}
@@ -299,7 +299,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                             {/* Price — leave blank */}
                                             <td className="px-3 md:px-6 py-4"></td>
                                             {/* Daily */}
-                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.dailyChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.dailyChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                                 {groupTotals.dailyChange >= 0 ? '+' : ''}${Math.abs(groupTotals.dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             {/* Value */}
@@ -307,7 +307,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                                 ${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             {/* Gain/Loss */}
-                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                                 {groupTotals.gainLoss >= 0 ? '+' : ''}${Math.abs(groupTotals.gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 <div className="text-[10px] opacity-70">({groupGainLossPercent.toFixed(2)}%)</div>
                                             </td>

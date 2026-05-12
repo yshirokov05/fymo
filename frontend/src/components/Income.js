@@ -267,21 +267,21 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
             })()}
 
             {isAdding && (
-                <Card className="bg-white border-2 border-blue-600 shadow-2xl relative overflow-hidden">
+                <Card className="bg-white dark:bg-slate-800 border-2 border-blue-600 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-5">
                         <Landmark size={120} />
                     </div>
                     
-                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-2xl mb-8 w-fit">
-                        <button 
+                    <div className="flex space-x-1 bg-gray-100 dark:bg-slate-700 p-1 rounded-2xl mb-8 w-fit">
+                        <button
                             onClick={() => setActiveTab('paystubs')}
-                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'paystubs' ? 'bg-white shadow-md text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'paystubs' ? 'bg-white dark:bg-slate-800 shadow-md text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300'}`}
                         >
                             Salary / W2
                         </button>
-                        <button 
+                        <button
                             onClick={() => setActiveTab('other')}
-                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'other' ? 'bg-white shadow-md text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+                            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase transition-all ${activeTab === 'other' ? 'bg-white dark:bg-slate-800 shadow-md text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300'}`}
                         >
                             Dividends & Capital Gains
                         </button>
@@ -295,13 +295,13 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                             <div className="flex gap-4">
                                 <button 
                                     onClick={() => setAmountType('GROSS')}
-                                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${amountType === 'GROSS' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}
+                                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${amountType === 'GROSS' ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400'}`}
                                 >
                                     Gross Pay
                                 </button>
                                 <button 
                                     onClick={() => setAmountType('NET')}
-                                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${amountType === 'NET' ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}
+                                    className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${amountType === 'NET' ? 'bg-green-600 text-white shadow-lg' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400'}`}
                                 >
                                     Net (Deposit)
                                 </button>
@@ -332,7 +332,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                             </div>
                             
                             {potentialMatches.length > 0 && (
-                                <div className="md:col-span-4 bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300">
+                                <div className="md:col-span-4 bg-gray-50 dark:bg-slate-900 p-4 rounded-xl border border-dashed border-gray-300 dark:border-slate-600">
                                     <p className="text-[10px] font-black text-gray-400 uppercase mb-3 flex items-center">
                                         <Landmark size={12} className="mr-1" /> Potential Bank Matches (Plaid Sync)
                                     </p>
@@ -341,7 +341,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                             <button 
                                                 key={match.transaction_id}
                                                 onClick={() => setSelectedMatch(selectedMatch?.transaction_id === match.transaction_id ? null : match)}
-                                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center ${selectedMatch?.transaction_id === match.transaction_id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:border-blue-400'}`}
+                                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center ${selectedMatch?.transaction_id === match.transaction_id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 border-gray-200 dark:border-slate-600 hover:border-blue-400'}`}
                                             >
                                                 {selectedMatch?.transaction_id === match.transaction_id && <Landmark size={12} className="mr-2" />}
                                                 {match.date} — {match.name} (${Math.abs(match.amount).toLocaleString()})
@@ -400,7 +400,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                 <div className="lg:col-span-2">
                     <Card title="W2 Paystub History" className="overflow-hidden">
                         {currentYearPaystubs.length > 0 && (
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 -mt-2 px-6 py-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4 -mt-2 px-6 py-3 bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-100 dark:border-slate-700">
                                 <div className="text-xs text-gray-600">
                                     {allStubsNet ? (
                                         <span className="inline-flex items-center gap-1.5 text-green-700 font-semibold">
@@ -425,7 +425,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                         )}
                         <div className="overflow-x-auto -mx-6">
                             <table className="w-full min-w-[600px]">
-                                <thead className="bg-gray-50 border-b border-gray-100">
+                                <thead className="bg-gray-50 dark:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700">
                                     <tr className="text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
                                         <th className="py-4 px-6">Date</th>
                                         <th className="py-4 px-6">Employer</th>
@@ -437,7 +437,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                     {currentYearPaystubs.map((p) => (
-                                        <tr key={p.id} className="hover:bg-gray-50/50 transition-colors group">
+                                        <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors group">
                                             <td className="py-4 px-6 text-sm text-gray-500">{p.date}</td>
                                             <td className="py-4 px-6 text-sm font-bold text-gray-900 flex items-center flex-wrap gap-1">
                                                 <span>{p.employer || '—'}</span>
@@ -499,7 +499,7 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                     <Card title="Investments & Other" icon={<TrendingUp size={18} />} className="h-full">
                         <div className="space-y-4">
                             {(otherIncomes || []).map((inc) => (
-                                <div key={inc.id} className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100 group">
+                                <div key={inc.id} className="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-4 rounded-2xl border border-gray-100 dark:border-slate-700 group">
                                     <div>
                                         <p className="text-[10px] font-black text-blue-600 uppercase mb-0.5 flex items-center">
                                             {inc.income_type.replace('_', ' ')}
