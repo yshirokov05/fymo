@@ -992,18 +992,19 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         </div>
                     </Card>
 
+                    <div className="self-start">
                     <Card title="Industry Allocation" icon={<PieChartIcon className="text-yellow-500" />}>
-                        <div className="h-[400px] w-full">
+                        <div className="h-[380px] w-full relative">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <RechartsPieChart>
                                             <Pie
                                                 data={chartData}
                                                 cx="50%"
-                                                cy="45%"
+                                                cy="42%"
                                                 labelLine={false}
                                                 label={false}
-                                                outerRadius={110}
-                                                innerRadius={40}
+                                                outerRadius={130}
+                                                innerRadius={52}
                                                 paddingAngle={2}
                                                 fill="#8884d8"
                                                 dataKey="value"
@@ -1013,7 +1014,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 ))}
                                             </Pie>
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Legend verticalAlign="bottom" height={48} formatter={(value) => <span style={{fontSize:'11px', color:'#94a3b8'}}>{value}</span>} />
+                                            <Legend verticalAlign="bottom" height={56} formatter={(value) => <span style={{fontSize:'11px', color:'#94a3b8'}}>{value}</span>} />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
                                     {isDemoMode && (
@@ -1023,6 +1024,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     )}
                                 </div>
                     </Card>
+                    </div>
                 </div>
             )}
 
@@ -1034,26 +1036,29 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         </div>
                     </Card>
 
+                    <div className="self-start">
                     <Card title="Debt Allocation" icon={<PieChartIcon className="text-red-500" />}>
-                        <div className="h-[300px] w-full">
+                        <div className="h-[320px] w-full relative">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <RechartsPieChart>
                                             <Pie
                                                 data={debtChartData}
                                                 cx="50%"
-                                                cy="50%"
+                                                cy="45%"
                                                 labelLine={false}
-                                                outerRadius={80}
+                                                outerRadius={100}
+                                                innerRadius={38}
+                                                paddingAngle={2}
                                                 fill="#ef4444"
                                                 dataKey="value"
-                                                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                                label={false}
                                             >
                                                 {debtChartData.map((entry, index) => (
                                                     <Cell key={`cell-debt-${index}`} fill={COLORS[(index + 5) % COLORS.length]} opacity={isDebtDemoMode ? 0.3 : 1} />
                                                 ))}
                                             </Pie>
                                             <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                                            <Legend />
+                                            <Legend verticalAlign="bottom" height={56} formatter={(value) => <span style={{fontSize:'11px', color:'#94a3b8'}}>{value}</span>} />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
                                     {isDebtDemoMode && (
@@ -1063,6 +1068,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     )}
                                 </div>
                     </Card>
+                    </div>
                 </div>
             )}
         </div>
