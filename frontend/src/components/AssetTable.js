@@ -93,13 +93,13 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
     const groupedAssets = groupAssets(assets);
 
     const renderAssetRow = (asset, isSubRow = false) => {
-        const isLiquidAsset = ['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'].includes(asset.asset_type) || 
+        const isLiquidAsset = ['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'].includes(asset.asset_type) ||
                              ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker);
         const isHousing = asset.asset_type === 'HOUSING';
 
         const marketPrice = asset.marketPrice || asset.current_price || (asset.shares > 0 ? asset.cost_basis / asset.shares : 0) || 1.0;
         const marketValue = asset.marketValue || (isLiquidAsset || isHousing ? asset.shares : asset.shares * marketPrice);
-        
+
         const totalCost = asset.total_cost || (asset.shares * asset.cost_basis);
         const gainLoss = marketValue - totalCost;
         const gainLossPercent = (totalCost !== 0) ? (gainLoss / Math.abs(totalCost)) * 100 : 0;
@@ -107,47 +107,52 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
         const hasMultipleAccounts = asset.accounts && asset.accounts.length > 1;
         const isExpanded = expandedRows[asset.ticker];
 
+        const isRetirement = asset.tax_treatment === 'RETIREMENT';
+        const treatmentChipClass = isRetirement
+            ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20'
+            : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20';
+
         return (
             <React.Fragment key={`${asset.ticker}-${asset.institution_name}-${isSubRow ? 'sub' : 'main'}`}>
-                <tr className={`${isSubRow ? 'bg-gray-50 dark:bg-slate-700/30' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'} transition-colors ${hasMultipleAccounts ? 'cursor-pointer' : ''}`}
+                <tr className={`${isSubRow ? 'bg-gray-50/70 dark:bg-slate-900/30' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'} transition-colors ${hasMultipleAccounts ? 'cursor-pointer' : ''}`}
                     onClick={() => hasMultipleAccounts && toggleRow(asset.ticker)}>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">
-                        <div className="flex items-center gap-2">
+                    <td className="px-3 md:px-6 py-3 whitespace-nowrap text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+                        <div className="flex items-center gap-1.5">
                             {hasMultipleAccounts && !isSubRow && (
-                                isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                                isExpanded ? <ChevronDown size={13} className="text-gray-400" /> : <ChevronRight size={13} className="text-gray-400" />
                             )}
                             {isLiquidAsset ? 'CASH' : asset.asset_type}
                         </div>
                     </td>
-                    <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100 ${isSubRow ? 'pl-8 md:pl-12' : ''}`}>
+                    <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-slate-100 ${isSubRow ? 'pl-8 md:pl-12 font-medium text-gray-600 dark:text-slate-400' : ''}`}>
                         {asset.ticker}
                     </td>
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-slate-400">
-                        <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'} font-bold text-[10px]`}>
+                    <td className="px-3 md:px-6 py-3 whitespace-nowrap text-xs">
+                        <span className={`px-2 py-0.5 rounded-md ${treatmentChipClass} font-semibold text-[10px] uppercase tracking-wide`}>
                             {asset.tax_treatment || 'TAXABLE'}
                         </span>
                     </td>
-                    <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
+                    <td className="px-3 md:px-6 py-3 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
                         <span className="block truncate" title={isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}>
                             {isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}
                         </span>
                     </td>
-                    
-                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-bold">
+
+                    <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-800 dark:text-slate-200 font-medium tabular-nums">
                         {asset.shares.toLocaleString(undefined, { maximumFractionDigits: 3 })}
                     </td>
-                    
+
                     {!isHousing ? (
                         <>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400 group/cb">
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-500 dark:text-slate-400 tabular-nums group/cb">
                                 {editingCostBasis?.id === asset.plaid_account_id ? (
-                                    <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
+                                    <div className="flex items-center justify-end space-x-1" onClick={e => e.stopPropagation()}>
                                         <span className="text-gray-400 dark:text-slate-500 text-xs">$</span>
                                         <input
                                             type="number"
                                             value={editingCostBasis.value}
                                             onChange={e => setEditingCostBasis(prev => ({ ...prev, value: e.target.value }))}
-                                            className="w-20 text-xs border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none bg-white dark:bg-slate-700 dark:text-slate-100"
+                                            className="w-20 text-xs border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none bg-white dark:bg-slate-700 dark:text-slate-100 text-right"
                                             autoFocus
                                             step="0.01"
                                             min="0"
@@ -156,7 +161,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                         <button onClick={cancelEdit} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 p-0.5"><X size={13} /></button>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center space-x-1">
+                                    <div className="flex items-center justify-end space-x-1">
                                         <span>${asset.cost_basis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         {onUpdateCostBasis && (
                                             <button
@@ -170,34 +175,34 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     </div>
                                 )}
                             </td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-blue-600 dark:text-blue-400 font-bold">
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-blue-600 dark:text-blue-400 font-semibold tabular-nums">
                                 ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${(asset.daily_change_usd || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {(asset.daily_change_usd || 0) >= 0 ? '+' : ''}${(Math.abs(asset.daily_change_usd || 0) * asset.shares).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                <span className="text-[10px] ml-1 font-bold opacity-70">({(asset.daily_change_percent || 0).toFixed(2)}%)</span>
+                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-semibold tabular-nums ${(asset.daily_change_usd || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {(asset.daily_change_usd || 0) >= 0 ? '+' : '-'}${Math.abs((asset.daily_change_usd || 0) * asset.shares).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                <span className="text-[10px] ml-1 font-medium opacity-70">({(asset.daily_change_percent || 0).toFixed(2)}%)</span>
                             </td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                 ${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {gainLoss >= 0 ? '+' : ''}${Math.abs(gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                <div className="text-[10px] font-bold opacity-70">({gainLossPercent.toFixed(2)}%)</div>
+                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {gainLoss >= 0 ? '+' : '-'}${Math.abs(gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                <div className="text-[10px] font-medium opacity-70">({gainLossPercent.toFixed(2)}%)</div>
                             </td>
                         </>
                     ) : (
                         <>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                 ${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-300 dark:text-slate-600">—</td>
+                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
                         </>
                     )}
                 </tr>
-                {!isSubRow && isExpanded && hasMultipleAccounts && 
+                {!isSubRow && isExpanded && hasMultipleAccounts &&
                     asset.accounts.map(acc => renderAssetRow(acc, true))
                 }
             </React.Fragment>
@@ -232,47 +237,70 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
 
         const groupGainLossPercent = groupTotals.cost !== 0 ? (groupTotals.gainLoss / Math.abs(groupTotals.cost)) * 100 : 0;
 
+        // Per-group accent — adds wayfinding without being garish. Bar + count chip share the hue.
+        const accentMap = {
+            'Cash & Savings': { bar: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
+            'Investments':    { bar: 'bg-blue-500',    text: 'text-blue-600 dark:text-blue-400' },
+            'Housing':        { bar: 'bg-amber-500',   text: 'text-amber-600 dark:text-amber-400' },
+            'Other':          { bar: 'bg-slate-400',   text: 'text-slate-600 dark:text-slate-400' },
+        };
+        const accent = accentMap[groupName] || accentMap['Other'];
+        const itemCount = assetsInGroup.length;
+
         return (
             <div key={groupName} className="mb-6 md:mb-8">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 mb-3 md:mb-4 px-2 md:px-0">{groupName}</h2>
-                <div className="overflow-x-auto shadow ring-1 ring-black ring-opacity-5 dark:ring-slate-700 rounded-lg bg-white dark:bg-slate-800">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-                        <thead className="bg-gray-50 dark:bg-slate-700/60">
+                <div className="flex items-center gap-2.5 mb-3 px-1">
+                    <span className={`h-4 w-1 rounded-full ${accent.bar}`}></span>
+                    <h2 className="text-xs font-bold text-gray-700 dark:text-slate-200 uppercase tracking-wider">{groupName}</h2>
+                    <span className="text-[11px] font-medium text-gray-400 dark:text-slate-500">
+                        {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                    </span>
+                    <span className={`ml-auto text-xs font-bold tabular-nums ${accent.text}`}>
+                        ${groupTotals.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                </div>
+                <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-slate-700/60 bg-white dark:bg-slate-800/60">
+                    <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-700/60">
+                        <thead className="bg-gray-50/80 dark:bg-slate-800/80">
                             <tr>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Treatment</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Account</th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
+                                <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Name</th>
+                                <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Treatment</th>
+                                <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Account</th>
+                                <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                                     {isLiquidGroup ? 'Balance' : 'Shares'}
                                 </th>
                                 {!isLiquidGroup && (
                                     <>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cost/Sh</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Daily</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
-                                        <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gain/Loss</th>
+                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Cost/Sh</th>
+                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Price</th>
+                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Daily</th>
+                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
+                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Gain / Loss</th>
                                     </>
                                 )}
                             </tr>
                         </thead>
-                        <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-700/40">
                     {assetsInGroup.map((asset) => {
                                 if (isLiquidGroup) {
+                                    const isRetirement = asset.tax_treatment === 'RETIREMENT';
+                                    const chip = isRetirement
+                                        ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20'
+                                        : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20';
                                     return (
                                         <tr key={asset.plaid_account_id || asset.ticker} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100">{asset.ticker}</td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
-                                                <span className={`px-2 py-0.5 rounded-full ${asset.tax_treatment === 'RETIREMENT' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'} font-bold text-[10px]`}>
+                                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
+                                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-slate-100">{asset.ticker}</td>
+                                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-xs">
+                                                <span className={`px-2 py-0.5 rounded-md ${chip} font-semibold text-[10px] uppercase tracking-wide`}>
                                                     {asset.tax_treatment || 'TAXABLE'}
                                                 </span>
                                             </td>
-                                            <td className="px-3 md:px-6 py-4 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
+                                            <td className="px-3 md:px-6 py-3 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
                                                 <span className="block truncate" title={asset.institution_name || 'Manual'}>{asset.institution_name || 'Manual'}</span>
                                             </td>
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
+                                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                                 ${asset.shares.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                         </tr>
@@ -282,34 +310,28 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                             })}
                         </tbody>
                         {(isLiquidGroup || groupName === 'Investments') && (
-                            <tfoot className="bg-gray-50 dark:bg-slate-700/60 border-t-2 border-gray-100 dark:border-slate-600">
-                                <tr className="font-black">
+                            <tfoot className="bg-gray-50/80 dark:bg-slate-800/80 border-t border-gray-100 dark:border-slate-700/60">
+                                <tr>
                                     {/* Columns: Type | Name | Treatment | Account | Shares/Balance | [Cost/Sh | Price | Daily | Value | Gain/Loss] */}
-                                    <td colSpan="4" className="px-3 md:px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-slate-500">
-                                        {groupName} Total
+                                    <td colSpan="4" className="px-3 md:px-6 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">
+                                        Subtotal
                                     </td>
-                                    {/* Shares / Balance column */}
-                                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
+                                    <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                         {`$${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                     </td>
                                     {!isLiquidGroup && (
                                         <>
-                                            {/* Cost/Sh — blank in totals row (avg cost/sh across different securities is meaningless) */}
-                                            <td className="px-3 md:px-6 py-4"></td>
-                                            {/* Price — leave blank */}
-                                            <td className="px-3 md:px-6 py-4"></td>
-                                            {/* Daily */}
-                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.dailyChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                                {groupTotals.dailyChange >= 0 ? '+' : ''}${Math.abs(groupTotals.dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            <td className="px-3 md:px-6 py-3"></td>
+                                            <td className="px-3 md:px-6 py-3"></td>
+                                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${groupTotals.dailyChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                {groupTotals.dailyChange >= 0 ? '+' : '-'}${Math.abs(groupTotals.dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            {/* Value */}
-                                            <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-black">
+                                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                                 ${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
-                                            {/* Gain/Loss */}
-                                            <td className={`px-3 md:px-6 py-4 whitespace-nowrap text-sm font-black ${groupTotals.gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                                {groupTotals.gainLoss >= 0 ? '+' : ''}${Math.abs(groupTotals.gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                <div className="text-[10px] opacity-70">({groupGainLossPercent.toFixed(2)}%)</div>
+                                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${groupTotals.gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                {groupTotals.gainLoss >= 0 ? '+' : '-'}${Math.abs(groupTotals.gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                <div className="text-[10px] font-medium opacity-70">({groupGainLossPercent.toFixed(2)}%)</div>
                                             </td>
                                         </>
                                     )}

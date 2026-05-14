@@ -4,12 +4,24 @@ import DebtTable from './DebtTable';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, YAxis } from 'recharts';
 import Card from './Card';
 import ShowMath from './ShowMath';
+import { useTheme } from '../context/ThemeContext';
 import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, Info, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 
+// Curated palette: Tailwind 500-level hues balanced for both light and dark modes.
+// Saturated enough to be distinct, but not the harsh "rainbow recharts defaults" look.
 const COLORS = [
-    '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', 
-    '#82ca9d', '#ffc658', '#ef4444', '#8b5cf6', '#ec4899', 
-    '#06b6d4', '#f59e0b', '#10b981', '#6366f1'
+    '#3b82f6', // blue
+    '#10b981', // emerald
+    '#f59e0b', // amber
+    '#8b5cf6', // violet
+    '#06b6d4', // cyan
+    '#ec4899', // pink
+    '#84cc16', // lime
+    '#f97316', // orange
+    '#6366f1', // indigo
+    '#14b8a6', // teal
+    '#eab308', // yellow
+    '#a855f7', // purple
 ];
 
 const DEMO_CHART_DATA = [
@@ -28,25 +40,58 @@ const DEMO_DEBT_DATA = [
 const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
+        const color = payload[0].payload.fill || payload[0].color;
         return (
-            <div className="bg-white dark:bg-slate-800 p-4 border border-gray-200 dark:border-slate-600 rounded shadow-lg z-50">
-                <p className="font-bold text-gray-800 dark:text-slate-100 border-b border-gray-200 dark:border-slate-600 pb-1 mb-2">{data.name}: {data.percent}%</p>
-                <div className="max-h-48 overflow-y-auto space-y-1 pr-2">
+            <div className="bg-white dark:bg-slate-800 px-4 py-3 border border-gray-200 dark:border-slate-700 rounded-xl shadow-xl z-50 min-w-[200px]">
+                <div className="flex items-center gap-2 pb-2 mb-2 border-b border-gray-100 dark:border-slate-700">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }}></span>
+                    <span className="font-bold text-gray-800 dark:text-slate-100 text-sm">{data.name}</span>
+                    <span className="ml-auto text-xs text-gray-500 dark:text-slate-400 font-mono">{data.percent}%</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                     {data.assets.map((asset, idx) => (
-                        <div key={idx} className="flex justify-between text-xs text-gray-600 dark:text-slate-400 gap-8">
-                            <span className="font-medium">{asset.ticker}</span>
+                        <div key={idx} className="flex justify-between text-xs gap-8">
+                            <span className="font-medium text-gray-600 dark:text-slate-400">{asset.ticker}</span>
                             <span className="font-mono text-gray-500 dark:text-slate-500">${asset.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     ))}
                 </div>
-                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-slate-600 font-bold text-sm text-blue-500 dark:text-blue-400 flex justify-between">
-                    <span>Total</span>
-                    <span>${data.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700 text-sm flex justify-between items-center">
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-slate-500">Total</span>
+                    <span className="font-bold text-gray-800 dark:text-slate-100 font-mono">${data.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
             </div>
         );
     }
     return null;
+};
+
+const DebtTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        const color = payload[0].color;
+        return (
+            <div className="bg-white dark:bg-slate-800 px-3.5 py-2.5 border border-gray-200 dark:border-slate-700 rounded-xl shadow-xl z-50">
+                <div className="flex items-center gap-2 mb-1">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }}></span>
+                    <span className="font-bold text-gray-800 dark:text-slate-100 text-sm">{data.name}</span>
+                </div>
+                <span className="font-mono text-sm text-red-600 dark:text-red-400 font-bold">
+                    ${data.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+            </div>
+        );
+    }
+    return null;
+};
+
+// Compact $ for the donut center label — 12345 → $12.3K, 1234567 → $1.2M
+const fmtCompact = (n) => {
+    const abs = Math.abs(n);
+    if (abs >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+    if (abs >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+    return `$${n.toFixed(0)}`;
 };
 
 const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, portfolioHistory = [], capabilities = null, onOpenEdit = null, onOpenLink = null }) => {
@@ -74,6 +119,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     });
     const [prAccount, setPrAccount] = useState('all');
     const [showMath, setShowMath] = useState(false);
+    const { isDark } = useTheme();
+    // Cell stroke color: matches the card surface so segments separate cleanly without harsh outlines.
+    const sliceStroke = isDark ? '#1e293b' : '#ffffff';
+    // Total values to display in the donut center (computed from chart data, not cards, so
+    // demo-mode totals match the chart even when assetValue is 0).
 
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
@@ -319,7 +369,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         })).filter(item => item.value > 0);
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             {!hideSummary && (
                 <div className={`grid grid-cols-1 md:grid-cols-2 ${caps.hasIncome ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
                     <Card title="Net Worth" icon={<DollarSign className="text-green-500" />}>
@@ -985,7 +1035,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
             )}
 
             {!hideAssetSections && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card title="Asset Breakdown" icon={<Briefcase className="text-blue-500" />}>
                         <div className="overflow-x-auto">
                             <AssetTable assets={positiveAssets} onUpdateCostBasis={onUpdateCostBasis} />
@@ -1004,22 +1054,50 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 labelLine={false}
                                                 label={false}
                                                 outerRadius={130}
-                                                innerRadius={52}
-                                                paddingAngle={2}
-                                                fill="#8884d8"
+                                                innerRadius={78}
+                                                paddingAngle={1.5}
+                                                stroke={sliceStroke}
+                                                strokeWidth={3}
                                                 dataKey="value"
                                             >
                                                 {chartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={isDemoMode ? 0.3 : 1} />
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={isDemoMode ? 0.35 : 1} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                            <Legend verticalAlign="bottom" height={56} formatter={(value) => <span style={{fontSize:'11px', color:'#94a3b8'}}>{value}</span>} />
+                                            <Tooltip content={<CustomTooltip />} wrapperStyle={{ outline: 'none' }} />
+                                            <Legend
+                                                verticalAlign="bottom"
+                                                height={56}
+                                                iconType="circle"
+                                                iconSize={9}
+                                                formatter={(value, entry) => {
+                                                    const item = chartData.find(d => d.name === value);
+                                                    const pct = item?.percent;
+                                                    return (
+                                                        <span className="text-[11px] text-gray-600 dark:text-slate-400 inline-flex items-baseline gap-1.5">
+                                                            <span className="font-medium">{value}</span>
+                                                            {pct && <span className="text-gray-400 dark:text-slate-500 text-[10px] font-mono">{pct}%</span>}
+                                                        </span>
+                                                    );
+                                                }}
+                                            />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
+                                    {/* Center label — aligned to donut cy=42%. Pulled forward from card content via z-10. */}
+                                    {chartData.length > 0 && (
+                                        <div className="absolute left-0 right-0 top-[42%] -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 mb-0.5">Total</span>
+                                            <span className="text-2xl font-bold text-gray-800 dark:text-slate-100 tabular-nums">
+                                                {fmtCompact(chartData.reduce((s, d) => s + (d.value || 0), 0))}
+                                            </span>
+                                            <span className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">
+                                                {chartData.length} {chartData.length === 1 ? 'category' : 'categories'}
+                                            </span>
+                                        </div>
+                                    )}
                                     {isDemoMode && (
                                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                            <span className="text-gray-300 font-black text-4xl uppercase tracking-widest opacity-20 transform -rotate-12">Example Data</span>
+                                            <span className="text-gray-300 dark:text-slate-700 font-black text-4xl uppercase tracking-widest opacity-30 transform -rotate-12">Example Data</span>
                                         </div>
                                     )}
                                 </div>
@@ -1029,7 +1107,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
             )}
 
             {((showDebtAllocation || allDebts.length > 0) && (!hideAssetSections || showDebtAllocation)) && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card title="Debt Details" icon={<ArrowDownCircle className="text-red-500" />}>
                         <div className="overflow-x-auto">
                             <DebtTable debts={allDebts} />
@@ -1046,24 +1124,41 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 cx="50%"
                                                 cy="45%"
                                                 labelLine={false}
-                                                outerRadius={100}
-                                                innerRadius={38}
-                                                paddingAngle={2}
-                                                fill="#ef4444"
+                                                outerRadius={104}
+                                                innerRadius={62}
+                                                paddingAngle={1.5}
+                                                stroke={sliceStroke}
+                                                strokeWidth={3}
                                                 dataKey="value"
                                                 label={false}
                                             >
                                                 {debtChartData.map((entry, index) => (
-                                                    <Cell key={`cell-debt-${index}`} fill={COLORS[(index + 5) % COLORS.length]} opacity={isDebtDemoMode ? 0.3 : 1} />
+                                                    <Cell key={`cell-debt-${index}`} fill={COLORS[(index + 3) % COLORS.length]} opacity={isDebtDemoMode ? 0.35 : 1} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-                                            <Legend verticalAlign="bottom" height={56} formatter={(value) => <span style={{fontSize:'11px', color:'#94a3b8'}}>{value}</span>} />
+                                            <Tooltip content={<DebtTooltip />} wrapperStyle={{ outline: 'none' }} />
+                                            <Legend
+                                                verticalAlign="bottom"
+                                                height={56}
+                                                iconType="circle"
+                                                iconSize={9}
+                                                formatter={(value) => (
+                                                    <span className="text-[11px] text-gray-600 dark:text-slate-400 font-medium">{value}</span>
+                                                )}
+                                            />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
+                                    {debtChartData.length > 0 && (
+                                        <div className="absolute left-0 right-0 top-[45%] -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 mb-0.5">Total</span>
+                                            <span className="text-xl font-bold text-gray-800 dark:text-slate-100 tabular-nums">
+                                                {fmtCompact(debtChartData.reduce((s, d) => s + (d.value || 0), 0))}
+                                            </span>
+                                        </div>
+                                    )}
                                     {isDebtDemoMode && (
                                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                            <span className="text-gray-300 font-black text-3xl uppercase tracking-widest opacity-20 transform -rotate-12">Example Data</span>
+                                            <span className="text-gray-300 dark:text-slate-700 font-black text-3xl uppercase tracking-widest opacity-30 transform -rotate-12">Example Data</span>
                                         </div>
                                     )}
                                 </div>
