@@ -654,6 +654,287 @@ def get_health_score():
     return jsonify({'current': snapshot, 'history': history})
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Two-factor authentication (TOTP) — enrollment + verification.
+# Login enforcement (gating the auth flow itself) is deferred — this layer
+# provides "step-up" 2FA the frontend can require on sensitive actions.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_user_doc(uid):
+    """Read the raw user doc for 2FA state. None if missing/error."""
+    db = get_db()
+    if db is None:
+        return None
+    try:
+        snap = db.collection('users').document(uid).get()
+        return snap.to_dict() if snap.exists else None
+    except Exception as e:
+        logging.error(f"_get_user_doc failed for {uid}: {e}")
+        return None
+
+
+@app.route('/api/2fa/status', methods=['GET'])
+@token_required
+def two_factor_status():
+    if request.uid == 'guest':
+        return jsonify({'enabled': False, 'pending_enrollment': False, 'recovery_codes_remaining': 0})
+    from two_factor_service import get_status
+    doc = _get_user_doc(request.uid) or {}
+    return jsonify(get_status(doc))
+
+
+@app.route('/api/2fa/setup', methods=['POST'])
+@token_required
+def two_factor_setup():
+    """
+    Begin enrollment. Generates a TOTP secret + recovery codes, persists them
+    in pending state (encrypted + hashed). Returns the otpauth URI for QR
+    rendering and the recovery codes IN PLAINTEXT — this is the only time
+    they'll ever be visible, so the frontend MUST display them once.
+    """
+    if request.uid == 'guest':
+        return jsonify({'error': 'Sign in to enable 2FA.'}), 401
+    if not check_rate_limit(request.uid, '2fa_setup', limit_per_hour=5):
+        return jsonify({'error': 'Too many setup attempts. Try again later.'}), 429
+
+    from two_factor_service import begin_enrollment, _encrypt_secret
+    email = getattr(request, 'email', None) or 'user'
+    enrollment = begin_enrollment(email)
+
+    encrypted = _encrypt_secret(enrollment['secret_b32'])
+    if not encrypted:
+        return jsonify({'error': '2FA encryption not configured. Contact support.'}), 500
+
+    db = get_db()
+    user_ref = db.collection('users').document(request.uid)
+    user_ref.set({
+        'two_factor': {
+            'pending_secret': encrypted,                              # encrypted, not yet active
+            'pending_recovery_hashed': enrollment['recovery_codes_hashed'],
+            'pending_started_at': firestore.SERVER_TIMESTAMP,
+            'enabled': (user_ref.get().to_dict() or {}).get('two_factor', {}).get('enabled', False),
+        }
+    }, merge=True)
+
+    return jsonify({
+        'otpauth_uri': enrollment['otpauth_uri'],
+        'recovery_codes': enrollment['recovery_codes_plain'],
+        # NOTE: do NOT return the secret to the client — only the URI which already contains it
+    })
+
+
+@app.route('/api/2fa/verify_setup', methods=['POST'])
+@token_required
+def two_factor_verify_setup():
+    """Complete enrollment by submitting the first TOTP code from the authenticator app."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Sign in first.'}), 401
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip()
+    if not code:
+        return jsonify({'error': 'Code required'}), 400
+
+    from two_factor_service import verify_code, _decrypt_secret
+    doc = _get_user_doc(request.uid) or {}
+    tf = doc.get('two_factor') or {}
+    pending = tf.get('pending_secret')
+    if not pending:
+        return jsonify({'error': 'No enrollment in progress. Call /api/2fa/setup first.'}), 400
+
+    secret_b32 = _decrypt_secret(pending)
+    if not secret_b32:
+        return jsonify({'error': 'Enrollment state corrupted. Restart setup.'}), 500
+    if not verify_code(secret_b32, code):
+        return jsonify({'error': 'Invalid code. Make sure your authenticator clock is synced.'}), 400
+
+    # Promote pending → active
+    db = get_db()
+    user_ref = db.collection('users').document(request.uid)
+    user_ref.set({
+        'two_factor': {
+            'enabled': True,
+            'secret': pending,                                          # encrypted
+            'recovery_codes_hashed': tf.get('pending_recovery_hashed') or [],
+            'recovery_codes_used': [],
+            'enabled_at': firestore.SERVER_TIMESTAMP,
+            'pending_secret': firestore.DELETE_FIELD,
+            'pending_recovery_hashed': firestore.DELETE_FIELD,
+            'pending_started_at': firestore.DELETE_FIELD,
+        }
+    }, merge=True)
+
+    # Audit log entry
+    try:
+        from firestore_db import _write_audit_log
+        _write_audit_log(db, request.uid, 'enable', 'two_factor')
+    except Exception:
+        pass
+
+    return jsonify({'success': True, 'enabled': True})
+
+
+@app.route('/api/2fa/verify', methods=['POST'])
+@token_required
+def two_factor_verify():
+    """
+    Verify a TOTP code or recovery code for step-up authentication on a
+    sensitive action. Returns success bool — the calling endpoint is
+    responsible for actually enforcing the gate.
+    """
+    if request.uid == 'guest':
+        return jsonify({'success': False})
+    if not check_rate_limit(request.uid, '2fa_verify', limit_per_hour=30):
+        return jsonify({'error': 'Too many attempts.'}), 429
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip()
+    if not code:
+        return jsonify({'error': 'Code required'}), 400
+
+    from two_factor_service import verify_code, verify_recovery_code, _decrypt_secret
+
+    doc = _get_user_doc(request.uid) or {}
+    tf = doc.get('two_factor') or {}
+    if not tf.get('enabled'):
+        return jsonify({'error': '2FA is not enabled.'}), 400
+
+    secret_b32 = _decrypt_secret(tf.get('secret') or '')
+    used_recovery = tf.get('recovery_codes_used') or []
+    stored_recovery = tf.get('recovery_codes_hashed') or []
+
+    # Try TOTP first
+    if secret_b32 and verify_code(secret_b32, code):
+        return jsonify({'success': True, 'method': 'totp'})
+
+    # Then recovery code
+    matched_hash = verify_recovery_code(stored_recovery, used_recovery, code)
+    if matched_hash:
+        # Mark used so it can't be reused
+        db = get_db()
+        user_ref = db.collection('users').document(request.uid)
+        user_ref.set({
+            'two_factor': {
+                'recovery_codes_used': used_recovery + [matched_hash],
+            }
+        }, merge=True)
+        return jsonify({'success': True, 'method': 'recovery', 'codes_remaining': len(stored_recovery) - len(used_recovery) - 1})
+
+    return jsonify({'success': False, 'error': 'Invalid code'}), 401
+
+
+@app.route('/api/2fa/disable', methods=['POST'])
+@token_required
+def two_factor_disable():
+    """Disable 2FA. Requires a valid TOTP or recovery code in the request body."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Not enrolled.'}), 401
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip()
+    if not code:
+        return jsonify({'error': 'Confirmation code required to disable 2FA.'}), 400
+
+    from two_factor_service import verify_code, verify_recovery_code, _decrypt_secret
+    doc = _get_user_doc(request.uid) or {}
+    tf = doc.get('two_factor') or {}
+    if not tf.get('enabled'):
+        return jsonify({'error': '2FA is not currently enabled.'}), 400
+
+    secret_b32 = _decrypt_secret(tf.get('secret') or '')
+    used_recovery = tf.get('recovery_codes_used') or []
+    stored_recovery = tf.get('recovery_codes_hashed') or []
+
+    ok = (secret_b32 and verify_code(secret_b32, code)) or verify_recovery_code(stored_recovery, used_recovery, code)
+    if not ok:
+        return jsonify({'error': 'Invalid confirmation code.'}), 401
+
+    db = get_db()
+    user_ref = db.collection('users').document(request.uid)
+    user_ref.set({
+        'two_factor': {
+            'enabled': False,
+            'secret': firestore.DELETE_FIELD,
+            'recovery_codes_hashed': firestore.DELETE_FIELD,
+            'recovery_codes_used': firestore.DELETE_FIELD,
+            'enabled_at': firestore.DELETE_FIELD,
+        }
+    }, merge=True)
+    try:
+        from firestore_db import _write_audit_log
+        _write_audit_log(db, request.uid, 'disable', 'two_factor')
+    except Exception:
+        pass
+    return jsonify({'success': True, 'enabled': False})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Morning brief email — preferences + manual test send
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/morning_brief/preferences', methods=['GET'])
+@token_required
+def get_morning_brief_preferences():
+    if request.uid == 'guest':
+        return jsonify({'enabled': False, 'email': None, 'send_test_available': False})
+    doc = _get_user_doc(request.uid) or {}
+    prefs = doc.get('morning_brief_email') or {}
+    return jsonify({
+        'enabled': bool(prefs.get('enabled')),
+        'email': prefs.get('email') or getattr(request, 'email', None),
+        'send_test_available': bool(os.environ.get('RESEND_API_KEY', '').strip()),
+    })
+
+
+@app.route('/api/morning_brief/preferences', methods=['PUT'])
+@token_required
+def update_morning_brief_preferences():
+    """Enable/disable daily brief email + override recipient email."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Sign in to manage preferences.'}), 401
+    data = request.get_json(silent=True) or {}
+    enabled = bool(data.get('enabled'))
+    email_override = (data.get('email') or '').strip().lower() or None
+    db = get_db()
+    db.collection('users').document(request.uid).set({
+        'morning_brief_email': {
+            'enabled': enabled,
+            'email': email_override or getattr(request, 'email', None),
+            'updated_at': firestore.SERVER_TIMESTAMP,
+        }
+    }, merge=True)
+    return jsonify({'success': True, 'enabled': enabled})
+
+
+@app.route('/api/morning_brief/send_test', methods=['POST'])
+@token_required
+def send_test_morning_brief():
+    """Trigger a one-off send of today's brief to the user — confirms email pipeline works."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Sign in first.'}), 401
+    if not check_rate_limit(request.uid, 'morning_brief_test', limit_per_hour=3):
+        return jsonify({'error': 'Test send limit reached. Try again in an hour.'}), 429
+    if not os.environ.get('RESEND_API_KEY', '').strip():
+        return jsonify({'error': 'Email service not configured (RESEND_API_KEY missing). Owner must add the secret.'}), 503
+
+    from brief_delivery_service import send_brief, generate_brief_markdown_for_user
+
+    doc = _get_user_doc(request.uid) or {}
+    prefs = doc.get('morning_brief_email') or {}
+    to_email = prefs.get('email') or getattr(request, 'email', None)
+    if not to_email:
+        return jsonify({'error': 'No email on file.'}), 400
+
+    try:
+        md = generate_brief_markdown_for_user(request.uid)
+        if not md:
+            return jsonify({'error': 'Brief generation returned empty content.'}), 500
+        ok = send_brief(to_email, md)
+        if not ok:
+            return jsonify({'error': 'Send failed — check function logs.'}), 502
+        return jsonify({'success': True, 'sent_to': to_email})
+    except Exception as e:
+        logging.error(f"send_test_morning_brief failed: {e}")
+        return jsonify({'error': 'Internal error generating brief.'}), 500
+
+
 @app.route('/api/portfolio/calendar', methods=['GET'])
 @token_required
 def get_portfolio_calendar():

@@ -116,7 +116,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
             <React.Fragment key={`${asset.ticker}-${asset.institution_name}-${isSubRow ? 'sub' : 'main'}`}>
                 <tr className={`${isSubRow ? 'bg-gray-50/70 dark:bg-slate-900/30' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'} transition-colors ${hasMultipleAccounts ? 'cursor-pointer' : ''}`}
                     onClick={() => hasMultipleAccounts && toggleRow(asset.ticker)}>
-                    <td className="px-3 md:px-6 py-3 whitespace-nowrap text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+                    <td className="hidden sm:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
                         <div className="flex items-center gap-1.5">
                             {hasMultipleAccounts && !isSubRow && (
                                 isExpanded ? <ChevronDown size={13} className="text-gray-400" /> : <ChevronRight size={13} className="text-gray-400" />
@@ -125,14 +125,22 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                         </div>
                     </td>
                     <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-slate-100 ${isSubRow ? 'pl-8 md:pl-12 font-medium text-gray-600 dark:text-slate-400' : ''}`}>
-                        {asset.ticker}
+                        {/* On mobile we have no Type column — show a tiny inline expander chevron here for multi-account rows so the disclosure is still discoverable. */}
+                        <div className="flex items-center gap-1.5">
+                            {hasMultipleAccounts && !isSubRow && (
+                                <span className="sm:hidden text-gray-400">
+                                    {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                                </span>
+                            )}
+                            {asset.ticker}
+                        </div>
                     </td>
-                    <td className="px-3 md:px-6 py-3 whitespace-nowrap text-xs">
+                    <td className="hidden md:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-xs">
                         <span className={`px-2 py-0.5 rounded-md ${treatmentChipClass} font-semibold text-[10px] uppercase tracking-wide`}>
                             {asset.tax_treatment || 'TAXABLE'}
                         </span>
                     </td>
-                    <td className="px-3 md:px-6 py-3 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
+                    <td className="hidden lg:table-cell px-3 md:px-6 py-3 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
                         <span className="block truncate" title={isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}>
                             {isSubRow ? asset.institution_name : (hasMultipleAccounts ? `${asset.accounts.length} Accounts` : (asset.institution_name || 'Manual'))}
                         </span>
@@ -144,7 +152,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
 
                     {!isHousing ? (
                         <>
-                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-500 dark:text-slate-400 tabular-nums group/cb">
+                            <td className="hidden md:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-500 dark:text-slate-400 tabular-nums group/cb">
                                 {editingCostBasis?.id === asset.plaid_account_id ? (
                                     <div className="flex items-center justify-end space-x-1" onClick={e => e.stopPropagation()}>
                                         <span className="text-gray-400 dark:text-slate-500 text-xs">$</span>
@@ -175,10 +183,10 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     </div>
                                 )}
                             </td>
-                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-blue-600 dark:text-blue-400 font-semibold tabular-nums">
+                            <td className="hidden sm:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-blue-600 dark:text-blue-400 font-semibold tabular-nums">
                                 ${marketPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-semibold tabular-nums ${(asset.daily_change_usd || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <td className={`hidden lg:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-semibold tabular-nums ${(asset.daily_change_usd || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                 {(asset.daily_change_usd || 0) >= 0 ? '+' : '-'}${Math.abs((asset.daily_change_usd || 0) * asset.shares).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 <span className="text-[10px] ml-1 font-medium opacity-70">({(asset.daily_change_percent || 0).toFixed(2)}%)</span>
                             </td>
@@ -192,9 +200,9 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                         </>
                     ) : (
                         <>
-                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
-                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
-                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
+                            <td className="hidden md:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
+                            <td className="hidden sm:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
+                            <td className="hidden lg:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-300 dark:text-slate-600">—</td>
                             <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                 ${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
@@ -267,18 +275,21 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                     <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-700/60">
                         <thead className="bg-gray-50/80 dark:bg-slate-800/80">
                             <tr>
-                                <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
+                                {/* Mobile-responsive column hiding: keeps the most decision-critical
+                                    columns visible at 375px (Name, Shares, Price, Value, Gain/Loss),
+                                    hides secondary metadata until ≥sm/md viewports. */}
+                                <th className="hidden sm:table-cell px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Type</th>
                                 <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Name</th>
-                                <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Treatment</th>
-                                <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Account</th>
+                                <th className="hidden md:table-cell px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Treatment</th>
+                                <th className="hidden lg:table-cell px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Account</th>
                                 <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                                     {isLiquidGroup ? 'Balance' : 'Shares'}
                                 </th>
                                 {!isLiquidGroup && (
                                     <>
-                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Cost/Sh</th>
-                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Price</th>
-                                        <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Daily</th>
+                                        <th className="hidden md:table-cell px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Cost/Sh</th>
+                                        <th className="hidden sm:table-cell px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Price</th>
+                                        <th className="hidden lg:table-cell px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Daily</th>
                                         <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Value</th>
                                         <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Gain / Loss</th>
                                     </>
@@ -294,14 +305,14 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                         : 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20';
                                     return (
                                         <tr key={asset.plaid_account_id || asset.ticker} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
+                                            <td className="hidden sm:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">{(['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'].includes(asset.ticker)) ? 'CASH' : asset.asset_type}</td>
                                             <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-slate-100">{asset.ticker}</td>
-                                            <td className="px-3 md:px-6 py-3 whitespace-nowrap text-xs">
+                                            <td className="hidden md:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-xs">
                                                 <span className={`px-2 py-0.5 rounded-md ${chip} font-semibold text-[10px] uppercase tracking-wide`}>
                                                     {asset.tax_treatment || 'TAXABLE'}
                                                 </span>
                                             </td>
-                                            <td className="px-3 md:px-6 py-3 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
+                                            <td className="hidden lg:table-cell px-3 md:px-6 py-3 text-xs text-gray-500 dark:text-slate-400 max-w-[140px]">
                                                 <span className="block truncate" title={asset.institution_name || 'Manual'}>{asset.institution_name || 'Manual'}</span>
                                             </td>
                                             <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
@@ -317,6 +328,7 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                             <tfoot className="bg-gray-50/80 dark:bg-slate-800/80 border-t border-gray-100 dark:border-slate-700/60">
                                 <tr>
                                     {/* Columns: Type | Name | Treatment | Account | Shares/Balance | [Cost/Sh | Price | Daily | Value | Gain/Loss] */}
+                                    {/* colSpan adapts to mobile-hidden columns: at <sm we only render Name + Shares = 2 cols before the value group; at sm 3 cols (Type+Name+Shares — Price reveals here); at md 5 cols. Use responsive utility classes on a single colSpan="4" td: it'll cover the right cells because hidden ones don't render. */}
                                     <td colSpan="4" className="px-3 md:px-6 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">
                                         Subtotal
                                     </td>
@@ -325,9 +337,9 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     </td>
                                     {!isLiquidGroup && (
                                         <>
-                                            <td className="px-3 md:px-6 py-3"></td>
-                                            <td className="px-3 md:px-6 py-3"></td>
-                                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${groupTotals.dailyChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                            <td className="hidden md:table-cell px-3 md:px-6 py-3"></td>
+                                            <td className="hidden sm:table-cell px-3 md:px-6 py-3"></td>
+                                            <td className={`hidden lg:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${groupTotals.dailyChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                                 {groupTotals.dailyChange >= 0 ? '+' : '-'}${Math.abs(groupTotals.dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 {groupDailyYesterday > 0 && (
                                                     <div className="text-[10px] font-medium opacity-70">

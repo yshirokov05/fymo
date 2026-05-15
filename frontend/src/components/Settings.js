@@ -4,6 +4,8 @@ import { useTheme, ACCENT_PRESETS } from '../context/ThemeContext';
 import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette, AlertTriangle, ExternalLink } from 'lucide-react';
 import PlaidLink from './PlaidLink';
 import CategoryRulesManager from './CategoryRulesManager';
+import TwoFactorSettings from './TwoFactorSettings';
+import MorningBriefSettings from './MorningBriefSettings';
 import axios from 'axios';
 import { useToast } from './Toast';
 
@@ -309,6 +311,14 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                     )}
                 </div>
             </div>
+
+            {/* ── Security ── */}
+            {!isGuest && (
+                <div className="mb-8 space-y-4">
+                    <TwoFactorSettings />
+                    <MorningBriefSettings />
+                </div>
+            )}
 
             {/* ── Theme & Appearance ── */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-8">

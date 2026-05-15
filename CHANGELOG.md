@@ -12,6 +12,36 @@ Tracked for upcoming releases. See the project memory `project_roadmap.md` for t
 
 ---
 
+## [1.7.0] — 2026-05-14
+
+Major roadmap drop. Eight feature areas, ~4,000 LOC across backend + frontend.
+
+### Added
+
+- **Two-factor authentication (TOTP).** Settings → enable 2FA generates a TOTP secret + QR code (Google Authenticator, Authy, 1Password compatible) and 8 single-use recovery codes. Confirmation code required to enable or disable. Encrypted secret + hashed recovery codes at rest. `/api/2fa/verify` provides step-up authentication for sensitive actions. Login enforcement deferred to a follow-up.
+- **Subscription detector.** New Subscriptions tab clusters recurring monthly charges from your transaction history. Active list (charged in last 45 days) + "Possibly cancelled / forgotten" list (>45 days). Per-row "hide" affordance. Shows monthly + annual totals — instant ROI when you cancel one.
+- **Tax-loss harvesting.** New panel on the Investments tab identifying open lots currently underwater vs market. Per-lot specificity (which exact shares to consider selling), ST vs LT classified, with a `IRS §1091 wash-sale not enforced` disclaimer.
+- **Financial Health Score (0-100).** New Dashboard card aggregating four equally-weighted 25-point components: **savings rate (trailing-3-month rolling)**, emergency fund months, debt-to-asset ratio, asset diversification. Snapshotted daily for trend charting. Color-coded ring + sparkline + expandable component breakdown.
+- **Portfolio Calendar.** New panel on the Investments tab showing upcoming dividend ex-dates (with estimated payout = $/share × shares held) and earnings dates (with EPS estimate) for currently-held tickers in the next 30 days. Backed by yfinance with a 12h cache.
+- **Net-worth milestone confetti.** Celebratory modal + confetti burst when net worth crosses $10K / $25K / $50K / $100K / $250K / $500K / $1M / $2.5M / $5M / $10M for the first time. Tracked atomically on the user doc so it fires once per threshold.
+- **Audit log.** New `/users/{uid}/audit_log` subcollection. Every atomic mutation (cost-basis edit, goal CRUD, 2FA enable/disable, milestone crossing) appends an entry with timestamp + before/after state. New `/api/audit_log` endpoint.
+- **Daily morning brief email.** Scheduled Cloud Function runs daily at 13:00 UTC and emails the AI morning brief to opted-in users. Settings → Daily Morning Brief Email controls enable/disable + test send. Resend SDK integration (requires `RESEND_API_KEY` Cloud Functions secret).
+- **Mobile responsive pass.** Asset Breakdown + Tax-Loss Harvest tables now hide non-essential columns at small breakpoints. Mobile users see Name + Shares + Value + Gain/Loss; secondary columns reveal at sm / md / lg.
+
+### Changed
+
+- **Atomic Firestore writes for critical mutations.** New transaction-wrapped helpers in `firestore_db.py`: `update_asset_cost_basis_atomic`, `update_goal_atomic`, `create_goal_atomic`, `delete_goal_atomic`, `check_and_mark_milestone`. Concurrent writes (manual edit + Plaid sync) can no longer clobber each other.
+- **Cost basis edits use new `/api/asset/cost_basis` PATCH endpoint** with optimistic local update + rollback on failure. Replaces the full assets-array save path for this mutation.
+- **Goal CRUD** routed through atomic helpers + audit log.
+
+### Infrastructure
+
+- New backend services: `subscription_service.py`, `tax_loss_service.py`, `health_score_service.py`, `calendar_service.py`, `two_factor_service.py`, `brief_delivery_service.py`.
+- New dependencies: `pyotp` (TOTP), `resend` (email), `canvas-confetti` (celebrations), `qrcode.react` (2FA enrollment).
+- New scheduled Cloud Function `scheduled_morning_briefs` registered in `main.py` alongside the HTTP `api_func`.
+
+---
+
 ## [1.6.0] — 2026-05-14
 
 ### Added
@@ -61,6 +91,7 @@ Pre-changelog release. Highlights from the existing feature set:
 
 ---
 
-[Unreleased]: https://github.com/yshirokov05/fymo/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/yshirokov05/fymo/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/yshirokov05/fymo/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/yshirokov05/fymo/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/yshirokov05/fymo/releases/tag/v1.5.0

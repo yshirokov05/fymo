@@ -104,10 +104,10 @@ const TaxLossHarvest = ({ harvest }) => {
                                 <tr>
                                     <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Ticker</th>
                                     <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Class</th>
-                                    <th className="px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Bought</th>
-                                    <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Shares</th>
-                                    <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Cost/Sh</th>
-                                    <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Now/Sh</th>
+                                    <th className="hidden sm:table-cell px-3 md:px-6 py-2.5 text-left text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Bought</th>
+                                    <th className="hidden md:table-cell px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Shares</th>
+                                    <th className="hidden lg:table-cell px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Cost/Sh</th>
+                                    <th className="hidden lg:table-cell px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Now/Sh</th>
                                     <th className="px-3 md:px-6 py-2.5 text-right text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Loss</th>
                                 </tr>
                             </thead>
@@ -124,17 +124,17 @@ const TaxLossHarvest = ({ harvest }) => {
                                                 {o.classification === 'LT' ? 'Long-term' : 'Short-term'}
                                             </span>
                                         </td>
-                                        <td className="px-3 md:px-6 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-slate-400">
+                                        <td className="hidden sm:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-xs text-gray-500 dark:text-slate-400">
                                             {o.buy_date}
                                             <span className="ml-1 text-gray-400 dark:text-slate-500">({o.holding_days}d)</span>
                                         </td>
-                                        <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right tabular-nums text-gray-800 dark:text-slate-200">
+                                        <td className="hidden md:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right tabular-nums text-gray-800 dark:text-slate-200">
                                             {o.shares.toLocaleString(undefined, { maximumFractionDigits: 3 })}
                                         </td>
-                                        <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right tabular-nums text-gray-500 dark:text-slate-400">
+                                        <td className="hidden lg:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right tabular-nums text-gray-500 dark:text-slate-400">
                                             ${o.cost_per_share.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </td>
-                                        <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right tabular-nums text-blue-600 dark:text-blue-400 font-semibold">
+                                        <td className="hidden lg:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right tabular-nums text-blue-600 dark:text-blue-400 font-semibold">
                                             ${o.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </td>
                                         <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold text-red-600 dark:text-red-400 tabular-nums">
