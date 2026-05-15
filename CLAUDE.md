@@ -4,14 +4,15 @@ This file is read automatically by Claude Code. It provides project context, con
 
 ## Project Overview
 
-Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, Claude Sonnet 4.6 for all AI features. Gemini 1.5 Flash is used only for document/PDF extraction (insurance, paystubs, bank statements) via the Gemini API.
+Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, **Claude Sonnet 4.6 for all AI features** — chat (AI Analyst), morning/health briefs, per-goal guidance, and PDF/image statement extraction (paystubs, insurance, bank statements) via Claude's native document + vision blocks. No other LLMs are used.
 
 - **Brand:** Fymo (`projectfymo.com`)
 - **Live URL:** https://personal-finance-app-18cbc.web.app (point `projectfymo.com` → Firebase Hosting)
 - **Firebase project:** `personal-finance-app-18cbc`
-- **Current version:** v1.5.0 (Production)
-- **Current phase:** Market Launch & User Engagement (Phase 6 complete; demo-mode goal fix shipped)
-- **Codebase size:** 42 frontend JS files (~10,600 LOC) · 13 backend Python files (~5,400 LOC) · ~16,000 LOC total
+- **Current version:** v1.6.0 (Production)
+- **Current phase:** Market Launch & User Engagement
+- **Codebase size:** 43 frontend JS files (~10,900 LOC) · 13 backend Python files (~5,400 LOC) · ~16,300 LOC total
+- **Changelog:** see `CHANGELOG.md` at repo root for release notes.
 
 ## Feature Inventory
 

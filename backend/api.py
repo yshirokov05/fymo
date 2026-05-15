@@ -2326,16 +2326,26 @@ Please provide:
 Keep the response concise and practical. Use dollar amounts where helpful. Do not give investment advice or tax advice. Frame everything as general financial information.
 """
 
-    import google.generativeai as genai
-    api_key = os.environ.get('GEMINI_API_KEY')
-    if not api_key:
+    # Goal AI Guidance — migrated from Gemini to Claude Sonnet 4.6 so all
+    # user-facing AI uses the same model. Keeps prompt + rate limit unchanged.
+    client, client_err = advisor_service._get_client()
+    if client_err:
+        logging.error(f"Goal AI guidance: {client_err}")
         return jsonify({'error': 'AI service not configured'}), 503
 
-    genai.configure(api_key=api_key)
     try:
-        model = genai.GenerativeModel(model_name='gemini-1.5-flash')
-        response = model.generate_content(prompt, request_options={"timeout": 20})
-        guidance_text = response.text
+        response = client.messages.create(
+            model=advisor_service._CLAUDE_MODEL,
+            max_tokens=800,
+            messages=[{"role": "user", "content": prompt}],
+            timeout=25.0,
+        )
+        # Concatenate any text blocks in the response (Claude returns a list of content blocks)
+        guidance_text = "".join(
+            getattr(b, 'text', '') for b in response.content if getattr(b, 'type', '') == 'text'
+        ).strip()
+        if not guidance_text:
+            raise ValueError("Empty response from Claude")
     except Exception as e:
         logging.error(f"Goal AI guidance error: {e}")
         return jsonify({'error': 'AI service temporarily unavailable'}), 503

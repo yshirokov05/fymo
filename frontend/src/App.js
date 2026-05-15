@@ -1,34 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import './App.css';
+// Eager imports — these are on the critical initial-paint path or used as
+// inline subcomponents on the Dashboard / Investments tabs. Lazy-loading
+// them would just defer their fetch by one tick and yield no real win.
 import Dashboard from './components/Dashboard';
 import InvestmentsSummary from './components/InvestmentsSummary';
 import RealizedGainsTable from './components/RealizedGainsTable';
-import Budgeting from './components/Budgeting';
-import Income from './components/Income';
-import Insurance from './components/Insurance';
-import AIAnalyst from './components/AIAnalyst';
-import Settings from './components/Settings';
-import CheckTracker from './components/CheckTracker';
-import EditPortfolio from './components/EditPortfolio';
-import TaxCalculator from './components/TaxCalculator';
-import Visualizations from './components/Visualizations';
-import axios from 'axios';
 import Layout from './components/Layout';
 import Modal from './components/Modal';
 import Login from './components/Login';
 import LandingPage from './components/LandingPage';
-import DataPrivacyFAQ from './components/DataPrivacyFAQ';
-import Goals from './components/Goals';
-import PrivacyPolicy from './components/PrivacyPolicy';
-import TermsOfService from './components/TermsOfService';
 import Onboarding from './components/Onboarding';
 import FirstRunChecklist from './components/FirstRunChecklist';
-import FeedbackModal from './components/FeedbackModal';
-import StatementUpload from './components/StatementUpload';
+import axios from 'axios';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider, useToast } from './components/Toast';
-import { RefreshCw, CreditCard, Upload } from 'lucide-react';
+import { RefreshCw, CreditCard, Upload, Loader2 } from 'lucide-react';
+
+// Lazy-loaded route components — each ships as its own chunk and is only
+// fetched when the user navigates to that view. Big wins on first paint
+// since the bundle no longer includes AI Analyst's markdown renderer,
+// Visualizations' chart code, EditPortfolio's tab machinery, etc. on
+// the initial download.
+const Budgeting     = lazy(() => import('./components/Budgeting'));
+const Income        = lazy(() => import('./components/Income'));
+const Insurance     = lazy(() => import('./components/Insurance'));
+const AIAnalyst     = lazy(() => import('./components/AIAnalyst'));
+const Settings      = lazy(() => import('./components/Settings'));
+const CheckTracker  = lazy(() => import('./components/CheckTracker'));
+const EditPortfolio = lazy(() => import('./components/EditPortfolio'));
+const TaxCalculator = lazy(() => import('./components/TaxCalculator'));
+const Visualizations = lazy(() => import('./components/Visualizations'));
+const DataPrivacyFAQ = lazy(() => import('./components/DataPrivacyFAQ'));
+const Goals         = lazy(() => import('./components/Goals'));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./components/TermsOfService'));
+const FeedbackModal = lazy(() => import('./components/FeedbackModal'));
+const StatementUpload = lazy(() => import('./components/StatementUpload'));
+
+// Centered spinner shown while a lazy chunk is loading. Sized to fill the
+// content area so the layout doesn't jump as the tab swaps in.
+const RouteFallback = () => (
+    <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
+        <Loader2 className="text-blue-500 animate-spin" size={32} />
+    </div>
+);
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -947,29 +964,43 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
   return (
     <Layout activeView={activeView} setActiveView={setActiveView} isPremium={isPremium} onOpenFeedback={() => setIsFeedbackOpen(true)} capabilities={capabilities}>
-      {renderContent()}
+      <Suspense fallback={<RouteFallback />}>
+        {renderContent()}
+      </Suspense>
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Edit Portfolio">
-        <EditPortfolio 
-            onSave={handleSave} 
-            assets={assets} 
-            incomes={incomes} 
-            debts={debts} 
-            retirementAccounts={retirementAccounts} 
-            insurances={insurances}
-            initialTab={modalTab} 
-        /> 
+        <Suspense fallback={<RouteFallback />}>
+          <EditPortfolio
+              onSave={handleSave}
+              assets={assets}
+              incomes={incomes}
+              debts={debts}
+              retirementAccounts={retirementAccounts}
+              insurances={insurances}
+              initialTab={modalTab}
+          />
+        </Suspense>
       </Modal>
-      <FeedbackModal 
-        isOpen={isFeedbackOpen} 
-        onClose={() => setIsFeedbackOpen(false)} 
-        userEmail={currentUser?.email}
-        uid={currentUser?.uid || 'guest'}
-      />
-      <StatementUpload 
-        isOpen={isUploadOpen} 
-        onClose={() => setIsUploadOpen(false)} 
-        onUploadSuccess={() => fetchData()} 
-      />
+      {/* FeedbackModal + StatementUpload are lazy: only their chunk is fetched
+          when the modal is actually opened, keeping initial bundle lean. */}
+      {isFeedbackOpen && (
+        <Suspense fallback={null}>
+          <FeedbackModal
+            isOpen={isFeedbackOpen}
+            onClose={() => setIsFeedbackOpen(false)}
+            userEmail={currentUser?.email}
+            uid={currentUser?.uid || 'guest'}
+          />
+        </Suspense>
+      )}
+      {isUploadOpen && (
+        <Suspense fallback={null}>
+          <StatementUpload
+            isOpen={isUploadOpen}
+            onClose={() => setIsUploadOpen(false)}
+            onUploadSuccess={() => fetchData()}
+          />
+        </Suspense>
+      )}
     </Layout>
   );
 }
