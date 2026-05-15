@@ -150,7 +150,7 @@ All expensive endpoints use the Firestore-based `check_rate_limit(uid, action, l
 - Always verify Firebase auth context in backend routes.
 - Sanitize all user input before passing to Claude (see `_sanitize_for_ai()` in `advisor_service.py`).
 - Plaid tokens must be encrypted via Fernet before writing to Firestore.
-- Rate-limit expensive endpoints (Gemini calls, Plaid sync) using the existing Firestore-based limiter pattern.
+- Rate-limit expensive endpoints (Claude calls, Plaid sync) using the existing Firestore-based limiter pattern.
 
 ## Deployment
 
@@ -167,7 +167,7 @@ Do not run `npm run deploy` locally unless GitHub Actions is unavailable.
 │   ├── calculations.py    Net worth + tax calculation
 │   ├── models.py          Data models / enums
 │   ├── plaid_service.py   Plaid sync (holdings, transactions, inv. history)
-│   ├── advisor_service.py Gemini AI features
+│   ├── advisor_service.py Claude AI features
 │   ├── tax_logic.py       50-state tax engine
 │   ├── firestore_db.py    Firestore R/W + Fernet encryption
 │   ├── price_service.py   Yahoo Finance price fetcher

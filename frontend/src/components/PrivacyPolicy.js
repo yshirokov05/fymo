@@ -44,7 +44,7 @@ const PrivacyPolicy = () => {
                     <ul className="list-disc list-inside space-y-1 mt-2">
                         <li>Displaying your net worth, budgets, tax estimates, and financial summaries</li>
                         <li>Syncing transactions and balances from your linked bank accounts via Plaid</li>
-                        <li>Generating AI-powered financial insights via Google Gemini (your data is sent to Gemini solely to produce your personalized summary — it is not used to train Google's models under our API agreement)</li>
+                        <li>Generating AI-powered financial insights via Anthropic&apos;s Claude API (your data is sent to Claude solely to produce your personalized summary — Anthropic does not use API inputs to train their models under our commercial API agreement)</li>
                         <li>Processing your subscription payment via Stripe</li>
                     </ul>
                     <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">We do not sell, rent, share, or monetize your personal or financial data in any form.</strong></p>

@@ -21,7 +21,7 @@ const TaxDocumentUpload = ({ onUploadSuccess, docType = 'tax' }) => {
         }
 
         setStatus('uploading');
-        setMessage('Analyzing document with Gemini AI...');
+        setMessage('Analyzing document with Claude AI...');
 
         const formData = new FormData();
         formData.append('file', file);

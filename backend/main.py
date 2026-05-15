@@ -43,7 +43,7 @@ def api_func(req: https_fn.Request) -> https_fn.Response:
         error_info = {
             "status": "CRASH",
             "error": traceback.format_exc(),
-            "env_check": {k: len(os.environ.get(k, "")) for k in ["GEMINI_API_KEY", "FERNET_KEY"]}
+            "env_check": {k: len(os.environ.get(k, "")) for k in ["ANTHROPIC_API_KEY", "FERNET_KEY"]}
         }
         return https_fn.Response(
             json.dumps(error_info),

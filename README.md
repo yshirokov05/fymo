@@ -7,7 +7,7 @@
 [![Flask](https://img.shields.io/badge/Flask-Python%203.12-000000?style=flat-square&logo=flask)](https://flask.palletsprojects.com/)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%2B%20Auth-FFCA28?style=flat-square&logo=firebase)](https://firebase.google.com/)
 [![Plaid](https://img.shields.io/badge/Plaid-12%2C000%2B%20Institutions-00D64F?style=flat-square)](https://plaid.com/)
-[![Gemini](https://img.shields.io/badge/Gemini-1.5%20Flash-4285F4?style=flat-square&logo=google)](https://ai.google.dev/)
+[![Claude](https://img.shields.io/badge/Claude-Sonnet%204.6-D97757?style=flat-square&logo=anthropic)](https://www.anthropic.com/api)
 **Build:** ![deploy](https://github.com/yshirokov05/Personal-Finance-App-PFA/actions/workflows/deploy.yml/badge.svg)
 
 FHQ is an all-in-one personal finance platform. Connect your bank accounts, track your net worth in real time, get AI-powered financial advice, estimate your tax liability across all 50 states, and understand your debt and investment outlook — all in one place.
@@ -28,7 +28,7 @@ FHQ is an all-in-one personal finance platform. Connect your bank accounts, trac
 - **Universal Statement Upload** — Upload any bank statement (PDF, CSV, image) for AI-powered transaction extraction — no Plaid required
 
 ### AI Features
-- **AI Financial Advisor** — Contextual financial guidance powered by Google Gemini 1.5 Flash, with access to your real account data
+- **AI Financial Advisor** — Contextual financial guidance powered by Anthropic's Claude Sonnet 4.6, with access to your real account data
 - **Morning Brief** — Time-aware financial health summary with market news
 - **AI Insurance Audit** — Upload insurance policies (auto, health, life) for automated coverage extraction and risk assessment
 - **AI Document Extraction** — Upload paystubs, tax forms, or statements for instant structured data extraction
@@ -68,7 +68,7 @@ FHQ is an all-in-one personal finance platform. Connect your bank accounts, trac
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
 │  │  tax_logic   │  │plaid_service │  │  advisor_    │  │
 │  │  50-state    │  │  parallel    │  │  service     │  │
-│  │  engine      │  │  sync layer  │  │  (Gemini AI) │  │
+│  │  engine      │  │  sync layer  │  │  (Claude AI) │  │
 │  └──────────────┘  └──────────────┘  └──────────────┘  │
 └───────────────┬──────────────┬──────────────────────────┘
                 │              │
@@ -136,7 +136,7 @@ Firebase Secrets required (set via Firebase Console → Project Settings → Sec
 | `PLAID_SECRET` | Plaid production/sandbox secret |
 | `PLAID_ENV` | `production` or `sandbox` |
 | `PLAID_REDIRECT_URI` | OAuth redirect URI for Plaid Link |
-| `GEMINI_API_KEY` | Google AI Studio API key |
+| `ANTHROPIC_API_KEY` | Anthropic Console API key (used by `advisor_service.py` for all AI features — chat, briefs, document extraction) |
 | `FERNET_KEY` | Encryption key for Plaid tokens at rest |
 
 ### Deploy

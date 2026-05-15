@@ -18,7 +18,7 @@ alwaysOn: true
 - Do not add new unauthenticated write paths.
 
 ## Input Validation
-- Sanitize all user-supplied input before including it in Gemini prompts. Use `_sanitize_for_ai()` in `advisor_service.py`.
+- Sanitize all user-supplied input before including it in Claude prompts. Use `_sanitize_for_ai()` in `advisor_service.py`.
 - Never concatenate raw user input into SQL queries, shell commands, or system prompts without sanitization.
 - Validate and type-check all data at the API boundary before writing to Firestore.
 
@@ -32,7 +32,7 @@ alwaysOn: true
 - Log full details server-side only.
 
 ## Rate Limiting
-- Expensive endpoints (Gemini advisor, Plaid sync) must use the Firestore-based rate limiter.
+- Expensive endpoints (Claude advisor, card summary, Plaid sync) must use the Firestore-based rate limiter.
 - Default limit: 20 requests/hour per user. Do not raise this without justification.
 
 ## Frontend
@@ -41,4 +41,4 @@ alwaysOn: true
 
 ## Data Privacy
 - Do not log PII (names, emails, account numbers, SSNs) in application logs.
-- Strip sensitive fields before sending user data to Gemini (see `_sanitize_for_ai()`).
+- Strip sensitive fields before sending user data to Claude (see `_sanitize_for_ai()`).

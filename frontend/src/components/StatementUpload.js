@@ -155,7 +155,7 @@ const StatementUpload = ({ isOpen, onClose, onUploadSuccess }) => {
                             ) : (
                                 <>
                                     <Upload size={20} />
-                                    <span>{file?.name.endsWith('.csv') ? 'Import Selected File' : 'Extract with Gemini AI'}</span>
+                                    <span>{file?.name.endsWith('.csv') ? 'Import Selected File' : 'Extract with Claude AI'}</span>
                                 </>
                             )}
                         </button>

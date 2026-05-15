@@ -33,7 +33,7 @@ alwaysOn: true
 
 ## External APIs
 - **Bank data**: Plaid (Production API) — `backend/plaid_service.py`
-- **AI**: Google Gemini 1.5 Flash — `backend/advisor_service.py`
+- **AI**: Anthropic Claude Sonnet 4.6 (`claude-sonnet-4-5`) — `backend/advisor_service.py`. All AI features (chat, briefs, goal guidance, document extraction) use this one model.
 - **Stock prices**: Yahoo Finance (yfinance) — `backend/price_service.py`
 
 ## CI/CD

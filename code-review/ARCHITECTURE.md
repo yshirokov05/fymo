@@ -7,7 +7,7 @@
 
 ## Overview
 
-Fymo is a full-stack personal finance dashboard. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, Claude Sonnet 4.6 for all AI features, Gemini 1.5 Flash for document/PDF extraction only.
+Fymo is a full-stack personal finance dashboard. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, and **Claude Sonnet 4.6 (Anthropic API) for all AI features** — chat, briefs, goal guidance, and PDF/image document extraction. No other LLMs are used.
 
 ---
 
@@ -22,7 +22,7 @@ Fymo is a full-stack personal finance dashboard. React 19 frontend, Python/Flask
 | Hosting | Firebase Hosting (frontend CDN) + Firebase Functions (backend) |
 | Bank Sync | Plaid (production) — read-only scopes only |
 | AI Advisor | Claude Sonnet 4.6 via Anthropic API (streaming SSE, tool-use loop) |
-| Doc Extraction | Gemini 1.5 Flash via Google AI API (PDF/image parsing only) |
+| Doc Extraction | Claude Sonnet 4.6 via Anthropic API (vision blocks for images, document blocks for PDFs) |
 | Market Data | yfinance — per-ticker price fetches |
 | Payments | Stripe (live mode) — $9.99/mo Premium subscriptions |
 | Analytics | Google Analytics GA4 (G-DPMJ663964) |
@@ -90,7 +90,7 @@ Firestore
 ## Component Responsibilities
 
 ### `main.py`
-Firebase Functions entry point. Wraps Flask in `https_fn.on_request`. All secrets (Plaid, Anthropic, Gemini, Fernet key, Stripe) are injected via Firebase Secret Manager at deploy time. Function timeout: 300s.
+Firebase Functions entry point. Wraps Flask in `https_fn.on_request`. All secrets (Plaid, Anthropic, Fernet key, Stripe, Resend) are injected via Firebase Secret Manager at deploy time. Function timeout: 300s.
 
 ### `auth.py`
 `@token_required` decorator. Verifies Firebase ID tokens. Missing token → `uid = "guest"` (demo mode, intentional). Routes that must block guests check `uid == "guest"` explicitly and return 401.

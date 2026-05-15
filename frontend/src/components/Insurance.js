@@ -152,7 +152,7 @@ const Insurance = ({ insurances, onSaveInsurances }) => {
                                         <span className="text-xs font-black uppercase">Active & Validated</span>
                                     </div>
                                     <p className="text-xs text-gray-500 mt-4 leading-relaxed font-medium">
-                                        This policy was successfully processed by Gemini AI. All benefits were extracted from the document metadata.
+                                        This policy was successfully processed by Claude AI. All benefits were extracted from the document metadata.
                                     </p>
                                 </Card>
                             </div>
