@@ -236,6 +236,10 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
         }, { shares: 0, value: 0, cost: 0, gainLoss: 0, dailyChange: 0 });
 
         const groupGainLossPercent = groupTotals.cost !== 0 ? (groupTotals.gainLoss / Math.abs(groupTotals.cost)) * 100 : 0;
+        // Daily % is the weighted-average daily change relative to yesterday's close,
+        // not to today's value. yesterday = today − daily $ change.
+        const groupDailyYesterday = groupTotals.value - groupTotals.dailyChange;
+        const groupDailyPercent = groupDailyYesterday > 0 ? (groupTotals.dailyChange / groupDailyYesterday) * 100 : 0;
 
         // Per-group accent — adds wayfinding without being garish. Bar + count chip share the hue.
         const accentMap = {
@@ -325,6 +329,11 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                             <td className="px-3 md:px-6 py-3"></td>
                                             <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${groupTotals.dailyChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                                 {groupTotals.dailyChange >= 0 ? '+' : '-'}${Math.abs(groupTotals.dailyChange).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                {groupDailyYesterday > 0 && (
+                                                    <div className="text-[10px] font-medium opacity-70">
+                                                        ({groupDailyPercent >= 0 ? '+' : ''}{groupDailyPercent.toFixed(2)}%)
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                                 ${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

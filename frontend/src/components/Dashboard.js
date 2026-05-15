@@ -685,20 +685,52 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     ? ih.period_returns[prPeriod]
                     : null;
                 const hasPeriodReturn = periodRetPct !== null;
-                const periodMissing = !isAllPeriod && !hasPeriodReturn;
 
                 // Coverage metadata: % of portfolio value that was priceable for this period
                 const periodCoverage = ih?.period_returns_coverage?.[prPeriod] ?? null;
                 const isPartialCoverage = periodCoverage !== null && periodCoverage < 50;
 
+                // ── Portfolio-history fallback ──────────────────────────────────────
+                // When the backend's per-ticker yfinance fetch can't price enough holdings
+                // for the selected window (most common for 1W when yfinance is throttled),
+                // fall back to our own daily portfolio_snapshots. Less mathematically pure
+                // than a TWR (mixes cash flows with returns) but vastly better than N/A,
+                // and accurate when there are no buys/sells in the period.
+                const fallbackPeriodReturn = (() => {
+                    if (isAllPeriod || hasPeriodReturn || !portfolioHistory || portfolioHistory.length < 2) {
+                        return null;
+                    }
+                    const latest = portfolioHistory[portfolioHistory.length - 1];
+                    if (!latest || !(latest.value > 0)) return null;
+                    // Resolve target date for this period
+                    const today = new Date();
+                    let target;
+                    if (prPeriod === 'ytd') {
+                        target = new Date(today.getFullYear(), 0, 1);
+                    } else {
+                        const days = { '1w': 7, '1m': 30, '1y': 365, '2y': 730, '5y': 1825 }[prPeriod];
+                        if (!days) return null;
+                        target = new Date(today);
+                        target.setDate(target.getDate() - days);
+                    }
+                    const targetStr = target.toISOString().slice(0, 10);
+                    // Earliest snapshot on or after target date — only valid if it predates
+                    // latest by a meaningful gap, otherwise we'd be dividing today by itself.
+                    const start = portfolioHistory.find(h => h.date >= targetStr && h.date < latest.date);
+                    if (!start || !(start.value > 0)) return null;
+                    return ((latest.value - start.value) / start.value) * 100;
+                })();
+                const usingFallback = !hasPeriodReturn && fallbackPeriodReturn !== null && !isAllPeriod;
+                const periodMissing = !isAllPeriod && !hasPeriodReturn && !usingFallback;
+
                 // Final display values
                 let retPct, retDollar, returnLabel, returnTooltip;
                 if (periodMissing) {
-                    // Honest N/A: backend couldn't compute return for the selected period.
+                    // Honest N/A: backend couldn't compute and we have no snapshot history.
                     retPct = null;
                     retDollar = null;
                     returnLabel = `${PERIOD_LABELS[prPeriod]} unavailable`;
-                    returnTooltip = `Couldn't compute ${PERIOD_LABELS[prPeriod]} return — not enough holdings could be priced for this window. Try a longer period or "All" for cost-basis return.`;
+                    returnTooltip = `Couldn't compute ${PERIOD_LABELS[prPeriod]} return — yfinance couldn't price enough holdings and we don't yet have ${PERIOD_LABELS[prPeriod]} of portfolio snapshots. Sync again or try a longer period.`;
                 } else if (hasPeriodReturn) {
                     retPct = periodRetPct;
                     retDollar = null;
@@ -708,6 +740,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     returnTooltip = isPartialCoverage
                         ? `Weighted return for ${PERIOD_LABELS[prPeriod]} based on ${periodCoverage}% of your portfolio by value — some holdings (e.g. thinly-traded or OTC stocks) couldn't be priced for this window and are excluded from the weighted average.`
                         : `Weighted holding-period return for ${PERIOD_LABELS[prPeriod]}: each ticker's return is weighted by its current market value. Tickers without pricing data are excluded.`;
+                } else if (usingFallback) {
+                    retPct = fallbackPeriodReturn;
+                    retDollar = null;
+                    returnLabel = `${PERIOD_LABELS[prPeriod]} Return (approx)`;
+                    returnTooltip = `Backend per-ticker pricing was unavailable for this window, so this is computed from your portfolio-value snapshots: (current value − value at start of period) / start value. Does not account for buys/sells inside the window, so it's an approximation when you've been actively trading.`;
                 } else {
                     // All period selected — show cost-basis-based all-time return
                     retPct = allTimeRetPct;

@@ -835,15 +835,25 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                         _ticker_mv[_t] = _ticker_mv.get(_t, 0.0) + _mv
 
                 if _ticker_mv:
-                    # Fetch multi-period returns per ticker in parallel, capped at 8s each
+                    # Fetch multi-period returns per ticker. yfinance is rate-limit sensitive
+                    # from Cloud Functions — too many parallel calls returns empty DataFrames
+                    # which was the root cause of 1W/1M N/A. Lower concurrency + longer per-
+                    # ticker timeout produces dramatically better coverage in practice.
                     _per_ticker_returns: dict[str, dict] = {}
-                    with ThreadPoolExecutor(max_workers=5) as _tex:
+                    with ThreadPoolExecutor(max_workers=3) as _tex:
                         _tfutures = {_tex.submit(_gmpr, t): t for t in _ticker_mv}
                         for _tf in as_completed(_tfutures):
                             _t = _tfutures[_tf]
                             try:
-                                _per_ticker_returns[_t] = _tf.result(timeout=8.0) or {}
-                            except Exception:
+                                _per_ticker_returns[_t] = _tf.result(timeout=15.0) or {}
+                                logging.info(
+                                    f"[Sync {user_id}] {_t} multi-period keys: "
+                                    f"{sorted(_per_ticker_returns[_t].keys())}"
+                                )
+                            except Exception as _te:
+                                logging.warning(
+                                    f"[Sync {user_id}] {_t} multi-period fetch timed out/errored: {_te}"
+                                )
                                 _per_ticker_returns[_t] = {}
 
                     _total_mv = sum(_ticker_mv.values())

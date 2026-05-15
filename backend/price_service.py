@@ -6,6 +6,12 @@ from concurrent.futures import ThreadPoolExecutor
 _price_cache = {}
 CACHE_TTL_SECONDS = 300 # 5 minutes
 
+# Period-returns cache (5 min TTL). Avoids re-hitting yfinance for every sync —
+# yfinance is rate-limit sensitive from Cloud Functions and silently returns
+# empty DataFrames when throttled, which was the root cause of 1W/1M N/A.
+_period_returns_cache = {}
+PERIOD_RETURNS_TTL_SECONDS = 300
+
 def get_current_price(ticker_symbol):
     """
     Fetches the current market price and daily change for a given ticker symbol using yfinance.
@@ -141,17 +147,38 @@ def get_multi_period_returns(ticker_symbol, since_date=None):
     since_date: optional ISO date string (e.g. '2024-03-12') — when provided, the 'all'
     period is anchored to that date rather than the full 5-year history. This ensures the
     benchmark 'all' return matches the user's actual investment start date.
+
+    Caches results for 5 minutes per (ticker, since_date) pair to avoid hammering
+    yfinance during consecutive syncs.
     """
     import yfinance as yf
     from datetime import timedelta
+
+    ticker_upper = (ticker_symbol or '').upper().strip()
+    if not ticker_upper:
+        return {}
+
+    cache_key = f"{ticker_upper}:{since_date or ''}"
+    cached = _period_returns_cache.get(cache_key)
+    if cached:
+        ts, data = cached
+        if time.time() - ts < PERIOD_RETURNS_TTL_SECONDS:
+            return data
+
     try:
-        hist = yf.Ticker(ticker_symbol.upper()).history(period='5y')
+        hist = yf.Ticker(ticker_upper).history(period='5y')
         if len(hist) < 2:
+            logging.info(f"[period_returns] {ticker_upper}: yfinance returned {len(hist)} rows — skipping")
+            _period_returns_cache[cache_key] = (time.time(), {})
             return {}
         last_close = float(hist['Close'].iloc[-1])
         last_date = hist.index[-1]
         results = {}
-        for pkey, days in [('1w', 7), ('1m', 30), ('1y', 365), ('2y', 730), ('5y', 1825)]:
+        # 1w uses 10 calendar days instead of 7 so weekend syncs still find a trading
+        # day at the start of the window. With strict 7d, a Saturday/Sunday sync
+        # would land on a non-trading day and subset filters out the data points
+        # we actually need. 10d still gives a clean ~5 trading day window.
+        for pkey, days in [('1w', 10), ('1m', 35), ('1y', 365), ('2y', 730), ('5y', 1825)]:
             target = last_date - timedelta(days=days)
             subset = hist[hist.index >= target]
             if len(subset) >= 2:
@@ -177,8 +204,11 @@ def get_multi_period_returns(ticker_symbol, since_date=None):
             sc = float(hist['Close'].iloc[0])
             if sc > 0:
                 results['all'] = round(((last_close / sc) - 1) * 100, 2)
+        logging.info(f"[period_returns] {ticker_upper}: {len(results)} periods → {sorted(results.keys())}")
+        _period_returns_cache[cache_key] = (time.time(), results)
         return results
-    except Exception:
+    except Exception as e:
+        logging.warning(f"[period_returns] {ticker_upper} failed: {type(e).__name__}: {e}")
         return {}
 
 if __name__ == '__main__':
