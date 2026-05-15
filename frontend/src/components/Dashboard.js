@@ -1035,75 +1035,92 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
             )}
 
             {!hideAssetSections && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <>
+                    {/* Industry Allocation — full-width: donut + sorted category breakdown side by side.
+                        Was previously cramped in a half-width column next to a tall Asset Breakdown,
+                        which left a giant blank void below the donut and forced the bottom legend
+                        into a tiny two-row wrap. */}
+                    <Card title="Industry Allocation" icon={<PieChartIcon className="text-yellow-500" />}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                            <div className="h-[340px] relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RechartsPieChart>
+                                        <Pie
+                                            data={chartData}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={false}
+                                            outerRadius={140}
+                                            innerRadius={92}
+                                            paddingAngle={1.5}
+                                            stroke={sliceStroke}
+                                            strokeWidth={3}
+                                            dataKey="value"
+                                            isAnimationActive={!isDemoMode}
+                                        >
+                                            {chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={isDemoMode ? 0.35 : 1} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} wrapperStyle={{ outline: 'none' }} />
+                                    </RechartsPieChart>
+                                </ResponsiveContainer>
+                                {chartData.length > 0 && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 mb-1.5">Total</span>
+                                        <span className="text-4xl font-bold text-gray-800 dark:text-slate-100 tabular-nums">
+                                            {fmtCompact(chartData.reduce((s, d) => s + (d.value || 0), 0))}
+                                        </span>
+                                        <span className="text-[11px] text-gray-400 dark:text-slate-500 mt-2 font-medium">
+                                            {chartData.length} {chartData.length === 1 ? 'category' : 'categories'}
+                                        </span>
+                                    </div>
+                                )}
+                                {isDemoMode && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <span className="text-gray-300 dark:text-slate-700 font-black text-4xl uppercase tracking-widest opacity-30 transform -rotate-12">Example Data</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Sorted category breakdown (most → least). Replaces the old bottom legend
+                                that recharts kept re-ordering. Source of truth: chartData order. */}
+                            <div className="space-y-3 max-h-[340px] overflow-y-auto pr-2 custom-scrollbar">
+                                {chartData.map((d, i) => {
+                                    const color = COLORS[i % COLORS.length];
+                                    const pctNum = typeof d.percent === 'string' ? parseFloat(d.percent) : (d.percent || 0);
+                                    return (
+                                        <div key={d.name}>
+                                            <div className="flex items-center gap-2.5 mb-1.5">
+                                                <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }}/>
+                                                <span className="text-sm text-gray-700 dark:text-slate-200 font-medium flex-1 truncate">{d.name}</span>
+                                                <span className="text-xs text-gray-400 dark:text-slate-500 font-mono tabular-nums w-12 text-right">{pctNum.toFixed(1)}%</span>
+                                                <span className="text-sm font-semibold text-gray-900 dark:text-slate-100 tabular-nums min-w-[72px] text-right">
+                                                    ${(d.value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                </span>
+                                            </div>
+                                            <div className="h-1.5 bg-gray-100 dark:bg-slate-700/40 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-500"
+                                                    style={{ width: `${Math.max(pctNum, 1.5)}%`, backgroundColor: color }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* Asset Breakdown — full-width so the 10-column investments table fits without
+                        a horizontal scrollbar at typical desktop widths. */}
                     <Card title="Asset Breakdown" icon={<Briefcase className="text-blue-500" />}>
                         <div className="overflow-x-auto">
                             <AssetTable assets={positiveAssets} onUpdateCostBasis={onUpdateCostBasis} />
                         </div>
                     </Card>
-
-                    <div className="self-start">
-                    <Card title="Industry Allocation" icon={<PieChartIcon className="text-yellow-500" />}>
-                        <div className="h-[380px] w-full relative">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <RechartsPieChart>
-                                            <Pie
-                                                data={chartData}
-                                                cx="50%"
-                                                cy="42%"
-                                                labelLine={false}
-                                                label={false}
-                                                outerRadius={130}
-                                                innerRadius={78}
-                                                paddingAngle={1.5}
-                                                stroke={sliceStroke}
-                                                strokeWidth={3}
-                                                dataKey="value"
-                                            >
-                                                {chartData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} opacity={isDemoMode ? 0.35 : 1} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} wrapperStyle={{ outline: 'none' }} />
-                                            <Legend
-                                                verticalAlign="bottom"
-                                                height={56}
-                                                iconType="circle"
-                                                iconSize={9}
-                                                formatter={(value, entry) => {
-                                                    const item = chartData.find(d => d.name === value);
-                                                    const pct = item?.percent;
-                                                    return (
-                                                        <span className="text-[11px] text-gray-600 dark:text-slate-400 inline-flex items-baseline gap-1.5">
-                                                            <span className="font-medium">{value}</span>
-                                                            {pct && <span className="text-gray-400 dark:text-slate-500 text-[10px] font-mono">{pct}%</span>}
-                                                        </span>
-                                                    );
-                                                }}
-                                            />
-                                        </RechartsPieChart>
-                                    </ResponsiveContainer>
-                                    {/* Center label — aligned to donut cy=42%. Pulled forward from card content via z-10. */}
-                                    {chartData.length > 0 && (
-                                        <div className="absolute left-0 right-0 top-[42%] -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500 mb-0.5">Total</span>
-                                            <span className="text-2xl font-bold text-gray-800 dark:text-slate-100 tabular-nums">
-                                                {fmtCompact(chartData.reduce((s, d) => s + (d.value || 0), 0))}
-                                            </span>
-                                            <span className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">
-                                                {chartData.length} {chartData.length === 1 ? 'category' : 'categories'}
-                                            </span>
-                                        </div>
-                                    )}
-                                    {isDemoMode && (
-                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                            <span className="text-gray-300 dark:text-slate-700 font-black text-4xl uppercase tracking-widest opacity-30 transform -rotate-12">Example Data</span>
-                                        </div>
-                                    )}
-                                </div>
-                    </Card>
-                    </div>
-                </div>
+                </>
             )}
 
             {((showDebtAllocation || allDebts.length > 0) && (!hideAssetSections || showDebtAllocation)) && (
