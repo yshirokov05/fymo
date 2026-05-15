@@ -91,7 +91,7 @@ FHQ is an all-in-one personal finance platform. Connect your bank accounts, trac
 | Backend | Python 3.12, Flask, Firebase Cloud Functions (Gen 2) |
 | Database | Google Firestore (NoSQL) |
 | Auth | Firebase Authentication (email/password + Google OAuth) |
-| AI | Google Gemini 1.5 Flash |
+| AI | Claude API |
 | Bank Sync | Plaid Production API |
 | Pricing | Yahoo Finance (yfinance) |
 | Mobile | iOS + Android via Capacitor |
