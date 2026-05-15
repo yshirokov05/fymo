@@ -1,5 +1,5 @@
 ---
-description: Deploy the FHQ application to Firebase
+description: Deploy the Fymo application to Firebase
 ---
 
 # Deployment

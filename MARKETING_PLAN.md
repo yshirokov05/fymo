@@ -1,9 +1,9 @@
-# FHQ Marketing Strategy
+# Fymo Marketing Strategy
 
-This document outlines the initial launch and dissemination strategy for Financial Headquarters (FHQ).
+This document outlines the initial launch and dissemination strategy for Fymo (`projectfymo.com`).
 
 ## 1. Brand Identity
-The FHQ brand is defined by its **"Blue on Dark Blue"** identity. This is the primary logo that will be used across all social media and internal materials.
+The Fymo brand is defined by its **"Blue on Dark Blue"** identity. This is the primary logo that will be used across all social media and internal materials.
 
 ### Logo & Brand Assets
 - **Primary Logo**: [pfa_website_logo.png](./pfa_website_logo.png) (Blue on Dark Blue text).

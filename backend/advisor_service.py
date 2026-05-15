@@ -250,7 +250,7 @@ def get_financial_advice_stream(user_prompt, financial_data):
 
         memory_str = financial_data.get('contextual_memory', "No previous habits or goals recorded yet.")
 
-        system_prompt = _sanitize_for_ai(f"""You are the FHQ AI Advisor — a sharp, data-driven financial analyst.
+        system_prompt = _sanitize_for_ai(f"""You are the Fymo AI Advisor — a sharp, data-driven financial analyst.
 
 USER FINANCIAL PROFILE:
 - Net Worth: ${financial_data.get('real_time_net_worth', 0):,.2f}
@@ -426,7 +426,7 @@ def get_financial_advice(user_prompt, financial_data):
 
         memory_str = financial_data.get('contextual_memory', "No previous habits or goals recorded yet.")
 
-        system_prompt = _sanitize_for_ai(f"""You are the FHQ AI Advisor — a sharp, data-driven financial analyst.
+        system_prompt = _sanitize_for_ai(f"""You are the Fymo AI Advisor — a sharp, data-driven financial analyst.
 
 USER FINANCIAL PROFILE:
 - Net Worth: ${financial_data.get('real_time_net_worth', 0):,.2f}
@@ -590,7 +590,7 @@ def generate_overview(financial_data, brief_type="morning"):
     }
     persona = brief_descriptions.get(brief_type, brief_descriptions["morning"])
 
-    system_prompt = _sanitize_for_ai(f"""You are the FHQ AI Analyst preparing {persona}.
+    system_prompt = _sanitize_for_ai(f"""You are the Fymo AI Analyst preparing {persona}.
 Give a brutally honest report with exactly 3 bold bullets (1-2 sentences each):
 - **Liquidity Check:** Comment on recent specific transactions and cash flow.
 - **Insurance & Protection:** Identify any gaps in coverage.
@@ -634,7 +634,7 @@ def generate_market_intelligence(financial_data):
     net_worth = financial_data.get('real_time_net_worth', 0)
     market_news = get_market_news()
 
-    system_prompt = _sanitize_for_ai(f"""You are the FHQ AI Analyst generating a Market Pulse update for a dark-themed dashboard panel.
+    system_prompt = _sanitize_for_ai(f"""You are the Fymo AI Analyst generating a Market Pulse update for a dark-themed dashboard panel.
 
 LIVE MARKET DATA (today's prices and daily moves):
 {market_news}

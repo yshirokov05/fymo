@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
  * ShowMath — collapsible transparency panel for Dashboard cards.
  *
  * Shows users exactly how each headline number is computed.
- * This is FHQ's Monarch-differentiating feature: data-forward transparency
+ * This is Fymo's Monarch-differentiating feature: data-forward transparency
  * instead of "trust me, the number is right."
  *
  * Props:

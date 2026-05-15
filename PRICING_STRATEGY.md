@@ -1,6 +1,6 @@
-# FHQ Pricing Strategy
+# Fymo Pricing Strategy
 
-This document outlines the monetization and promotional strategy for Financial Headquarters.
+This document outlines the monetization and promotional strategy for Fymo.
 
 ## 1. Core SaaS Pricing
 - **Standard Subscription**: **$9.99 / Month**
