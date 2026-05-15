@@ -879,7 +879,7 @@ def get_morning_brief_preferences():
     return jsonify({
         'enabled': bool(prefs.get('enabled')),
         'email': prefs.get('email') or getattr(request, 'email', None),
-        'send_test_available': bool(os.environ.get('RESEND_API_KEY', '').strip()),
+        'send_test_available': (os.environ.get('RESEND_API_KEY', '').strip() or '').startswith('re_'),
     })
 
 
@@ -911,8 +911,9 @@ def send_test_morning_brief():
         return jsonify({'error': 'Sign in first.'}), 401
     if not check_rate_limit(request.uid, 'morning_brief_test', limit_per_hour=3):
         return jsonify({'error': 'Test send limit reached. Try again in an hour.'}), 429
-    if not os.environ.get('RESEND_API_KEY', '').strip():
-        return jsonify({'error': 'Email service not configured (RESEND_API_KEY missing). Owner must add the secret.'}), 503
+    _resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+    if not _resend_key or not _resend_key.startswith('re_'):
+        return jsonify({'error': 'Email service not configured. RESEND_API_KEY must be a real Resend key (starts with re_).'}), 503
 
     from brief_delivery_service import send_brief, generate_brief_markdown_for_user
 

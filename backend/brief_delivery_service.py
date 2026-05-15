@@ -27,9 +27,12 @@ from datetime import datetime, date
 
 
 def _resend_client():
-    """Lazy-init Resend SDK. Returns None if not configured (no-op mode)."""
+    """Lazy-init Resend SDK. Returns None if not configured (no-op mode).
+    Real Resend API keys start with 're_' — anything else is treated as a
+    placeholder sentinel so the function can deploy with a non-empty secret
+    value before the user has signed up for Resend."""
     api_key = os.environ.get('RESEND_API_KEY', '').strip()
-    if not api_key:
+    if not api_key or not api_key.startswith('re_'):
         return None
     try:
         import resend
