@@ -194,7 +194,8 @@ def paystub_to_dict(p):
         'net_amount': p.net_amount,
         'tax_withheld': p.tax_withheld,
         'employer': p.employer,
-        'is_net_primary': getattr(p, 'is_net_primary', False)
+        'is_net_primary': getattr(p, 'is_net_primary', False),
+        'subject_to_fica': getattr(p, 'subject_to_fica', True),
     }
 
 def safe_enum(enum_class, value, default):
@@ -528,7 +529,7 @@ def get_net_worth():
         net_worth_data['plaid_items'] = [{'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in plaid_items]
         net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
         net_worth_data['transactions'] = [transaction_to_dict(t) for t in (transactions or [])]
-        net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer, 'is_net_primary': getattr(p, 'is_net_primary', False)} for p in paystubs]
+        net_worth_data['paystubs'] = [paystub_to_dict(p) for p in paystubs]
         net_worth_data['filing_status'] = user.filing_status.name
         net_worth_data['state'] = user.state.name
         net_worth_data['employment_type'] = getattr(user, 'employment_type', EmploymentType.W2).name
@@ -1284,7 +1285,7 @@ def update_portfolio():
 
     if 'paystubs' in data:
         uid_for_ids = "demo_user" if request.uid == "guest" else request.uid
-        paystubs = [Paystub(id=p.get('id', str(uuid.uuid4())), user_id=uid_for_ids, date=p['date'], gross_amount=float(p['gross_amount']), net_amount=float(p.get('net_amount', 0)), tax_withheld=float(p.get('tax_withheld', 0)), employer=p.get('employer'), is_net_primary=bool(p.get('is_net_primary', False))) for p in data['paystubs']]
+        paystubs = [Paystub(id=p.get('id', str(uuid.uuid4())), user_id=uid_for_ids, date=p['date'], gross_amount=float(p['gross_amount']), net_amount=float(p.get('net_amount', 0)), tax_withheld=float(p.get('tax_withheld', 0)), employer=p.get('employer'), is_net_primary=bool(p.get('is_net_primary', False)), subject_to_fica=bool(p.get('subject_to_fica', True))) for p in data['paystubs']]
 
     if 'outstanding_checks' in data:
         from models import OutstandingCheck, CheckStatus
@@ -2023,7 +2024,7 @@ def set_access_token():
         net_worth_data['plaid_items'] = [{'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in plaid_items]
         net_worth_data['budgets'] = [budget_to_dict(b) for b in budgets]
         net_worth_data['transactions'] = [transaction_to_dict(t) for t in transactions]
-        net_worth_data['paystubs'] = [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer, 'is_net_primary': getattr(p, 'is_net_primary', False)} for p in paystubs]
+        net_worth_data['paystubs'] = [paystub_to_dict(p) for p in paystubs]
         net_worth_data['filing_status'] = user.filing_status.name
         net_worth_data['state'] = user.state.name
         net_worth_data['employment_type'] = getattr(user, 'employment_type', EmploymentType.W2).name
@@ -2824,6 +2825,148 @@ Keep the response concise and practical. Use dollar amounts where helpful. Do no
         return jsonify({'error': 'AI service temporarily unavailable'}), 503
 
     return jsonify({'guidance': guidance_text})
+
+
+# ── Credit Card "No-BS" AI Summary ────────────────────────────────────────────
+#
+# /api/debts/card_summary
+# Takes a card's display name + official Plaid name and returns a concise
+# no-fluff analysis: annual fee, top perks (with $ value), best uses, weak
+# points, and a verdict on whether it's worth keeping. Cached server-side per
+# (user, normalized_card_name) so we don't hit Claude on every render.
+
+def _normalize_card_key(s: str) -> str:
+    """Normalize a card name for cache lookup — case-insensitive, whitespace-
+    collapsed, trim trademark symbols + account masks. Two cards that differ
+    only in casing or a trailing ' …4321' map to the same cache key."""
+    if not s:
+        return ''
+    s = s.lower().replace('®', '').replace('™', '').replace('©', '')
+    s = re.sub(r'\s+', ' ', s)
+    # Strip trailing 4-digit masks (e.g. "chase sapphire 4321")
+    s = re.sub(r'\s*[…\.\-]*\s*\d{4}\s*$', '', s)
+    return s.strip()
+
+
+@app.route('/api/debts/card_summary', methods=['POST'])
+@token_required
+def get_card_summary():
+    """Return an AI-generated No-BS summary for a credit card. Cached per user
+    in /users/{uid}/card_summaries/{normalized_key} for 30 days."""
+    if not check_rate_limit(request.uid, 'card_summary', limit_per_hour=10):
+        return jsonify({'error': 'Rate limit reached. Try again later.'}), 429
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    official_name = (data.get('official_name') or '').strip()
+    if not name and not official_name:
+        return jsonify({'error': 'Card name required'}), 400
+
+    # Prefer official_name for lookup since it carries the product line
+    lookup_name = official_name or name
+    cache_key = _normalize_card_key(lookup_name)
+    if not cache_key:
+        return jsonify({'error': 'Invalid card name'}), 400
+
+    db = get_db()
+    cache_doc = None
+    if db and request.uid != 'guest':
+        try:
+            cache_doc = db.collection('users').document(request.uid) \
+                .collection('card_summaries').document(cache_key[:100]).get()
+        except Exception as e:
+            logging.warning(f"card_summary cache read failed: {e}")
+            cache_doc = None
+
+    if cache_doc and cache_doc.exists:
+        cached = cache_doc.to_dict() or {}
+        ts = cached.get('generated_at')
+        try:
+            ts_dt = datetime.fromisoformat(ts) if isinstance(ts, str) else None
+            fresh = ts_dt and (datetime.utcnow() - ts_dt) < timedelta(days=30)
+        except Exception:
+            fresh = False
+        if fresh and cached.get('summary'):
+            return jsonify({
+                'summary': cached['summary'],
+                'cached': True,
+                'generated_at': cached.get('generated_at'),
+            })
+
+    # Build prompt. We sanitize input names so a user-controlled name can't
+    # inject extra instructions into the prompt (defense in depth).
+    sanitize = advisor_service._sanitize_for_ai
+    safe_name = sanitize(name)[:120]
+    safe_official = sanitize(official_name)[:120]
+
+    prompt = f"""You are giving a No-BS analysis of a credit card a user holds.
+
+Card display name: {safe_name or 'unknown'}
+Official issuer name: {safe_official or safe_name or 'unknown'}
+
+If you don't recognize the specific card, say so honestly and give a brief
+general assessment based on the issuer + product line you can infer. Do not
+invent perks that you're not confident about.
+
+Format your response with these labeled sections (no markdown headers, just
+bold-style labels with a colon — keep the structure scannable):
+
+ANNUAL FEE: One line — exact $ if known, "no annual fee" if free, or "unknown" if unsure.
+
+TOP PERKS: 2-4 bullets, each starting with "•". Quantify with $ where possible
+(e.g. "3% cash back on dining → ~$X/yr on $Y spending"). Skip generic perks
+like "Visa Zero Liability".
+
+BEST USES: 1-2 short lines — what spending categories or scenarios this card
+shines for.
+
+WATCH OUT: 1-2 short lines on weak points (high APR, foreign transaction fees,
+limited acceptance, churning rules, etc.).
+
+VERDICT: One sentence — is this worth holding? Be direct.
+
+Keep the whole response under 200 words. No disclaimers about consulting the
+issuer. No "always check current terms" boilerplate."""
+
+    client, client_err = advisor_service._get_client()
+    if client_err:
+        logging.error(f"Card summary: {client_err}")
+        return jsonify({'error': 'AI service not configured'}), 503
+
+    try:
+        response = client.messages.create(
+            model=advisor_service._CLAUDE_MODEL,
+            max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+            timeout=25.0,
+        )
+        summary_text = "".join(
+            getattr(b, 'text', '') for b in response.content if getattr(b, 'type', '') == 'text'
+        ).strip()
+        if not summary_text:
+            raise ValueError("Empty response from Claude")
+    except Exception as e:
+        logging.error(f"Card summary AI error: {e}")
+        return jsonify({'error': 'AI service temporarily unavailable'}), 503
+
+    # Cache it for 30 days
+    if db and request.uid != 'guest':
+        try:
+            db.collection('users').document(request.uid) \
+                .collection('card_summaries').document(cache_key[:100]).set({
+                    'summary': summary_text,
+                    'card_name': safe_name,
+                    'official_name': safe_official,
+                    'generated_at': datetime.utcnow().isoformat(),
+                })
+        except Exception as e:
+            logging.warning(f"card_summary cache write failed: {e}")
+
+    return jsonify({
+        'summary': summary_text,
+        'cached': False,
+        'generated_at': datetime.utcnow().isoformat(),
+    })
 
 
 # ── Category Rules CRUD ───────────────────────────────────────────────────────

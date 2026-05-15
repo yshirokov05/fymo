@@ -168,6 +168,16 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
         onSavePaystubs(updated);
     };
 
+    // Toggle FICA eligibility on a single paystub. Off for scholarships, fellowships,
+    // and 1099 contractor income (still subject to income tax, exempt from the 7.65%
+    // SS+Medicare passthrough). Default: true (assumes W-2 wages).
+    const handleToggleFica = (id) => {
+        const updated = paystubs.map(p =>
+            p.id === id ? { ...p, subject_to_fica: p.subject_to_fica === false ? true : false } : p
+        );
+        onSavePaystubs(updated);
+    };
+
     const nonNetStubsCount = currentYearPaystubs.filter(p => !p.is_net_primary).length;
     const allStubsNet = currentYearPaystubs.length > 0 && nonNetStubsCount === 0;
 
@@ -443,21 +453,50 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                                 <span>{p.employer || '—'}</span>
                                                 {p.linked_transaction_id && <Landmark size={12} className="ml-1 text-blue-500" title="Linked to bank transaction" />}
                                                 {p.is_net_primary ? (
-                                                    <button
-                                                        onClick={() => handleToggleNet(p.id)}
-                                                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 transition-colors"
-                                                        title="Currently NET (already-taxed). Click to mark as GROSS (counts in tax projection)."
-                                                    >
-                                                        NET
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleToggleNet(p.id)}
+                                                            className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 hover:bg-green-200 transition-colors"
+                                                            title="Currently NET (already-taxed). Click to mark as GROSS (counts in tax projection)."
+                                                        >
+                                                            NET
+                                                        </button>
+                                                        {p.subject_to_fica === false && (
+                                                            <span
+                                                                className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200"
+                                                                title="Flagged FICA-exempt — auto-detected as scholarship / fellowship / stipend."
+                                                            >
+                                                                NO FICA
+                                                            </span>
+                                                        )}
+                                                    </>
                                                 ) : (
-                                                    <button
-                                                        onClick={() => handleToggleNet(p.id)}
-                                                        className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors opacity-0 group-hover:opacity-100"
-                                                        title="Currently GROSS (pre-tax). Click to mark as NET (already-taxed)."
-                                                    >
-                                                        GROSS
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleToggleNet(p.id)}
+                                                            className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 transition-colors opacity-0 group-hover:opacity-100"
+                                                            title="Currently GROSS (pre-tax). Click to mark as NET (already-taxed)."
+                                                        >
+                                                            GROSS
+                                                        </button>
+                                                        {p.subject_to_fica === false ? (
+                                                            <button
+                                                                onClick={() => handleToggleFica(p.id)}
+                                                                className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200 transition-colors"
+                                                                title="FICA exempt (e.g. scholarship, fellowship, 1099). Click to mark FICA-eligible."
+                                                            >
+                                                                NO FICA
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleToggleFica(p.id)}
+                                                                className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-gray-400 hover:bg-purple-50 hover:text-purple-600 transition-colors opacity-0 group-hover:opacity-100"
+                                                                title="Currently FICA-eligible (W-2 wages). Click to mark FICA-exempt (scholarship/fellowship/1099)."
+                                                            >
+                                                                · FICA
+                                                            </button>
+                                                        )}
+                                                    </>
                                                 )}
                                             </td>
                                             <td className="py-4 px-6 text-sm font-bold text-right text-gray-700">${p.gross_amount.toLocaleString()}</td>

@@ -9,9 +9,15 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
  * instead of "trust me, the number is right."
  *
  * Props:
- *   rows: [{ label, value, indent?: bool, divider?: bool, muted?: bool, healthy?: bool|null }]
+ *   rows: [{ label, value, indent?: bool, divider?: bool, muted?: bool, healthy?: bool|null, section?: bool, note?: string }]
  *   formula: string (optional) — the expression in plain text
  *   className: additional wrapper classes
+ *
+ * Row variants:
+ *   - section:true     → renders as a small uppercase header that groups subsequent rows
+ *                       (e.g. "Income subject to tax" / "Estimated tax")
+ *   - divider:true     → thin horizontal rule
+ *   - note:"..."       → small italic sub-line under the value (e.g. "7.65% × $5,359 wages")
  */
 const ShowMath = ({ rows = [], formula = null, className = '' }) => {
     const [open, setOpen] = useState(false);
@@ -34,16 +40,27 @@ const ShowMath = ({ rows = [], formula = null, className = '' }) => {
                     {rows.map((row, i) => (
                         <React.Fragment key={i}>
                             {row.divider && <div className="border-t border-gray-200 dark:border-slate-700 my-1" />}
-                            <div className={`flex justify-between items-center ${row.indent ? 'pl-3' : ''}`}>
-                                <span className={row.muted ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'}>
+                            {row.section ? (
+                                <div className={`text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 ${i > 0 ? 'pt-2 mt-1 border-t border-gray-200 dark:border-slate-700' : ''}`}>
                                     {row.label}
-                                </span>
-                                <span className={`${row.muted ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100 font-semibold'}`}>
-                                    {row.value}
-                                    {row.healthy === true && <span className="text-green-500 ml-1">✓</span>}
-                                    {row.healthy === false && <span className="text-amber-500 ml-1">⚠</span>}
-                                </span>
-                            </div>
+                                </div>
+                            ) : (
+                                <div className={`flex justify-between items-start ${row.indent ? 'pl-3' : ''}`}>
+                                    <span className={row.muted ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'}>
+                                        {row.label}
+                                    </span>
+                                    <span className="text-right">
+                                        <span className={`${row.muted ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100 font-semibold'}`}>
+                                            {row.value}
+                                            {row.healthy === true && <span className="text-green-500 ml-1">✓</span>}
+                                            {row.healthy === false && <span className="text-amber-500 ml-1">⚠</span>}
+                                        </span>
+                                        {row.note && (
+                                            <span className="block text-[9px] text-gray-400 dark:text-gray-500 italic mt-0.5 font-normal">{row.note}</span>
+                                        )}
+                                    </span>
+                                </div>
+                            )}
                         </React.Fragment>
                     ))}
                     {formula && (

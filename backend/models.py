@@ -235,6 +235,11 @@ class Paystub:
     tax_withheld: Optional[float] = None
     employer: Optional[str] = None
     is_net_primary: bool = False
+    # When False, this deposit is excluded from the FICA wage base (e.g. scholarship,
+    # fellowship, contractor 1099, or any non-W2 wage source). Federal/state income
+    # tax still applies; only the 7.65% FICA passthrough is skipped.
+    # Defaults True for backward compatibility — existing rows are W2 wages.
+    subject_to_fica: bool = True
 
 @dataclass
 class CustomRule:

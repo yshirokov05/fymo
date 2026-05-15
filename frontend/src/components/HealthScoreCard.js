@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Activity, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
 import { useAuth } from '../context/AuthContext';
+import InfoTip from './InfoTip';
 
 /**
  * HealthScoreCard
@@ -31,11 +32,24 @@ const scoreLabel = (score) => {
     return 'Critical';
 };
 
+// Human-friendly label for the savings-rate `source` enum from
+// health_score_service.py. Keep these short — they render in a tight row.
+const SAVINGS_SOURCE_LABEL = {
+    '90d': '90d',
+    '90d_with_baseline': '90d · baseline',
+    'insufficient_income': 'income not detected',
+    'no_income': 'no income',
+    'none': 'no data',
+};
+
 const fmtComponentValue = (key, comp) => {
     const v = comp.value;
     if (key === 'savings_rate') {
-        if (v == null) return '—';
-        return `${v.toFixed(1)}% (${comp.source})`;
+        if (v == null) {
+            // Render the reason rather than just "—", so the user knows why.
+            return SAVINGS_SOURCE_LABEL[comp.source] || '—';
+        }
+        return `${v.toFixed(1)}% (${SAVINGS_SOURCE_LABEL[comp.source] || comp.source})`;
     }
     if (key === 'emergency_fund') {
         if (v == null) return '—';
@@ -62,7 +76,7 @@ const ComponentRow = ({ k, comp }) => {
                 <span className="text-sm font-bold text-gray-900 dark:text-slate-100 tabular-nums w-12 text-right">
                     {comp.score}/{comp.max}
                 </span>
-                <Info size={11} className="text-gray-400 cursor-help" title={comp.description} />
+                <InfoTip size={11} text={comp.description} />
             </div>
             <div className="h-1.5 bg-gray-100 dark:bg-slate-700/40 rounded-full overflow-hidden">
                 <div className={`h-full rounded-full ${accent}`} style={{ width: `${pct}%` }} />
@@ -142,7 +156,7 @@ const HealthScoreCard = () => {
                     <div>
                         <div className="text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-slate-500 mb-1 flex items-center gap-1">
                             Financial Health
-                            <Info size={11} className="text-gray-400 cursor-help" title="Aggregate of four equally-weighted 25-point components: savings rate, emergency fund, debt-to-asset ratio, and diversification. Snapshotted daily." />
+                            <InfoTip size={11} text="Aggregate of four equally-weighted 25-point components: savings rate, emergency fund, debt-to-asset ratio, and diversification. Snapshotted daily." />
                         </div>
                         <div className={`text-xl font-bold ${colors.text}`}>{label}</div>
                         {hasTrend && trendDelta !== 0 && (

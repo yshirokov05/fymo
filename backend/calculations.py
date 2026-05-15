@@ -144,20 +144,99 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
         state_taxable_income = max(0, gross_income + st_gains + lt_gains - retirement_deductions - total_annual_insurance - business_deductions)
         state_tax = calculate_state_tax(state_taxable_income, user.state.name, user.filing_status.value, year)
         
+        # FICA wage base — computed even for self-employed paths so the payload
+        # always carries a consistent "wages subject to FICA" number for the UI.
+        # FICA only applies to W2 wage income (salary, hourly). Dividends, capital
+        # gains, scholarships, fellowships, and 1099 contractor income are NOT
+        # subject to FICA. The per-paystub `subject_to_fica` flag (default True)
+        # lets users mark scholarships / fellowships / etc. as exempt — those
+        # still count for federal/state income tax but skip the 7.65%.
+        _wage_types = {IncomeType.ANNUAL_SALARY, IncomeType.MONTHLY_SALARY, IncomeType.HOURLY, IncomeType.FIXED_TOTAL}
+        fica_eligible_stubs_base = sum(
+            float(p.gross_amount or 0) for p in gross_stubs
+            if getattr(p, 'subject_to_fica', True)
+        )
+        fica_eligible_manual_base = sum(
+            float(inc.amount or 0) for inc in year_incomes
+            if not getattr(inc, 'is_net', False) and inc.income_type in _wage_types
+        )
+        fica_wage_base = fica_eligible_stubs_base + fica_eligible_manual_base
+
         if employment_type_name in ['CONTRACTOR', 'BUSINESS_OWNER']:
             net_earnings = max(0, gross_income - business_deductions)
             se_taxble_income = net_earnings * 0.9235
             fica_tax = se_taxble_income * 0.153
         else:
-            # FICA only applies to wage income (salary, hourly). Dividends and
-            # capital gains are investment income and are not subject to FICA.
-            _wage_types = {IncomeType.ANNUAL_SALARY, IncomeType.MONTHLY_SALARY, IncomeType.HOURLY, IncomeType.FIXED_TOTAL}
-            fica_wage_base = gross_income_from_stubs + sum(
-                float(inc.amount or 0) for inc in year_incomes
-                if not getattr(inc, 'is_net', False) and inc.income_type in _wage_types
-            )
             fica_tax = calculate_fica_tax(fica_wage_base, user.filing_status.value, year)
-        
+
+        # ── Build a per-source income breakdown for the dashboard "show math" ──
+        # This is what the user sees as "income being taxed" — a list of every
+        # contributor with its dollar amount. The UI needs this to render income
+        # and tax in two clearly-separated sections.
+        income_sources = []
+        # W-2 wages — group by employer so multiple paychecks roll up
+        wages_by_employer = {}
+        for p in gross_stubs:
+            emp = getattr(p, 'employer', None) or 'W-2 Wages'
+            wages_by_employer[emp] = wages_by_employer.get(emp, 0) + float(p.gross_amount or 0)
+        for emp, amt in wages_by_employer.items():
+            # Each employer's stubs share a FICA-eligibility status if all their
+            # stubs do; if mixed, mark the row "partial" so the UI can footnote it.
+            emp_stubs = [p for p in gross_stubs if (getattr(p, 'employer', None) or 'W-2 Wages') == emp]
+            fica_flags = {bool(getattr(p, 'subject_to_fica', True)) for p in emp_stubs}
+            if fica_flags == {True}:
+                fica_state = 'subject'
+            elif fica_flags == {False}:
+                fica_state = 'exempt'
+            else:
+                fica_state = 'mixed'
+            income_sources.append({
+                'label': emp,
+                'amount': round(amt, 2),
+                'kind': 'w2_wages',
+                'fica': fica_state,
+            })
+        # Manual gross income lines (salary / hourly / dividends / cap gains, etc.)
+        for inc in year_incomes:
+            if getattr(inc, 'is_net', False):
+                continue
+            amt = float(inc.amount or 0)
+            if amt == 0:
+                continue
+            itype = inc.income_type.name if hasattr(inc.income_type, 'name') else str(inc.income_type)
+            income_sources.append({
+                'label': getattr(inc, 'description', None) or itype.replace('_', ' ').title(),
+                'amount': round(amt, 2),
+                'kind': itype.lower(),
+                'fica': 'subject' if inc.income_type in _wage_types else 'exempt',
+            })
+        # Realized capital gains
+        if st_gains:
+            income_sources.append({
+                'label': 'Short-term capital gains',
+                'amount': round(st_gains, 2),
+                'kind': 'st_capital_gains',
+                'fica': 'exempt',
+            })
+        if lt_gains:
+            income_sources.append({
+                'label': 'Long-term capital gains',
+                'amount': round(lt_gains, 2),
+                'kind': 'lt_capital_gains',
+                'fica': 'exempt',
+            })
+
+        # Standard deduction we apply by federal filing status (2025/2026 same for our purposes).
+        # Keep this in sync with what tax_logic.calculate_federal_tax internally assumes.
+        std_deduction_by_status = {
+            'single': 15000,
+            'married_filing_jointly': 30000,
+            'married_filing_separately': 15000,
+            'head_of_household': 22500,
+            'qualifying_widow': 30000,
+        }
+        std_deduction = std_deduction_by_status.get(user.filing_status.value, 15000)
+
         tax_info[year] = {
             "gross_income": gross_income,
             "taxable_income": taxable_income,
@@ -177,6 +256,13 @@ def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], 
             "realized_sell_count": rg_year['count'],
             "fed_ltcg_tax": round(fed_ltcg_tax, 2),
             "fed_ordinary_tax": round(max(0, fed_ordinary_tax - child_tax_credit), 2),
+            # ── New: bases + per-source breakdown for the UI ──
+            "fica_wage_base": round(fica_wage_base, 2),
+            "ordinary_taxable_for_fed": round(ordinary_taxable_for_fed, 2),
+            "state_taxable_income": round(state_taxable_income, 2),
+            "standard_deduction": std_deduction,
+            "child_tax_credit_applied": child_tax_credit,
+            "income_sources": income_sources,
         }
 
     # ARCH-4: Explicit cast for linter safety

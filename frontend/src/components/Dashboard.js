@@ -5,7 +5,8 @@ import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveCon
 import Card from './Card';
 import ShowMath from './ShowMath';
 import { useTheme } from '../context/ThemeContext';
-import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, Info, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { DollarSign, Briefcase, PieChart as PieChartIcon, ArrowDownCircle, Zap, TrendingDown, TrendingUp, Shield, BarChart2, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import InfoTip from './InfoTip';
 
 // Curated palette: Tailwind 500-level hues balanced for both light and dark modes.
 // Saturated enough to be distinct, but not the harsh "rainbow recharts defaults" look.
@@ -306,58 +307,148 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         });
     }
 
+    // Build the "Show math" breakdown for the Est. Annual Tax card. Visually splits
+    // into two sections so users can distinguish income (what's being taxed) from
+    // tax owed — the two were previously interleaved in a flat list, which made a
+    // $641 income line look like a $641 tax line at a glance.
     const taxBreakdownRows = (() => {
         if (!taxLiability || taxLiability.has_net_only_income) return [];
         const rows = [];
         const fmtMoney = (n) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
-        // Realized capital gains (Phase C) — show contributions before tax breakdown
-        const stG = taxLiability.realized_st_gains || 0;
-        const ltG = taxLiability.realized_lt_gains || 0;
-        const sellCount = taxLiability.realized_sell_count || 0;
-        if (sellCount > 0 && (stG !== 0 || ltG !== 0)) {
-            if (stG !== 0) {
+        const sources = taxLiability.income_sources || [];
+        const wageBase = taxLiability.fica_wage_base || 0;
+        const ordTaxable = taxLiability.ordinary_taxable_for_fed || 0;
+        const stateTaxable = taxLiability.state_taxable_income || 0;
+        const stdDed = taxLiability.standard_deduction || 0;
+        const retDed = 0; // not currently surfaced via taxLiability; ShowMath retains parity
+        const netPrimary = taxLiability.net_primary_deposits || 0;
+
+        // ── Section 1: Income subject to tax ──
+        if (sources.length > 0 || netPrimary > 0) {
+            rows.push({ section: true, label: 'Income subject to tax' });
+            sources.forEach(src => {
+                const ficaTag = src.fica === 'exempt' ? ' · FICA exempt'
+                              : src.fica === 'mixed'  ? ' · mixed FICA'
+                              : '';
                 rows.push({
-                    label: 'ST capital gains (taxed as ordinary income)',
-                    value: fmtMoney(stG),
+                    label: `${src.label}${ficaTag}`,
+                    value: `+${fmtMoney(src.amount)}`,
+                    indent: true,
+                });
+            });
+            if (netPrimary > 0) {
+                rows.push({
+                    label: 'Net paycheck deposits (already taxed)',
+                    value: fmtMoney(netPrimary),
+                    indent: true,
+                    muted: true,
+                    note: 'Not included — employer already withheld',
+                });
+            }
+            if (stdDed > 0) {
+                rows.push({
+                    label: 'Standard deduction',
+                    value: `-${fmtMoney(stdDed)}`,
+                    indent: true,
+                });
+            }
+            rows.push({
+                divider: true,
+                label: 'Federal ordinary taxable',
+                value: fmtMoney(ordTaxable),
+                indent: true,
+            });
+            if (stateTaxable !== ordTaxable) {
+                rows.push({
+                    label: 'State taxable income',
+                    value: fmtMoney(stateTaxable),
                     indent: true,
                     muted: true,
                 });
             }
-            if (ltG !== 0) {
+            if (wageBase > 0) {
                 rows.push({
-                    label: 'LT capital gains (preferential rates)',
-                    value: fmtMoney(ltG),
+                    label: 'FICA wage base',
+                    value: fmtMoney(wageBase),
                     indent: true,
                     muted: true,
+                    note: 'Wages eligible for SS + Medicare (no deduction)',
                 });
             }
         }
 
-        if (taxLiability.federal) {
-            // Show LTCG breakdown when present
+        // ── Section 2: Estimated tax ──
+        rows.push({ section: true, label: 'Estimated tax' });
+
+        if (taxLiability.federal || ordTaxable === 0) {
             const ltcgTax = taxLiability.fed_ltcg_tax || 0;
             if (ltcgTax > 0) {
                 rows.push({
-                    label: 'Federal (ordinary income)',
+                    label: 'Federal — ordinary income',
                     value: fmtMoney(taxLiability.fed_ordinary_tax || 0),
                     indent: true,
+                    note: ordTaxable === 0 ? 'Below standard deduction' : `On ${fmtMoney(ordTaxable)}`,
                 });
                 rows.push({
-                    label: 'Federal (long-term cap gains)',
+                    label: 'Federal — long-term cap gains',
                     value: fmtMoney(ltcgTax),
                     indent: true,
+                    note: 'Stacked on top of ordinary at 0/15/20%',
                 });
             } else {
-                rows.push({ label: 'Federal', value: fmtMoney(taxLiability.federal), indent: true });
+                rows.push({
+                    label: 'Federal income tax',
+                    value: fmtMoney(taxLiability.federal || 0),
+                    indent: true,
+                    note: ordTaxable === 0 && stdDed > 0
+                        ? `$0 — income below standard deduction (${fmtMoney(stdDed)})`
+                        : `On ${fmtMoney(ordTaxable)}`,
+                });
             }
         }
-        if (taxLiability.state) rows.push({ label: 'State', value: fmtMoney(taxLiability.state), indent: true });
-        if (taxLiability.fica) rows.push({ label: 'FICA (SS + Medicare)', value: fmtMoney(taxLiability.fica), indent: true });
-        if (taxLiability.withheld) rows.push({ label: 'Already withheld', value: `-${fmtMoney(taxLiability.withheld)}`, indent: true, muted: true });
-        rows.push({ divider: true, label: 'Total liability', value: fmtMoney(taxLiability.total || 0) });
+        rows.push({
+            label: 'State income tax',
+            value: fmtMoney(taxLiability.state || 0),
+            indent: true,
+            note: stateTaxable > 0 ? `On ${fmtMoney(stateTaxable)}` : null,
+        });
+        rows.push({
+            label: 'FICA (SS + Medicare)',
+            value: fmtMoney(taxLiability.fica || 0),
+            indent: true,
+            note: wageBase > 0
+                ? `7.65% × ${fmtMoney(wageBase)} wages`
+                : 'No W-2 wages detected',
+        });
+        if (taxLiability.withheld) {
+            rows.push({
+                label: 'Already withheld YTD',
+                value: `-${fmtMoney(taxLiability.withheld)}`,
+                indent: true,
+                muted: true,
+            });
+        }
+        rows.push({
+            divider: true,
+            label: 'Total liability',
+            value: fmtMoney(taxLiability.total || 0),
+        });
+
+        // Suppress unused-var lint
+        void retDed;
         return rows;
     })();
+
+    // Show a net-paystub upsell banner whenever the user has Plaid-detected NET
+    // deposits but no withholding data — encouraging them to upload one paystub PDF
+    // so we can extrapolate gross + taxes for the full year. Independent of the
+    // existing `has_net_only_income` warning, which only fires when there's no
+    // gross income at all.
+    const showNetPaystubUpsell = (
+        (taxLiability?.net_primary_deposits || 0) > 0 &&
+        (taxLiability?.withheld || 0) === 0
+    );
 
     const isDebtDemoMode = isGuest || (allDebts.length === 0 && !hasCompletedOnboarding);
 
@@ -376,7 +467,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         <p className="text-2xl font-bold">${(netWorth || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                             Assets - Debts
-                            <Info size={11} className="text-gray-400 cursor-help" title="Sum of all asset market values minus all outstanding debt balances." />
+                            <InfoTip size={11} text="Sum of all asset market values minus all outstanding debt balances." />
                         </p>
                         {portfolioHistory.length >= 3 && (() => {
                             const first = portfolioHistory[0].value;
@@ -442,7 +533,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         <p className="text-2xl font-bold text-blue-600">${(assetValue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                             All linked &amp; manual assets
-                            <Info size={11} className="text-gray-400 cursor-help" title="Includes cash, checking, savings, investment holdings, real estate, and any manually entered assets." />
+                            <InfoTip size={11} text="Includes cash, checking, savings, investment holdings, real estate, and any manually entered assets." />
                         </p>
                         {assetClassRows.length > 0 && (
                             <ShowMath
@@ -466,7 +557,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         )}
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                             All linked &amp; manual debts
-                            <Info size={11} className="text-gray-400 cursor-help" title="Includes mortgages, car loans, credit cards, margin balances, and any manually entered debts." />
+                            <InfoTip size={11} text="Includes mortgages, car loans, credit cards, margin balances, and any manually entered debts." />
                         </p>
                         {debtBreakdownRows.length > 0 && (
                             <ShowMath
@@ -498,13 +589,22 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 <p className="text-xs text-gray-500 mt-1">Informative only</p>
                             </>
                         )}
+                        {showNetPaystubUpsell && (
+                            <div className="mt-3 flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 leading-snug">
+                                <span className="mt-[1px] shrink-0">💡</span>
+                                <span>
+                                    You have <strong>${(taxLiability.net_primary_deposits || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong> of net paycheck deposits this year — already taxed by your employer.
+                                    Upload one paystub PDF in the Tax tab to capture gross + withholdings, and we&apos;ll project the full year accurately.
+                                </span>
+                            </div>
+                        )}
                         {taxBreakdownRows.length > 0 && (
                             <ShowMath
                                 rows={taxBreakdownRows}
                                 formula={
                                     (taxLiability.fed_ltcg_tax || 0) > 0
-                                        ? "Federal ordinary brackets + LTCG (0/15/20%) + State + FICA. ST gains added to ordinary income; LT gains stacked on top at preferential rates."
-                                        : "Federal (progressive brackets) + State (50-state engine) + FICA (7.65%). Capital gains will appear here once realized."
+                                        ? "Federal ordinary brackets + LTCG (0/15/20%) + State + FICA (7.65% × wage base). ST gains added to ordinary income; LT gains stacked on top at preferential rates."
+                                        : "Federal (progressive brackets, on income above standard deduction) + State (50-state engine) + FICA (7.65% × W-2 wage base only). Scholarships, fellowships, and 1099 income skip FICA."
                                 }
                             />
                         )}
@@ -553,7 +653,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                         <div className="flex justify-between pt-1 border-t border-gray-100">
                                             <span className="flex items-center">
                                                 Savings Rate
-                                                <Info size={12} className="ml-1 text-gray-400 cursor-help" title="Formula: (Income - Valid Spending) / Income. Excludes transfers, debt principal, and 'Ignore' transactions." />
+                                                <InfoTip size={12} className="ml-1" text="Formula: (Income - Valid Spending) / Income. Excludes transfers, debt principal, and 'Ignore' transactions." />
                                             </span>
                                             <span className={`font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-500'}`}>{savingsRate.toFixed(1)}%</span>
                                         </div>
@@ -797,7 +897,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 )}
                                 <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                                     {returnLabel}
-                                    <Info size={11} className="text-gray-500 cursor-help" title={returnTooltip} />
+                                    <InfoTip size={11} className="text-gray-500" text={returnTooltip} />
                                 </p>
                                 {periodMissing && (
                                     <button
@@ -847,7 +947,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 {rgPos ? '+' : '-'}{fmt(Math.abs(rgTotal))}
                                                 <span className="text-xs font-normal text-gray-500 ml-1.5 inline-flex items-center gap-1">
                                                     realized ({PERIOD_LABELS[prPeriod]})
-                                                    <Info size={10} className="text-gray-500 cursor-help" title={rgTooltip} />
+                                                    <InfoTip size={10} className="text-gray-500" text={rgTooltip} />
                                                 </span>
                                             </p>
                                             {(rgPeriod.st !== 0 || rgPeriod.lt !== 0) && (
@@ -893,7 +993,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                         <div className="mt-4 pt-3 border-t border-white/10">
                                             <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-1 flex items-center gap-1">
                                                 Total Profit (All-Time)
-                                                <Info size={10} className="text-gray-500 cursor-help" title={totalTooltip} />
+                                                <InfoTip size={10} className="text-gray-500" text={totalTooltip} />
                                             </p>
                                             <p className={`text-xl font-bold ${tpPos ? 'text-green-500' : 'text-red-500'}`}>
                                                 {tpPos ? '+' : '-'}{fmt(Math.abs(totalProfit))}

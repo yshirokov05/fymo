@@ -334,71 +334,97 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                     interest_rate = float(purchase_apr.get('annual_percentage_rate', 0)) / 100.0
                     interest_rate = min(interest_rate, 1.0)  # Cap at 100% APR — Plaid occasionally returns outlier values
                 
-                # Naming cleanup: avoid 'Ultimate Rewards' as the primary display name
-                display_name = acc['name']
-                official_name = acc.get('official_name') or acc['name']
+                # ── Card naming ────────────────────────────────────────────
+                # Two distinct fields:
+                #   official_name → EXACTLY what Plaid returned (untouched).
+                #                   We preserve trademarks, "Ultimate Rewards®",
+                #                   etc. because the AI card-summary endpoint
+                #                   needs the raw product line to recognize the
+                #                   card. Stripping that text was making cards
+                #                   unidentifiable downstream.
+                #   name          → short human label for the table header
+                #                   (e.g. "Chase Sapphire Preferred", "Capital
+                #                   One Quicksilver"). Built from the most
+                #                   informative source we can find.
+                raw_name = (acc.get('name') or '').strip()
+                raw_official = (acc.get('official_name') or '').strip()
+                # CRITICAL: store the official_name UNMODIFIED for downstream
+                # consumers (AI summary, dedupe). Display name is a separate
+                # derivation below.
+                official_name = raw_official or raw_name
                 mask = acc.get('mask')
-                
-                def clean_debt_name(s, m):
-                    if not s: return ""
-                    
-                    # Strip specific generic or noise phrases
-                    noise = ['ultimate rewards', 'ultimate', 'rewards', 'points', 'cash back', 'preferred member', 'signature', 'visa', 'mastercard', 'amex']
-                    for kw in noise:
-                        s = re.sub(rf'\b{kw}\b', '', s, flags=re.IGNORECASE)
-                    
-                    # Strip common registered/trademark symbols
-                    s = s.replace('®', '').replace('™', '').strip()
 
-                    # Strip mask if present
-                    if m:
-                        s = s.replace(f"-{m}", "").replace(f" {m}", "").replace(m, "")
-                    
-                    # Clean up double spaces or trailing dashes
-                    s = re.sub(r'\s+', ' ', s).strip(' -')
-                    return s.upper()
+                # Product-line keywords we recognize as "real" card identifiers
+                # (worth surfacing in the display name).
+                product_keywords = [
+                    'sapphire', 'reserve', 'preferred', 'freedom', 'ink',
+                    'gold', 'platinum', 'green', 'business',
+                    'active cash', 'autograph', 'reflect', 'bilt', 'quicksilver',
+                    'savor', 'venture', 'spark', 'aspire', 'altitude',
+                    'unlimited', 'flex', 'cash+',
+                ]
+                # Network/noise terms we DO want to strip from the display name
+                # (but keep in official_name).
+                network_noise = ['visa', 'mastercard', 'amex', 'american express',
+                                 'discover', 'signature', 'world elite', 'world']
 
+                def _strip_for_display(s):
+                    if not s:
+                        return ''
+                    s = s.replace('®', '').replace('™', '').replace('©', '')
+                    if mask:
+                        s = s.replace(f"-{mask}", '').replace(f" {mask}", '').replace(mask, '')
+                    for kw in network_noise:
+                        s = re.sub(rf'\b{re.escape(kw)}\b', '', s, flags=re.IGNORECASE)
+                    return re.sub(r'\s+', ' ', s).strip(' -·')
 
-                c_display = clean_debt_name(display_name, mask)
-                c_official = clean_debt_name(official_name, mask)
-                
-                # Check for specific product identifiers in any field
-                product_keywords = ['sapphire', 'reserve', 'preferred', 'gold', 'platinum', 'business', 'ink', 'freedom', 'active cash']
-                
-                # If official name has the brand/product but display doesn't, use official
-                found_product = next((kw for kw in product_keywords if kw in official_name.lower()), None)
-                if found_product and found_product not in c_display.lower():
-                    display_name = c_official
+                clean_official = _strip_for_display(raw_official)
+                clean_name = _strip_for_display(raw_name)
+
+                # Pick whichever clean string contains a real product keyword.
+                def _has_product(s):
+                    if not s:
+                        return False
+                    sl = s.lower()
+                    return any(kw in sl for kw in product_keywords)
+
+                if _has_product(clean_official):
+                    display_name = clean_official
+                elif _has_product(clean_name):
+                    display_name = clean_name
                 else:
-                    display_name = c_display
+                    # Neither carries a recognized product — fall back to whichever
+                    # is more specific. Prefer official over the generic "Credit Card".
+                    candidate = clean_official or clean_name or 'Credit Card'
+                    generic = {'credit card', 'card', 'rewards card', 'visa card', 'mastercard card', ''}
+                    if candidate.lower() in generic:
+                        # Prefix with the institution to at least disambiguate which bank
+                        inst = (institution_name or '').replace(' Bank', '').replace(' Financial', '').strip()
+                        if not inst:
+                            inst_lower = raw_official.lower()
+                            if 'chase' in inst_lower: inst = 'Chase'
+                            elif 'amex' in inst_lower or 'american express' in inst_lower: inst = 'Amex'
+                            elif 'capital one' in inst_lower: inst = 'Capital One'
+                            elif 'citi' in inst_lower: inst = 'Citi'
+                            elif 'discover' in inst_lower: inst = 'Discover'
+                            elif 'wells' in inst_lower: inst = 'Wells Fargo'
+                        display_name = f"{inst} {candidate}".strip() if inst else candidate
+                    else:
+                        display_name = candidate
 
-                # 3. IF THE NAME IS STILL GENERIC (e.g. "CREDIT CARD"), prefix with institution
-                if display_name.lower() in ['credit card', 'card', 'visa', 'mastercard']:
-                    # Prefer the institution_name passed in from the PlaidItem record
-                    if institution_name:
-                        prefix = institution_name.replace(' Bank', '').replace(' Financial', '').strip()
-                        display_name = f"{prefix} {display_name}"
-                    elif 'chase' in official_name.lower():
-                        display_name = f"Chase {display_name}"
-                    elif 'vanguard' in official_name.lower():
-                        display_name = f"Vanguard {display_name}"
-                    elif 'amex' in official_name.lower() or 'american express' in official_name.lower():
-                        display_name = f"Amex {display_name}"
-                
-                # Special Case: user's specific examples
-                for product in ['Sapphire', 'Reserve', 'Preferred']:
-                    if product.lower() in official_name.lower() and product.lower() not in display_name.lower():
-                        display_name = f"{display_name} {product}".replace("  ", " ").strip()
-
+                # Title-case the display name for readability (Plaid often returns ALL CAPS)
+                # unless the string already has mixed case (preserving things like "Cash+").
+                if display_name and display_name.upper() == display_name:
+                    display_name = display_name.title()
 
                 new_debts.append(Debt(
                     name=display_name,
-                    initial_amount=balance, 
+                    initial_amount=balance,
                     amount_paid=0.0,
                     monthly_payment=acc['balances'].get('minimum_payment', 0) or 0,
                     interest_rate=interest_rate,
                     plaid_account_id=acc['account_id'],
-                    institution_name=display_name,
+                    institution_name=institution_name or display_name,
                     official_name=official_name,
                     debt_type=DebtType.REVOLVING
                 ))
@@ -652,6 +678,16 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                 is_payroll_name = any(kw in name_lower for kw in payroll_kws)
                 is_payroll_cat = 'payroll' in cat_lower or any('payroll' in c for c in cat_lower)
                 if is_payroll_name or is_payroll_cat:
+                    # Best-effort: identify deposits that look like scholarship / fellowship /
+                    # stipend / 1099 disbursements so they are flagged FICA-exempt. These are
+                    # subject to federal+state income tax but NOT to Social Security / Medicare
+                    # (7.65%). User can toggle this per-paystub in the Income tab.
+                    non_fica_kws = [
+                        'scholarship', 'fellowship', 'stipend',
+                        'direct pay',   # university disbursements often labelled this way
+                        'disbursement', 'grant', 'tuition refund',
+                    ]
+                    looks_non_fica = any(kw in name_lower for kw in non_fica_kws)
                     new_paystubs.append(Paystub(
                         id=f"paystub_{t['transaction_id']}",
                         user_id=user_id,
@@ -665,6 +701,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
                         tax_withheld=0.0,
                         employer=t_name if t_name else "Auto-detected Payroll",
                         is_net_primary=True,
+                        subject_to_fica=not looks_non_fica,
                     ))
             
             # Auto-detect Investment Income (Dividends / Capital Gains)

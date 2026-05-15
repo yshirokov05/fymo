@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { TrendingDown, AlertTriangle, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { TrendingDown, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import InfoTip from './InfoTip';
 
 /**
  * TaxLossHarvest
@@ -80,7 +81,7 @@ const TaxLossHarvest = ({ harvest }) => {
                         <div>
                             <div className="text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-slate-500 mb-1 flex items-center gap-1">
                                 Short-term losses
-                                <Info size={10} className="text-gray-400 cursor-help" title="Held under 1 year. Offsets ordinary income up to $3,000/year — the most tax-efficient kind." />
+                                <InfoTip size={10} text="Held under 1 year. Offsets ordinary income up to $3,000/year — the most tax-efficient kind." />
                             </div>
                             <div className="text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">
                                 {fmtMoney(total_potential_loss_st)}
@@ -89,7 +90,7 @@ const TaxLossHarvest = ({ harvest }) => {
                         <div>
                             <div className="text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-slate-500 mb-1 flex items-center gap-1">
                                 Long-term losses
-                                <Info size={10} className="text-gray-400 cursor-help" title="Held 1+ years. Offsets long-term capital gains first, then ordinary income up to $3,000/year." />
+                                <InfoTip size={10} text="Held 1+ years. Offsets long-term capital gains first, then ordinary income up to $3,000/year." />
                             </div>
                             <div className="text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">
                                 {fmtMoney(total_potential_loss_lt)}

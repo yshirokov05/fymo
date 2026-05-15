@@ -11,7 +11,7 @@ Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask b
 - **Firebase project:** `personal-finance-app-18cbc`
 - **Current version:** v1.7.0 (Production)
 - **Current phase:** Market Launch & User Engagement
-- **Codebase size:** 43 frontend JS files (~10,900 LOC) · 13 backend Python files (~5,400 LOC) · ~16,300 LOC total
+- **Codebase size:** 51 frontend JS files (~13,100 LOC) · 20 backend Python files (~7,900 LOC) · ~21,000 LOC total
 - **Changelog:** see `CHANGELOG.md` at repo root for release notes.
 
 ## Feature Inventory
@@ -36,6 +36,14 @@ Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask b
 | Terms of Service | ✅ Live | `/terms` route; linked in sidebar footer |
 | Stripe billing | ✅ Live | $9.99/mo Premium; `is_subscribed` field in Firestore |
 | Whitelist access | ✅ Live | `is_authorized` via `whitelist` collection; frontend: `isPremium = is_subscribed \|\| is_authorized` |
+| Health Score (0-100) | ✅ Live | 4 components × 25 pts: savings rate, emergency fund, debt/assets, diversification. Daily snapshots in `health_score_snapshots` subcollection. Savings rate uses trailing-3-month complete months. |
+| Subscriptions tracker | ✅ Live | Auto-detected recurring charges + manual entries; ignore-list + manual-list stored in user doc. |
+| Tax Loss Harvesting | ✅ Live | Identifies positions with unrealized losses; surfaces harvest candidates above a $ threshold. |
+| Two-Factor Auth (TOTP) | ✅ Live | Optional 2FA via authenticator app; secret stored encrypted; settings UI in `TwoFactorSettings.js`. |
+| Portfolio Calendar | ✅ Live | Calendar view of earnings/dividends/ex-div dates for held positions. |
+| Investments Summary | ✅ Live | Roll-up of holdings, performance, and allocation; lives on Investments tab. |
+| Morning Brief Email/Push | ✅ Live | Scheduled delivery of the AI Morning Brief (`brief_delivery_service.py`); user-controlled cadence in `MorningBriefSettings.js`. |
+| Milestone Celebrations | ✅ Live | Detects newly-crossed net-worth milestones (e.g. $10k, $100k) and surfaces a celebratory modal. |
 
 ## Key Files
 
@@ -53,6 +61,12 @@ Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask b
 | `backend/diagnostics_service.py` | Secret sanitization diagnostics endpoint. Used by `/api/admin/diagnostics`. |
 | `backend/price_service.py` | Yahoo Finance price fetching with 2s localized timeouts. |
 | `backend/auth.py` | `@token_required` decorator — decodes Firebase JWT. |
+| `backend/health_score_service.py` | Financial Health Score 0-100. Trailing-3-mo savings rate + emergency fund + debt ratio + diversification. Writes daily snapshot. |
+| `backend/subscription_service.py` | Recurring-charge detection from transactions; merges manual entries with auto-detected. |
+| `backend/tax_loss_service.py` | Scans positions for unrealized losses; flags harvest candidates. |
+| `backend/two_factor_service.py` | TOTP enroll/verify; secret encrypted at rest. |
+| `backend/calendar_service.py` | Portfolio earnings/dividend calendar via yfinance. |
+| `backend/brief_delivery_service.py` | Scheduled email/push delivery of the AI Morning Brief. |
 | `frontend/src/index.css` | CSS variables (--primary-blue, --card-shadow, etc.). Use these, not ad-hoc Tailwind. |
 | `frontend/src/components/Dashboard.js` | Financial health cards (YTD, cash flow, emergency fund, portfolio return). Accepts `investmentHistory` prop. |
 | `frontend/src/components/AssetTable.js` | Investment holdings table with inline cost-basis editing. Accepts `onUpdateCostBasis` callback. |
@@ -62,6 +76,14 @@ Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask b
 | `frontend/src/components/PrivacyPolicy.js` | Full privacy policy page. Route: `activeView === 'privacy'`. |
 | `frontend/src/components/TermsOfService.js` | Full TOS page. Route: `activeView === 'terms'`. |
 | `frontend/src/components/Layout.js` | Sidebar nav + footer links (Privacy Policy · Terms of Service). |
+| `frontend/src/components/HealthScoreCard.js` | Renders the 0-100 health score + 4-component breakdown + 90-day trend sparkline. |
+| `frontend/src/components/Subscriptions.js` | Recurring-charge management UI; ignore/restore + manual add. |
+| `frontend/src/components/TaxLossHarvest.js` | Harvest-candidate list with realized-loss preview. |
+| `frontend/src/components/TwoFactorSettings.js` | 2FA enroll flow (QR + verify) and disable. |
+| `frontend/src/components/PortfolioCalendar.js` | Calendar of earnings/dividends for held positions. |
+| `frontend/src/components/InvestmentsSummary.js` | Holdings roll-up + allocation; embedded in Investments tab. |
+| `frontend/src/components/MorningBriefSettings.js` | User-controlled cadence + channel for the AI Morning Brief. |
+| `frontend/src/components/MilestoneCelebration.js` | Modal triggered when a new net-worth milestone is crossed. |
 
 ## Subcollections in Firestore
 
@@ -75,6 +97,7 @@ User data is split between the main `/users/{uid}` document and subcollections t
 | `outstanding_checks` | Written checks pending clearance |
 | `goals` | Financial goals (CRUD via `/api/goals/*`) |
 | `portfolio_snapshots` | Daily investment value snapshots for future MWR calculations (written on each Plaid sync) |
+| `health_score_snapshots` | Daily 0-100 health score + component breakdown (date-keyed). Powers the 90-day trend sparkline. |
 
 ## Critical Rules
 

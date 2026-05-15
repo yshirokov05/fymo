@@ -264,14 +264,14 @@ def get_user_data(user_id="default_user", fields=None):
     paystubs = []
     if not fields or 'paystubs' in fields:
         for p in data.get('paystubs', []):
-            paystubs.append(Paystub(id=p['id'], user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False)))
-        
+            paystubs.append(Paystub(id=p['id'], user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False), subject_to_fica=p.get('subject_to_fica', True)))
+
         sub_paystubs = user_ref.collection('paystubs').order_by('date', direction=firestore.Query.DESCENDING).get()
         existing_p_ids = {p.id for p in paystubs}
         for doc in sub_paystubs:
             if doc.id not in existing_p_ids:
                 p = doc.to_dict()
-                paystubs.append(Paystub(id=doc.id, user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False)))
+                paystubs.append(Paystub(id=doc.id, user_id=user_id, date=p['date'], gross_amount=p['gross_amount'], net_amount=p.get('net_amount'), tax_withheld=p.get('tax_withheld'), employer=p.get('employer'), is_net_primary=p.get('is_net_primary', False), subject_to_fica=p.get('subject_to_fica', True)))
         paystubs.sort(key=lambda p: p.date, reverse=True)
             
     custom_rules = []
@@ -368,7 +368,8 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
             'net_amount': p.net_amount,
             'tax_withheld': p.tax_withheld,
             'employer': p.employer,
-            'is_net_primary': p.is_net_primary
+            'is_net_primary': p.is_net_primary,
+            'subject_to_fica': getattr(p, 'subject_to_fica', True),
         })
         op_count += 1
         if op_count >= 450:
@@ -462,7 +463,7 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
         'plaid_items': [{'access_token': encrypt_token(pi.access_token), 'item_id': pi.item_id, 'institution_name': pi.institution_name, 'last_sync': pi.last_sync} for pi in (plaid_items or [])],
         'budgets': [{'id': b.id, 'category': b.category, 'limit_amount': b.limit_amount, 'period': b.period} for b in (budgets or [])],
         'transactions': [{'id': t.id, 'account_id': t.account_id, 'amount': t.amount, 'date': t.date, 'name': t.name, 'category': t.category, 'pending': t.pending, 'pending_transaction_id': getattr(t, 'pending_transaction_id', None)} for t in (transactions[:50] if transactions else [])],
-        'paystubs': [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer, 'is_net_primary': p.is_net_primary} for p in (paystubs[:10] if paystubs else [])],
+        'paystubs': [{'id': p.id, 'date': p.date, 'gross_amount': p.gross_amount, 'net_amount': p.net_amount, 'tax_withheld': p.tax_withheld, 'employer': p.employer, 'is_net_primary': p.is_net_primary, 'subject_to_fica': getattr(p, 'subject_to_fica', True)} for p in (paystubs[:10] if paystubs else [])],
         'custom_rules': [{'id': r.id, 'merchant_name': r.merchant_name, 'category': r.category} for r in (custom_rules or [])],
         'outstanding_checks': [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in (outstanding_checks[:20] if outstanding_checks else [])],
         'has_completed_onboarding': has_completed_onboarding if has_completed_onboarding is not None else user.has_completed_onboarding,

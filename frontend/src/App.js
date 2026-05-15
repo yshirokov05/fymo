@@ -114,6 +114,30 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     withheld: 0,
     has_net_only_income: false
   });
+
+  // Single source of truth for the taxLiability state shape — used by every
+  // setTaxLiability call site so adding a new field in the future only needs one edit.
+  // yearData is what comes back in response.data.tax_details[year].
+  const buildTaxLiability = (yearData = {}) => ({
+    total: yearData.total_tax || 0,
+    federal: yearData.federal_tax || 0,
+    state: yearData.state_tax || 0,
+    fica: yearData.fica_tax || 0,
+    withheld: yearData.total_withheld || 0,
+    has_net_only_income: yearData.has_net_only_income || false,
+    realized_st_gains: yearData.realized_st_gains || 0,
+    realized_lt_gains: yearData.realized_lt_gains || 0,
+    realized_sell_count: yearData.realized_sell_count || 0,
+    fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
+    fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
+    // Bases + per-source breakdown for the show-math panel
+    fica_wage_base: yearData.fica_wage_base || 0,
+    ordinary_taxable_for_fed: yearData.ordinary_taxable_for_fed || 0,
+    state_taxable_income: yearData.state_taxable_income || 0,
+    standard_deduction: yearData.standard_deduction || 0,
+    net_primary_deposits: yearData.net_primary_deposits || 0,
+    income_sources: yearData.income_sources || [],
+  });
   const [userTaxInfo, setUserTaxInfo] = useState({ filing_status: 'SINGLE', state: 'CA', employment_type: 'W2', business_deductions: 0, dependents: 0 });
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [goalsCount, setGoalsCount] = useState(0);
@@ -196,19 +220,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             total_tax: 0
         };
 
-        setTaxLiability({
-            total: yearData.total_tax,
-            federal: yearData.federal_tax,
-            state: yearData.state_tax,
-            fica: yearData.fica_tax,
-            withheld: yearData.total_withheld || 0,
-            has_net_only_income: yearData.has_net_only_income || false,
-            realized_st_gains: yearData.realized_st_gains || 0,
-            realized_lt_gains: yearData.realized_lt_gains || 0,
-            realized_sell_count: yearData.realized_sell_count || 0,
-            fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
-            fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
-        });
+        setTaxLiability(buildTaxLiability(yearData));
         setUserTaxInfo({
             filing_status: response.data.filing_status,
             state: response.data.state,
@@ -236,21 +248,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 
   useEffect(() => {
     if (taxDetails[selectedTaxYear]) {
-        const yearData = taxDetails[selectedTaxYear];
-        setTaxLiability({
-            total: yearData.total_tax,
-            federal: yearData.federal_tax,
-            state: yearData.state_tax,
-            fica: yearData.fica_tax,
-            withheld: yearData.total_withheld || 0,
-            has_net_only_income: yearData.has_net_only_income || false,
-            realized_st_gains: yearData.realized_st_gains || 0,
-            realized_lt_gains: yearData.realized_lt_gains || 0,
-            realized_sell_count: yearData.realized_sell_count || 0,
-            fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
-            fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
-        });
+        setTaxLiability(buildTaxLiability(taxDetails[selectedTaxYear]));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTaxYear, taxDetails]);
 
   useEffect(() => {
@@ -315,19 +315,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             total_tax: 0
         };
 
-        setTaxLiability({
-          total: yearData.total_tax,
-          federal: yearData.federal_tax,
-          state: yearData.state_tax,
-          fica: yearData.fica_tax,
-          withheld: yearData.total_withheld || 0,
-          has_net_only_income: yearData.has_net_only_income || false,
-          realized_st_gains: yearData.realized_st_gains || 0,
-          realized_lt_gains: yearData.realized_lt_gains || 0,
-          realized_sell_count: yearData.realized_sell_count || 0,
-          fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
-          fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
-        });
+        setTaxLiability(buildTaxLiability(yearData));
         setUserTaxInfo({
             filing_status: response.data.filing_status,
             state: response.data.state,
@@ -389,19 +377,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             total_tax: 0
         };
 
-        setTaxLiability({
-          total: yearData.total_tax,
-          federal: yearData.federal_tax,
-          state: yearData.state_tax,
-          fica: yearData.fica_tax,
-          withheld: yearData.total_withheld || 0,
-          has_net_only_income: yearData.has_net_only_income || false,
-          realized_st_gains: yearData.realized_st_gains || 0,
-          realized_lt_gains: yearData.realized_lt_gains || 0,
-          realized_sell_count: yearData.realized_sell_count || 0,
-          fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
-          fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
-        });
+        setTaxLiability(buildTaxLiability(yearData));
         setUserTaxInfo({
             filing_status: response.data.filing_status,
             state: response.data.state,
@@ -639,19 +615,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         // gross income, so federal/state/FICA need to recompute.
         if (response.data.tax_details) {
             const yearData = response.data.tax_details[selectedTaxYear] || {};
-            setTaxLiability({
-                total: yearData.total_tax || 0,
-                federal: yearData.federal_tax || 0,
-                state: yearData.state_tax || 0,
-                fica: yearData.fica_tax || 0,
-                withheld: yearData.total_withheld || 0,
-                has_net_only_income: yearData.has_net_only_income || false,
-                realized_st_gains: yearData.realized_st_gains || 0,
-                realized_lt_gains: yearData.realized_lt_gains || 0,
-                realized_sell_count: yearData.realized_sell_count || 0,
-                fed_ltcg_tax: yearData.fed_ltcg_tax || 0,
-                fed_ordinary_tax: yearData.fed_ordinary_tax || 0,
-            });
+            setTaxLiability(buildTaxLiability(yearData));
         }
     } catch (error) {
         setError("Failed to save paystubs: " + error.message);
