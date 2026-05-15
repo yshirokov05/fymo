@@ -556,12 +556,157 @@ def get_net_worth():
         # Return persisted investment_history from last Plaid sync
         if user.investment_history:
             net_worth_data['investment_history'] = user.investment_history
+
+        # Milestone check — if net worth has crossed a new threshold since the
+        # last recorded one, surface it so the frontend can fire confetti once.
+        # Skipped for guest sessions (no persistent state to mark against).
+        net_worth_data['newly_crossed_milestone'] = None
+        if request.uid != "guest":
+            try:
+                from firestore_db import check_and_mark_milestone
+                rt_nw = net_worth_data.get('real_time_net_worth') or net_worth_data.get('net_worth') or 0
+                crossed = check_and_mark_milestone(request.uid, rt_nw)
+                if crossed:
+                    net_worth_data['newly_crossed_milestone'] = crossed
+            except Exception as _me:
+                logging.warning(f"Milestone check failed for {request.uid}: {_me}")
+
         return jsonify(net_worth_data)
     except Exception as e:
         import traceback
         logging.error(f"DASHBOARD ERROR: {str(e)}")
         logging.error(traceback.format_exc())
         return jsonify({'error': 'Internal server error'}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Atomic mutation endpoints — preferred over full /api/save for narrow updates
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/asset/cost_basis', methods=['PATCH'])
+@token_required
+def update_asset_cost_basis():
+    """
+    Atomically update a single asset's cost-per-share. Uses a Firestore
+    transaction so a concurrent Plaid sync can't clobber the edit.
+    Body: { "plaid_account_id": "...", "cost_basis_per_share": 123.45 }
+    """
+    if request.uid == "guest":
+        return jsonify({'error': 'Please sign in to edit cost basis.'}), 401
+    if not check_rate_limit(request.uid, 'cost_basis_update', limit_per_hour=60):
+        return jsonify({'error': 'Too many cost basis edits. Try again shortly.'}), 429
+    data = request.get_json(silent=True) or {}
+    pa_id = data.get('plaid_account_id')
+    if not pa_id:
+        return jsonify({'error': 'plaid_account_id required'}), 400
+    try:
+        new_cb = float(data.get('cost_basis_per_share'))
+        if new_cb < 0:
+            raise ValueError("must be non-negative")
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid cost_basis_per_share'}), 400
+
+    from firestore_db import update_asset_cost_basis_atomic
+    success, old_v, new_v = update_asset_cost_basis_atomic(request.uid, pa_id, new_cb)
+    if not success:
+        return jsonify({'error': 'Asset not found'}), 404
+    return jsonify({'success': True, 'previous': old_v, 'current': new_v})
+
+
+@app.route('/api/audit_log', methods=['GET'])
+@token_required
+def get_user_audit_log():
+    """Return the most recent audit log entries for the authenticated user."""
+    if request.uid == "guest":
+        return jsonify({'entries': []})
+    try:
+        limit = min(int(request.args.get('limit', 100)), 500)
+    except (TypeError, ValueError):
+        limit = 100
+    from firestore_db import get_audit_log
+    return jsonify({'entries': get_audit_log(request.uid, limit=limit)})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Subscription detector
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/subscriptions', methods=['GET'])
+@token_required
+def get_subscriptions():
+    """
+    Return detected + manual subscriptions. Splits into active (charged in
+    last 45 days) and inactive (likely cancelled or forgotten).
+    """
+    uid = "demo_user" if request.uid == "guest" else request.uid
+    user, _, _, _, _, _, _, _, transactions, _, _, _, _, _, _ = get_user_data(
+        user_id=uid, fields=['transactions']
+    )
+    from subscription_service import detect_subscriptions
+    ignored = getattr(user, 'ignored_subscription_merchants', []) or []
+    manual = getattr(user, 'manual_subscription_merchants', []) or []
+    result = detect_subscriptions(transactions, ignored_merchants=ignored, manual_subscriptions=manual)
+    return jsonify(result)
+
+
+@app.route('/api/subscriptions/ignore', methods=['POST'])
+@token_required
+def ignore_subscription():
+    """Add a merchant (normalized name) to the user's ignored-subscription list."""
+    if request.uid == "guest":
+        return jsonify({'error': 'Sign in to manage subscriptions.'}), 401
+    data = request.get_json(silent=True) or {}
+    merchant = (data.get('merchant_normalized') or '').strip().lower()
+    if not merchant:
+        return jsonify({'error': 'merchant_normalized required'}), 400
+    db = get_db()
+    user_ref = db.collection('users').document(request.uid)
+
+    @firestore.transactional
+    def _txn(transaction):
+        snap = user_ref.get(transaction=transaction)
+        existing = (snap.to_dict() or {}).get('ignored_subscription_merchants', []) or []
+        if merchant in existing:
+            return existing
+        new_list = existing + [merchant]
+        transaction.update(user_ref, {'ignored_subscription_merchants': new_list})
+        return new_list
+
+    try:
+        ignored = _txn(db.transaction())
+        return jsonify({'ignored_subscription_merchants': ignored})
+    except Exception as e:
+        logging.error(f"ignore_subscription failed: {e}")
+        return jsonify({'error': 'Internal error'}), 500
+
+
+@app.route('/api/subscriptions/unignore', methods=['POST'])
+@token_required
+def unignore_subscription():
+    """Remove a merchant from the user's ignored list."""
+    if request.uid == "guest":
+        return jsonify({'error': 'Sign in to manage subscriptions.'}), 401
+    data = request.get_json(silent=True) or {}
+    merchant = (data.get('merchant_normalized') or '').strip().lower()
+    if not merchant:
+        return jsonify({'error': 'merchant_normalized required'}), 400
+    db = get_db()
+    user_ref = db.collection('users').document(request.uid)
+
+    @firestore.transactional
+    def _txn(transaction):
+        snap = user_ref.get(transaction=transaction)
+        existing = (snap.to_dict() or {}).get('ignored_subscription_merchants', []) or []
+        new_list = [m for m in existing if m != merchant]
+        transaction.update(user_ref, {'ignored_subscription_merchants': new_list})
+        return new_list
+
+    try:
+        ignored = _txn(db.transaction())
+        return jsonify({'ignored_subscription_merchants': ignored})
+    except Exception as e:
+        logging.error(f"unignore_subscription failed: {e}")
+        return jsonify({'error': 'Internal error'}), 500
 
 @app.route('/api/initialize_sample_data', methods=['POST'])
 @token_required
@@ -2200,9 +2345,7 @@ def create_goal():
     target_date = data.get('target_date', '')
     notes = (data.get('notes') or '').strip()[:500]
 
-    import uuid
     from datetime import datetime as _dt
-    goal_id = str(uuid.uuid4())
     goal_doc = {
         'name': name,
         'type': goal_type,
@@ -2212,8 +2355,10 @@ def create_goal():
         'notes': notes,
         'created_at': _dt.utcnow().isoformat(),
     }
-    db = get_db()
-    db.collection('users').document(request.uid).collection('goals').document(goal_id).set(goal_doc)
+    from firestore_db import create_goal_atomic
+    goal_id = create_goal_atomic(request.uid, goal_doc)
+    if not goal_id:
+        return jsonify({'error': 'Failed to create goal'}), 500
     goal_doc['id'] = goal_id
     return jsonify({'goal': goal_doc}), 201
 
@@ -2243,9 +2388,10 @@ def update_goal(goal_id):
         update['notes'] = str(data['notes']).strip()[:500]
     if not update:
         return jsonify({'error': 'Nothing to update'}), 400
-    db = get_db()
-    ref = db.collection('users').document(request.uid).collection('goals').document(goal_id)
-    ref.update(update)
+    from firestore_db import update_goal_atomic
+    success, _, _ = update_goal_atomic(request.uid, goal_id, update)
+    if not success:
+        return jsonify({'error': 'Goal not found or update failed'}), 404
     return jsonify({'success': True})
 
 
@@ -2254,9 +2400,11 @@ def update_goal(goal_id):
 def delete_goal(goal_id):
     if request.uid == "guest":
         return jsonify({'error': 'Please sign in or create an account to delete goals.'}), 401
-        
-    db = get_db()
-    db.collection('users').document(request.uid).collection('goals').document(goal_id).delete()
+
+    from firestore_db import delete_goal_atomic
+    success = delete_goal_atomic(request.uid, goal_id)
+    if not success:
+        return jsonify({'error': 'Goal not found'}), 404
     return jsonify({'success': True})
 
 

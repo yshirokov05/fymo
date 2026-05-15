@@ -6,12 +6,14 @@ import './App.css';
 import Dashboard from './components/Dashboard';
 import InvestmentsSummary from './components/InvestmentsSummary';
 import RealizedGainsTable from './components/RealizedGainsTable';
+import TaxLossHarvest from './components/TaxLossHarvest';
 import Layout from './components/Layout';
 import Modal from './components/Modal';
 import Login from './components/Login';
 import LandingPage from './components/LandingPage';
 import Onboarding from './components/Onboarding';
 import FirstRunChecklist from './components/FirstRunChecklist';
+import MilestoneCelebration from './components/MilestoneCelebration';
 import axios from 'axios';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -32,6 +34,7 @@ const CheckTracker  = lazy(() => import('./components/CheckTracker'));
 const EditPortfolio = lazy(() => import('./components/EditPortfolio'));
 const TaxCalculator = lazy(() => import('./components/TaxCalculator'));
 const Visualizations = lazy(() => import('./components/Visualizations'));
+const Subscriptions = lazy(() => import('./components/Subscriptions'));
 const DataPrivacyFAQ = lazy(() => import('./components/DataPrivacyFAQ'));
 const Goals         = lazy(() => import('./components/Goals'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
@@ -124,6 +127,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [newlyCrossedMilestone, setNewlyCrossedMilestone] = useState(null);
 
   const fetchData = async () => {
     // Guard: Don't fetch until auth is resolved
@@ -160,6 +164,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         
         setIsPremium(response.data.is_subscribed || response.data.is_authorized || false);
         if (response.data.investment_history) setInvestmentHistory(response.data.investment_history);
+        if (response.data.newly_crossed_milestone) {
+            setNewlyCrossedMilestone(response.data.newly_crossed_milestone);
+        }
 
         setHasCompletedOnboarding(response.data.has_completed_onboarding || false);
         setCustomCategories(response.data.custom_categories || []);
@@ -337,11 +344,26 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     }
   };
 
-  const handleUpdateCostBasis = (assetId, newCostBasisPerShare) => {
-    const updatedAssets = assets.map(a =>
+  const handleUpdateCostBasis = async (assetId, newCostBasisPerShare) => {
+    // Optimistic local update so the UI feels instant
+    const prevAssets = assets;
+    setAssets(prev => prev.map(a =>
         a.plaid_account_id === assetId ? { ...a, cost_basis: newCostBasisPerShare } : a
-    );
-    handleSave({ assets: updatedAssets });
+    ));
+    try {
+        const headers = isGuest || !currentUser
+            ? {}
+            : { headers: { Authorization: `Bearer ${await currentUser.getIdToken()}` } };
+        await axios.patch('/api/asset/cost_basis', {
+            plaid_account_id: assetId,
+            cost_basis_per_share: newCostBasisPerShare,
+        }, headers);
+    } catch (err) {
+        // Roll back on failure and surface the error
+        setAssets(prevAssets);
+        const msg = err.response?.data?.error || 'Failed to update cost basis';
+        showToast(msg, 'error');
+    }
   };
 
   const handleSaveTaxInfo = async (taxData) => {
@@ -778,6 +800,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 {investmentHistory?.realized_gains && (
                   <RealizedGainsTable realizedGains={investmentHistory.realized_gains} />
                 )}
+                {investmentHistory?.tax_loss_harvest && (
+                  <TaxLossHarvest harvest={investmentHistory.tax_loss_harvest} />
+                )}
               </>
             )}
           </div>
@@ -932,6 +957,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           return <TermsOfService />;
       case 'visualizations':
           return <Visualizations />;
+      case 'subscriptions':
+          return <Subscriptions />;
       default:
         return <div>Coming Soon...</div>;
     }
@@ -1001,6 +1028,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
           />
         </Suspense>
       )}
+      <MilestoneCelebration milestone={newlyCrossedMilestone} />
     </Layout>
   );
 }

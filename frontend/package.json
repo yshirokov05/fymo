@@ -12,6 +12,7 @@
     "@testing-library/user-event": "^13.5.0",
     "autoprefixer": "^10.4.24",
     "axios": "^1.13.5",
+    "canvas-confetti": "^1.9.3",
     "firebase": "^12.9.0",
     "lucide-react": "^0.574.0",
     "postcss": "^8.5.6",

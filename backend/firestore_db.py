@@ -727,3 +727,230 @@ def update_user_fields(user_id, fields_dict):
     except Exception as e:
         logging.error(f"Failed to update user fields for {user_id}: {e}")
         return False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Atomic mutations + audit log
+# ─────────────────────────────────────────────────────────────────────────────
+# Top-level arrays on the user document (assets, debts, incomes, etc.) are the
+# main concurrent-write footgun: two tabs open or a Plaid sync racing a manual
+# edit can clobber each other because save_user_data does a full read-modify-
+# write of the whole user doc. These helpers wrap targeted mutations in
+# Firestore transactions, which automatically retry on contention.
+
+def _write_audit_log(db, user_id, action, entity_type, entity_id=None, before=None, after=None, metadata=None):
+    """Append a single audit log entry. Best-effort — never throws."""
+    try:
+        log_ref = db.collection('users').document(user_id).collection('audit_log').document()
+        log_ref.set({
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'action': action,            # 'update' / 'create' / 'delete'
+            'entity_type': entity_type,  # 'asset' / 'goal' / 'budget' / etc.
+            'entity_id': entity_id,
+            'before': before,
+            'after': after,
+            'metadata': metadata or {},
+        })
+    except Exception as e:
+        logging.warning(f"[audit_log] failed to write entry for {user_id}: {e}")
+
+
+def get_audit_log(user_id, limit=100):
+    """Return the most recent audit log entries for a user."""
+    db = get_db()
+    if db is None:
+        return []
+    try:
+        snaps = db.collection('users').document(user_id) \
+            .collection('audit_log') \
+            .order_by('timestamp', direction=firestore.Query.DESCENDING) \
+            .limit(limit) \
+            .get()
+        out = []
+        for s in snaps:
+            d = s.to_dict() or {}
+            ts = d.get('timestamp')
+            # Firestore Timestamp → ISO string for JSON serialization
+            if ts is not None and hasattr(ts, 'isoformat'):
+                d['timestamp'] = ts.isoformat()
+            d['id'] = s.id
+            out.append(d)
+        return out
+    except Exception as e:
+        logging.error(f"[audit_log] failed to read for {user_id}: {e}")
+        return []
+
+
+def update_asset_cost_basis_atomic(user_id, plaid_account_id, new_cost_basis_per_share):
+    """
+    Atomically update a single asset's cost_basis field. Uses a Firestore
+    transaction so concurrent writes (manual edit + Plaid sync) don't clobber
+    each other. Writes an audit log entry on success.
+
+    Returns (success: bool, old_value: float|None, new_value: float|None).
+    """
+    db = get_db()
+    if db is None:
+        return False, None, None
+    user_ref = db.collection('users').document(user_id)
+
+    @firestore.transactional
+    def _txn(transaction):
+        snap = user_ref.get(transaction=transaction)
+        if not snap.exists:
+            return False, None, None
+        data = snap.to_dict() or {}
+        assets = data.get('assets', [])
+        old_value = None
+        modified = False
+        for a in assets:
+            if a.get('plaid_account_id') == plaid_account_id:
+                old_value = a.get('cost_basis')
+                a['cost_basis'] = new_cost_basis_per_share
+                modified = True
+                break
+        if not modified:
+            return False, None, None
+        transaction.update(user_ref, {'assets': assets})
+        return True, old_value, new_cost_basis_per_share
+
+    try:
+        success, old_v, new_v = _txn(db.transaction())
+        if success:
+            _write_audit_log(
+                db, user_id, 'update', 'asset',
+                entity_id=plaid_account_id,
+                before={'cost_basis': old_v},
+                after={'cost_basis': new_v},
+                metadata={'field': 'cost_basis'},
+            )
+        return success, old_v, new_v
+    except Exception as e:
+        logging.error(f"[atomic] update_asset_cost_basis_atomic failed for {user_id}: {e}")
+        return False, None, None
+
+
+def update_goal_atomic(user_id, goal_id, updates: dict):
+    """
+    Atomically merge updates into a goal subcollection document. Subcollection
+    docs are isolated so contention is rare, but transactions also write the
+    audit log atomically, which we want for any money-adjacent mutation.
+
+    `updates` is a partial dict — only the fields being changed.
+    Returns (success, before_dict, after_dict).
+    """
+    db = get_db()
+    if db is None:
+        return False, None, None
+    goal_ref = db.collection('users').document(user_id).collection('goals').document(goal_id)
+
+    @firestore.transactional
+    def _txn(transaction):
+        snap = goal_ref.get(transaction=transaction)
+        if not snap.exists:
+            return False, None, None
+        before = snap.to_dict() or {}
+        # Compute after-state for audit
+        after = {**before, **updates}
+        transaction.update(goal_ref, updates)
+        return True, before, after
+
+    try:
+        success, before, after = _txn(db.transaction())
+        if success:
+            _write_audit_log(
+                db, user_id, 'update', 'goal',
+                entity_id=goal_id,
+                before={k: before.get(k) for k in updates.keys()},
+                after={k: after.get(k) for k in updates.keys()},
+            )
+        return success, before, after
+    except Exception as e:
+        logging.error(f"[atomic] update_goal_atomic failed for {user_id}/{goal_id}: {e}")
+        return False, None, None
+
+
+def create_goal_atomic(user_id, goal_data: dict):
+    """Create a new goal in the subcollection + log it. Returns the new goal_id."""
+    db = get_db()
+    if db is None:
+        return None
+    try:
+        goals_col = db.collection('users').document(user_id).collection('goals')
+        new_ref = goals_col.document()
+        new_ref.set(goal_data)
+        _write_audit_log(
+            db, user_id, 'create', 'goal',
+            entity_id=new_ref.id,
+            after=goal_data,
+        )
+        return new_ref.id
+    except Exception as e:
+        logging.error(f"[atomic] create_goal_atomic failed for {user_id}: {e}")
+        return None
+
+
+def delete_goal_atomic(user_id, goal_id):
+    """Delete a goal + log it. Captures the deleted state in the audit entry."""
+    db = get_db()
+    if db is None:
+        return False
+    goal_ref = db.collection('users').document(user_id).collection('goals').document(goal_id)
+    try:
+        snap = goal_ref.get()
+        before = snap.to_dict() if snap.exists else None
+        goal_ref.delete()
+        _write_audit_log(
+            db, user_id, 'delete', 'goal',
+            entity_id=goal_id,
+            before=before,
+        )
+        return True
+    except Exception as e:
+        logging.error(f"[atomic] delete_goal_atomic failed for {user_id}/{goal_id}: {e}")
+        return False
+
+
+def check_and_mark_milestone(user_id, current_net_worth):
+    """
+    Atomically check if net worth has crossed a milestone since the last
+    recorded crossing, and update the last-crossed marker on the user doc.
+    Returns the newly-crossed milestone amount (int) or None.
+
+    Milestones: $10K, $25K, $50K, $100K, $250K, $500K, $1M, $2.5M, $5M, $10M.
+    Each fires at most once per user (tracked via highest_milestone_crossed).
+    """
+    MILESTONES = [10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000, 10_000_000]
+    db = get_db()
+    if db is None:
+        return None
+    user_ref = db.collection('users').document(user_id)
+
+    @firestore.transactional
+    def _txn(transaction):
+        snap = user_ref.get(transaction=transaction)
+        if not snap.exists:
+            return None
+        data = snap.to_dict() or {}
+        prior_high = data.get('highest_milestone_crossed', 0) or 0
+        # Find the highest milestone now crossed
+        new_high = prior_high
+        for m in MILESTONES:
+            if current_net_worth >= m and m > new_high:
+                new_high = m
+        if new_high <= prior_high:
+            return None
+        transaction.update(user_ref, {'highest_milestone_crossed': new_high})
+        return new_high
+
+    try:
+        new_milestone = _txn(db.transaction())
+        if new_milestone is not None:
+            _write_audit_log(
+                db, user_id, 'milestone', 'net_worth',
+                after={'amount': new_milestone, 'net_worth_at_cross': current_net_worth},
+            )
+        return new_milestone
+    except Exception as e:
+        logging.error(f"[milestone] failed for {user_id}: {e}")
+        return None

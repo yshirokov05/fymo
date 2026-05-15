@@ -937,6 +937,23 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             from realized_gains_service import empty_realized_gains
             realized_gains = empty_realized_gains()
 
+        # ── Tax-loss harvesting opportunities ────────────────────────────────
+        # Replay the same FIFO ledger to identify currently-open lots that are
+        # underwater vs today's market price. Persists per-lot so the user can
+        # see exactly which shares to consider selling.
+        try:
+            from tax_loss_service import find_harvest_opportunities
+            # Build {ticker → {current_price}} from new_assets we already priced
+            _price_map = {
+                (a.ticker or '').upper(): {'current_price': a.current_price or 0}
+                for a in new_assets if a.ticker and (a.current_price or 0) > 0
+            }
+            tax_loss_harvest = find_harvest_opportunities(inv_txns, inv_sec_map, _price_map)
+        except Exception as _tlh_e:
+            logging.warning(f"Tax-loss harvest computation failed for {user_id}: {_tlh_e}")
+            from tax_loss_service import empty_harvest_result
+            tax_loss_harvest = empty_harvest_result()
+
         investment_history = {
             'current_value': round(total_current_value, 2),
             'total_cost_basis': round(total_cost_basis_from_holdings, 2),
@@ -950,6 +967,7 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             'period_returns_coverage': period_returns_coverage,
             'basis_sanity_flag': basis_sanity_flag,
             'realized_gains': realized_gains,
+            'tax_loss_harvest': tax_loss_harvest,
         }
         logging.info(f"Investment history for {user_id}: txns={len(inv_txns)}, accounts={len(by_account)}, periods={list(periods.keys())}")
 
