@@ -631,6 +631,49 @@ def get_user_audit_log():
 # Subscription detector
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Financial Health Score
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/health_score', methods=['GET'])
+@token_required
+def get_health_score():
+    """Returns the current Financial Health Score + the 90-day history."""
+    uid = "demo_user" if request.uid == "guest" else request.uid
+    user, incomes, assets, debts, _, _, _, _, transactions, paystubs, _, _, _, _, _ = get_user_data(
+        user_id=uid, fields=['transactions', 'paystubs']
+    )
+    from health_score_service import compute_health_score, take_health_snapshot, get_health_history
+    snapshot = compute_health_score(user, incomes, assets, debts, transactions, paystubs)
+    db = get_db()
+    # Snapshot today's score to the per-user subcollection (idempotent — overwrites
+    # any earlier same-day snapshot, so multiple GETs in one day don't pollute)
+    if request.uid != "guest":
+        take_health_snapshot(db, request.uid, snapshot)
+    history = get_health_history(db, request.uid, limit=90) if request.uid != "guest" else []
+    return jsonify({'current': snapshot, 'history': history})
+
+
+@app.route('/api/portfolio/calendar', methods=['GET'])
+@token_required
+def get_portfolio_calendar():
+    """
+    Return upcoming dividend + earnings events for the user's current holdings.
+    Window defaults to 30 days. Heavily cached on the backend (12h per ticker)
+    since yfinance is rate-limit sensitive.
+    """
+    if not check_rate_limit(request.uid, 'portfolio_calendar', limit_per_hour=30):
+        return jsonify({'error': 'Rate limit reached. Please wait.'}), 429
+    uid = "demo_user" if request.uid == "guest" else request.uid
+    user, _, assets, _, _, _, _, _, _, _, _, _, _, _, _ = get_user_data(user_id=uid)
+    try:
+        days = min(int(request.args.get('days', 30)), 90)
+    except (TypeError, ValueError):
+        days = 30
+    from calendar_service import get_upcoming_events
+    return jsonify(get_upcoming_events(assets, days_ahead=days))
+
+
 @app.route('/api/subscriptions', methods=['GET'])
 @token_required
 def get_subscriptions():

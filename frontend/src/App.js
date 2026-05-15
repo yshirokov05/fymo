@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import InvestmentsSummary from './components/InvestmentsSummary';
 import RealizedGainsTable from './components/RealizedGainsTable';
 import TaxLossHarvest from './components/TaxLossHarvest';
+import PortfolioCalendar from './components/PortfolioCalendar';
 import Layout from './components/Layout';
 import Modal from './components/Modal';
 import Login from './components/Login';
@@ -14,6 +15,7 @@ import LandingPage from './components/LandingPage';
 import Onboarding from './components/Onboarding';
 import FirstRunChecklist from './components/FirstRunChecklist';
 import MilestoneCelebration from './components/MilestoneCelebration';
+import HealthScoreCard from './components/HealthScoreCard';
 import axios from 'axios';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -725,6 +727,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     onTrySample={handleInitializeSampleData}
                     hasGoals={goalsCount > 0}
                 />
+                {!isGuest && (capabilities.hasIncome || capabilities.hasInvestments) && (
+                    <HealthScoreCard />
+                )}
                 <Dashboard
                     netWorth={netWorth}
                     assets={assets}
@@ -789,6 +794,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                   investmentHistory={investmentHistory}
                   portfolioHistory={portfolioHistory}
                 />
+                <PortfolioCalendar />
                 <Dashboard
                   assets={assets}
                   debts={[]}
