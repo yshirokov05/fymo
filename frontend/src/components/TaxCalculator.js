@@ -44,6 +44,8 @@ const TaxCalculator = ({
     netPaystubWarning = false,
     selectedYear,
     incomes,
+    paystubs = [],
+    taxYearDetails = {},
     onUpdateHistoricalIncome
 }) => {
     const [filingStatus, setFilingStatus] = useState(initialFilingStatus);
@@ -81,12 +83,31 @@ const TaxCalculator = ({
     };
 
     const handleUploadSuccess = (data) => {
-        const totalDocumentTaxes = (data.federal_taxes_withheld || 0) + 
-                                   (data.state_taxes_withheld || 0) + 
-                                   (data.social_security_withheld || 0) + 
+        const totalDocumentTaxes = (data.federal_taxes_withheld || 0) +
+                                   (data.state_taxes_withheld || 0) +
+                                   (data.social_security_withheld || 0) +
                                    (data.medicare_withheld || 0);
         setTaxesWithheld(prev => prev + totalDocumentTaxes);
     };
+
+    // ── Taxable income sources breakdown ──────────────────────────────────
+    const fmt = (n) => '$' + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const yearStr = String(selectedYear);
+    const grossPaystubs = paystubs.filter(p => p.date && p.date.slice(0, 4) === yearStr && !p.is_net_primary);
+    const paystubsByEmployer = {};
+    grossPaystubs.forEach(p => {
+        const employer = p.employer_name || 'W-2 Wages';
+        paystubsByEmployer[employer] = (paystubsByEmployer[employer] || 0) + parseFloat(p.gross_amount || 0);
+    });
+    const yearManualIncomes = (incomes || []).filter(
+        inc => inc.year === selectedYear && !inc.is_net && inc.income_type !== 'FIXED_TOTAL'
+    );
+    const retirementDeductions = taxYearDetails.retirement_deductions || 0;
+    const insuranceDeductions = taxYearDetails.insurance_deductions || 0;
+    const netPrimaryDepositsAmt = taxYearDetails.net_primary_deposits || 0;
+    const taxableIncome = taxYearDetails.taxable_income || 0;
+    const incomeTypeLabel = { ANNUAL_SALARY: 'salary', MONTHLY_SALARY: 'salary', HOURLY: 'wages', DIVIDENDS: 'dividends', CAPITAL_GAINS: 'cap gains' };
+    const hasBreakdownData = Object.keys(paystubsByEmployer).length > 0 || yearManualIncomes.length > 0 || realizedStGains !== 0 || realizedLtGains !== 0 || netPrimaryDepositsAmt > 0 || taxableIncome > 0;
 
     return (
         <div className="space-y-6">
@@ -199,6 +220,93 @@ const TaxCalculator = ({
                     </div>
                 )}
             </div>
+
+            {hasBreakdownData && (
+                <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-slate-100 mb-1">Taxable Income Sources ({selectedYear})</h3>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mb-4">How your taxable income was calculated.</p>
+                    <div className="space-y-0">
+                        {Object.entries(paystubsByEmployer).map(([employer, total]) => (
+                            <div key={employer} className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-slate-700/50">
+                                <span className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>
+                                    <span>{employer}</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">W-2 wages</span>
+                                </span>
+                                <span className="font-semibold text-gray-800 dark:text-slate-200">+{fmt(total)}</span>
+                            </div>
+                        ))}
+                        {yearManualIncomes.map((inc, i) => (
+                            <div key={i} className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-slate-700/50">
+                                <span className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-purple-400 shrink-0"></span>
+                                    <span>{inc.name || 'Other Income'}</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">{incomeTypeLabel[inc.income_type] || 'income'}</span>
+                                </span>
+                                <span className="font-semibold text-gray-800 dark:text-slate-200">+{fmt(inc.amount)}</span>
+                            </div>
+                        ))}
+                        {realizedStGains !== 0 && (
+                            <div className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-slate-700/50">
+                                <span className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-orange-400 shrink-0"></span>
+                                    <span>Short-term capital gains</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">ordinary income</span>
+                                </span>
+                                <span className={`font-semibold ${realizedStGains >= 0 ? 'text-gray-800 dark:text-slate-200' : 'text-red-600 dark:text-red-400'}`}>
+                                    {realizedStGains >= 0 ? '+' : '-'}{fmt(realizedStGains)}
+                                </span>
+                            </div>
+                        )}
+                        {realizedLtGains !== 0 && (
+                            <div className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-slate-700/50">
+                                <span className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-green-400 shrink-0"></span>
+                                    <span>Long-term capital gains</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">pref. rates</span>
+                                </span>
+                                <span className={`font-semibold ${realizedLtGains >= 0 ? 'text-gray-800 dark:text-slate-200' : 'text-red-600 dark:text-red-400'}`}>
+                                    {realizedLtGains >= 0 ? '+' : '-'}{fmt(realizedLtGains)}
+                                </span>
+                            </div>
+                        )}
+                        {netPrimaryDepositsAmt > 0 && (
+                            <div className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-slate-700/50">
+                                <span className="text-gray-500 dark:text-slate-500 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-gray-300 dark:bg-slate-600 shrink-0"></span>
+                                    <span>Net paycheck deposits</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-600 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">already post-tax, not included</span>
+                                </span>
+                                <span className="font-semibold text-gray-400 dark:text-slate-500 line-through">{fmt(netPrimaryDepositsAmt)}</span>
+                            </div>
+                        )}
+                        {retirementDeductions > 0 && (
+                            <div className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-slate-700/50">
+                                <span className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-teal-400 shrink-0"></span>
+                                    <span>Retirement contributions (401k/IRA)</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">pre-tax deduction</span>
+                                </span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">-{fmt(retirementDeductions)}</span>
+                            </div>
+                        )}
+                        {insuranceDeductions > 0 && (
+                            <div className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-slate-700/50">
+                                <span className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-teal-400 shrink-0"></span>
+                                    <span>Insurance premiums</span>
+                                    <span className="text-[10px] text-gray-400 dark:text-slate-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">pre-tax deduction</span>
+                                </span>
+                                <span className="font-semibold text-green-600 dark:text-green-400">-{fmt(insuranceDeductions)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center pt-3 mt-1 border-t-2 border-gray-200 dark:border-slate-600">
+                            <span className="font-bold text-gray-900 dark:text-slate-100 text-base">Taxable Income</span>
+                            <span className="font-black text-xl text-blue-600 dark:text-blue-400">{fmt(taxableIncome)}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-slate-100 mb-4">Estimated Tax Liability ({selectedYear})</h3>
