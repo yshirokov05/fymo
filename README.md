@@ -1,7 +1,7 @@
 # Fymo
 ### Personal Finance Command Center
 
-**Live:** [projectfymo.com](https://projectfymo.com) · [personal-finance-app-18cbc.web.app](https://personal-finance-app-18cbc.web.app)
+**Live:** [projectfymo.com](https://projectfymo.com)
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![Flask](https://img.shields.io/badge/Flask-Python%203.12-000000?style=flat-square&logo=flask)](https://flask.palletsprojects.com/)
