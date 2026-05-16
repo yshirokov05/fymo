@@ -1,4 +1,4 @@
-package com.financialhq.app;
+package com.projectfymo.app;
 
 import com.getcapacitor.BridgeActivity;
 

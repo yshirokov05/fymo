@@ -1,10 +1,11 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  // NOTE: appId is the iOS/Android bundle ID and CANNOT change once the app
-  // is published to App Store / Play Store without re-publishing as a new app.
-  // Keep this as 'com.financialhq.app' until ready to launch under a new bundle.
-  appId: 'com.financialhq.app',
+  // Bundle ID derived from our owned domain (projectfymo.com) per Apple/Google
+  // reverse-DNS convention. WARNING: once the app is published to App Store /
+  // Play Store, this ID is permanent — changing it requires re-publishing as a
+  // new app listing and losing existing installs/ratings/reviews.
+  appId: 'com.projectfymo.app',
   appName: 'Fymo',
   webDir: 'build'
 };
