@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- Open Graph + Twitter card image for Fymo.
+       Recommended: also export this to public/og-image.png for max scraper
+       compatibility (Twitter, Facebook, LinkedIn, Slack, iMessage all accept
+       PNG; some older scrapers fall back to text-only when given SVG).
+       Any online SVG→PNG tool at 1200×630 works (svg2png.com, cloudconvert). -->
+
+  <!-- Background — dark navy gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <!-- Subtle grid pattern -->
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Right side: stylized chart / math illustration -->
+  <g transform="translate(820, 130)" opacity="0.95">
+    <!-- Trend line area chart -->
+    <defs>
+      <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#10b981" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="M 0 280 L 40 220 L 80 240 L 120 180 L 160 200 L 200 140 L 240 160 L 280 100 L 320 80 L 320 320 L 0 320 Z"
+          fill="url(#trendGrad)"/>
+    <path d="M 0 280 L 40 220 L 80 240 L 120 180 L 160 200 L 200 140 L 240 160 L 280 100 L 320 80"
+          fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- End-point dot -->
+    <circle cx="320" cy="80" r="6" fill="#10b981"/>
+    <circle cx="320" cy="80" r="12" fill="#10b981" opacity="0.25"/>
+
+    <!-- A few dot data points -->
+    <circle cx="40" cy="220" r="3" fill="#3b82f6"/>
+    <circle cx="120" cy="180" r="3" fill="#3b82f6"/>
+    <circle cx="200" cy="140" r="3" fill="#3b82f6"/>
+    <circle cx="280" cy="100" r="3" fill="#3b82f6"/>
+  </g>
+
+  <!-- Logo mark — square with stylized "F" -->
+  <g transform="translate(96, 96)">
+    <rect width="80" height="80" rx="18" fill="url(#brandGrad)"/>
+    <path d="M 26 22 L 26 60 M 26 22 L 56 22 M 26 40 L 50 40"
+          stroke="white" stroke-width="7" fill="none"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Brand wordmark -->
+  <text x="200" y="156"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="64" font-weight="900" fill="white"
+        letter-spacing="-2">Fymo</text>
+
+  <!-- Tagline -->
+  <text x="96" y="290"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="58" font-weight="800" fill="white"
+        letter-spacing="-1.5">
+    <tspan x="96" dy="0">Personal finance</tspan>
+    <tspan x="96" dy="74">that shows its</tspan>
+    <tspan x="96" dy="74" fill="#3b82f6">math.</tspan>
+  </text>
+
+  <!-- Feature pills -->
+  <g transform="translate(96, 526)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+    <rect x="0" y="0" width="200" height="36" rx="18" fill="rgba(59,130,246,0.15)" stroke="rgba(59,130,246,0.3)"/>
+    <text x="100" y="24" font-size="15" font-weight="700" fill="#93c5fd" text-anchor="middle">Net worth tracking</text>
+
+    <rect x="216" y="0" width="220" height="36" rx="18" fill="rgba(16,185,129,0.15)" stroke="rgba(16,185,129,0.3)"/>
+    <text x="326" y="24" font-size="15" font-weight="700" fill="#6ee7b7" text-anchor="middle">50-state tax engine</text>
+
+    <rect x="452" y="0" width="220" height="36" rx="18" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.3)"/>
+    <text x="562" y="24" font-size="15" font-weight="700" fill="#fcd34d" text-anchor="middle">Tax-loss harvesting</text>
+  </g>
+
+  <!-- URL footer -->
+  <text x="600" y="600"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        font-size="20" font-weight="600" fill="rgba(148,163,184,0.7)" text-anchor="middle">
+    projectfymo.com
+  </text>
+</svg>
