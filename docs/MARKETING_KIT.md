@@ -86,6 +86,108 @@ Hashtags to rotate: #buildinpublic #indiehackers #personalfinance #fintech #SaaS
 
 ---
 
+## Priority 2b — Instagram collab post (high leverage for an indie)
+
+Use **Instagram's Collab Posts** feature: post from your personal account, invite `@projectfymo` as a collaborator. The post appears permanently in BOTH grids, both audiences see it, engagement is shared. This is one of the highest-leverage free marketing moves for an indie founder because it gives the brand account real social proof from day one.
+
+### Account setup (one-time, 5 min)
+1. Create `@projectfymo` (or `@fymohq`).
+2. Settings → Account → **Switch to Professional → Business** (free; unlocks Insights, contact button, link).
+3. Profile pic: same blue square favicon from the app — instant brand recognition.
+4. Bio (150 char limit):
+   > Personal finance that shows its math. Net worth, taxes, investments — all transparent, no black box. Free demo ↓
+5. Link in bio: `projectfymo.com`
+
+### The launch post — carousel format
+
+Build a 6–8 slide carousel. Instagram weights carousels higher than single images (more dwell time = more reach). Each slide is 1080×1350 (4:5 portrait) for maximum feed real estate.
+
+**Slide 1 (Hook):**
+> Background: dark navy (matches the app dark mode)
+> Big bold text:
+> **"Mint died.**
+> **I built this instead."**
+> Subtle "→" in bottom corner. No logo, no URL — those come later.
+
+**Slide 2 (The promise):**
+> **"Personal finance that shows its math."**
+> Smaller text: "Net worth, taxes, investments — every number, click to see how it got there."
+
+**Slide 3 (Net worth dashboard screenshot):**
+> Screenshot of the Dashboard with Net Worth, Total Assets, Total Debts cards.
+> Annotation arrow pointing at "Show Math" button.
+> Caption: "Tap any number → see the formula."
+
+**Slide 4 (Tax projection screenshot):**
+> Screenshot of the Tax Projection tab with the federal + state + FICA breakdown.
+> Caption: "50-state tax engine. Every bracket. Every deduction."
+
+**Slide 5 (Tax-loss harvest screenshot):**
+> The TaxLossHarvest panel.
+> Caption: "Surfaces underwater lots before tax season. ST vs LT classified. With wash-sale warning so you don't accidentally Make Things Worse."
+
+**Slide 6 (AI Analyst screenshot):**
+> The AI Analyst chat with a real-looking question/answer.
+> Caption: "Trained on YOUR data. Not generic FAQ-bot energy."
+
+**Slide 7 (Differentiator card):**
+> Plain dark background. Big text:
+> **"Show your math."**
+> Small text: "Three words Mint, Monarch, and Copilot can't say."
+
+**Slide 8 (CTA):**
+> "Free demo. No signup. No credit card."
+> "projectfymo.com"
+> Small "@projectfymo" handle bottom right.
+
+### Caption template
+```
+I built a personal finance app where every number has a "Show Math" button.
+
+Mint died last year. Tried Monarch ($14.99/mo), Copilot ($13/mo), YNAB
+($14.99/mo) — they all show me numbers. None of them show me HOW. Net
+worth? Tax estimate? Portfolio return? Black boxes.
+
+So I built Fymo. Same category — Plaid bank sync, investments, budgets,
+tax projection. But every figure has a toggle that exposes inputs,
+formulas, and any sanity guards that kicked in.
+
+Free demo at projectfymo.com — no signup needed, full app with sample
+data. Built solo, $9.99/mo for real-account features.
+
+If you've ever wondered how Mint came up with that net worth, this is for you.
+
+#personalfinance #fintech #indiehackers #buildinpublic #moneytips
+#financialfreedom #fire #moneymanagement
+```
+
+### Pre-post checklist
+- [ ] @projectfymo Business account created
+- [ ] Profile pic + bio + link set
+- [ ] 8 carousel slides exported as 1080×1350 PNG
+- [ ] Caption pasted, hashtags at the bottom (or first comment — either works)
+- [ ] Collaborator invite sent to @projectfymo BEFORE publishing
+- [ ] @projectfymo accepts the invite (do this from the brand account)
+- [ ] Post is now in both grids ✓
+
+### Reel as a follow-up
+After the carousel lands, post a 15–30 second screen-record reel showing the "Show Math" interaction in real time. Pin it. Reels get 3–5× the reach of carousels right now because Meta is pushing video. Same collab mechanic.
+
+### Story sequence (post 1 hour after the carousel)
+1. "Just shipped this →" + carousel re-share with sticker
+2. Behind-the-scenes screenshot of you coding
+3. Poll: "Have you ever wondered how Mint calculates your net worth?" Yes/No
+4. Link sticker → projectfymo.com
+
+### What NOT to do on Instagram
+- Don't post long screenshots of code — nobody reads them on mobile
+- Don't say "DM me to learn more" — IG buries posts that drive into DMs
+- Don't use 30 random hashtags — 5–8 specific ones outperform 30 generic ones in 2025
+- Don't follow-for-follow / engagement pods — algorithm penalty
+- Don't crosspost the exact Reddit text — different platform, different voice
+
+---
+
 ## Priority 3 — Product Hunt launch
 
 Save this for a major version drop (v2.0, or whenever you have one big feature you're proud of). Submit on a **Tuesday or Wednesday**, midnight Pacific time. Avoid Mondays (busy) and weekends (low traffic).
