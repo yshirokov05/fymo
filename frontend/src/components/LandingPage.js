@@ -10,12 +10,12 @@ import {
 
 const Pill = ({ children, color = 'blue' }) => {
     const colors = {
-        blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-        green: 'bg-green-500/10 text-green-400 border-green-500/20',
-        purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+        blue: 'text-blue-400',
+        green: 'text-emerald-400',
+        purple: 'text-violet-400',
     };
     return (
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${colors[color]}`}>
+        <span className={`inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] ${colors[color]}`}>
             {children}
         </span>
     );
@@ -25,7 +25,7 @@ const Pill = ({ children, color = 'blue' }) => {
 const MockDashboard = () => (
     <div className="relative w-full max-w-lg mx-auto select-none pointer-events-none">
         {/* Glow */}
-        <div className="absolute -inset-4 bg-blue-600/20 rounded-3xl blur-2xl" />
+        <div className="absolute -inset-2 bg-blue-500/10 rounded-3xl blur-3xl" />
         <div className="relative bg-slate-800/90 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
             {/* Top bar */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-slate-900/60">
@@ -273,11 +273,11 @@ const LandingPage = () => {
                             financial picture.<br />
                             <span className="text-blue-400">Nothing hidden.</span>
                         </h1>
-                        <p className="mt-4 text-base sm:text-lg font-semibold text-white/70 italic tracking-wide">
-                            "Your end all be all solution to consolidating your finances."
+                        <p className="mt-4 text-base sm:text-lg font-medium text-white/70 max-w-lg">
+                            See exactly where you stand, and exactly how the numbers got there.
                         </p>
                         <p className="mt-4 text-lg text-gray-400 leading-relaxed max-w-lg">
-                            Fymo connects all your accounts, tracks every dollar, and explains every number — so you always know exactly where you stand.
+                            Fymo links all your accounts and tracks every dollar. And for any number it shows you, you can open up the exact calculation behind it.
                         </p>
                         <div className="mt-8 flex flex-col sm:flex-row gap-3">
                             <button onClick={() => setAuthModal('signup')}
@@ -323,7 +323,7 @@ const LandingPage = () => {
                         Built differently than<br />every other finance app
                     </h2>
                     <p className="mt-4 text-gray-400 max-w-lg mx-auto">
-                        Most apps show you numbers. Fymo shows you <em>how</em> those numbers were calculated — and what they actually mean for you.
+                        Most apps just show you numbers. Fymo shows you <em>how</em> each one was calculated, and what it means for your money.
                     </p>
                 </div>
 
@@ -332,7 +332,7 @@ const LandingPage = () => {
                         color="blue"
                         icon={<Eye size={20} />}
                         title="Show Math on everything"
-                        desc="Every metric — net worth, portfolio return, tax estimate — comes with a line-by-line breakdown. No black boxes, ever."
+                        desc="Net worth, portfolio return, tax estimate: each one opens into a line-by-line breakdown. No black boxes, ever."
                     />
                     <Feature
                         color="green"
@@ -457,12 +457,12 @@ const LandingPage = () => {
 
             {/* ── Final CTA ── */}
             <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-                <div className="bg-gradient-to-br from-blue-600/20 via-blue-700/10 to-transparent border border-blue-500/20 rounded-3xl p-10 sm:p-16 text-center">
+                <div className="bg-slate-800/40 border border-white/10 rounded-3xl p-10 sm:p-16 text-center">
                     <h2 className="text-3xl sm:text-4xl font-black tracking-tight mb-4">
-                        Fymo — your end all be all<br />solution to consolidating<br />your finances.
+                        Know exactly where your<br />money stands. And why.
                     </h2>
                     <p className="text-gray-400 mb-8 max-w-md mx-auto">
-                        No spreadsheets. No guessing. No hidden algorithms. Just a complete, honest view of your money — all in one place.
+                        No spreadsheets to maintain and no hidden algorithms. Just a clear, honest view of all your money in one place.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <button onClick={() => setAuthModal('signup')}
