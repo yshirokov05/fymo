@@ -34,14 +34,18 @@ jobs:
         run: npm install --legacy-peer-deps
         working-directory: ./frontend
 
-      # ── 3.5 Rasterize OG image (SVG → PNG) ──────────────────────────────────
-      # ImageMagick is preinstalled on ubuntu-latest. Rasterizing here means
-      # public/og-image.png is fresh on every deploy without anyone needing to
-      # run conversion locally. Falls back gracefully if SVG missing.
+      # ── 3.5 Rasterize OG image (SVG -> PNG) ─────────────────────────────────
+      # Uses rsvg-convert (librsvg), which renders SVG reliably on the runner.
+      # ImageMagick's `convert` was blocked by its SVG security policy, which
+      # failed the whole deploy. continue-on-error guarantees a bad OG image
+      # can never break a deploy again.
       - name: Generate og-image.png from SVG
+        continue-on-error: true
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin
           if [ -f og-image.svg ]; then
-            convert -background none -density 200 -resize 1200x630 og-image.svg og-image.png
+            rsvg-convert -w 1200 -h 630 og-image.svg -o og-image.png
             echo "Generated og-image.png ($(du -h og-image.png | cut -f1))"
           else
             echo "og-image.svg not found, skipping PNG generation"
