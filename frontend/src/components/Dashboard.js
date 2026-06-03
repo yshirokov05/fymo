@@ -816,7 +816,9 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     const Ve = curVal || portfolioHistory[portfolioHistory.length - 1].value;
                     const netInvested = (selD.invested || 0) - (selD.proceeds || 0);
                     const gain = Ve - Vs - netInvested;
-                    return { gain, pct: Vs > 0 ? (gain / Vs) * 100 : null, startDate: startSnap.date };
+                    // A 'backfill' start snapshot is a reconstructed estimate (vs 'live' = exact).
+                    // Surface that so the period return is honestly labeled until real snapshots fill in.
+                    return { gain, pct: Vs > 0 ? (gain / Vs) * 100 : null, startDate: startSnap.date, estimated: startSnap.source === 'backfill' };
                 })();
                 const usingPeriodSnapshot = !isAllPeriod && periodResult !== null && periodResult.pct !== null;
 
@@ -834,8 +836,10 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     retPct = periodResult.pct;
                     retDollar = periodResult.gain;
                     retDollarLabel = `gained (${PERIOD_LABELS[prPeriod]})`;
-                    returnLabel = `${PERIOD_LABELS[prPeriod]} Return`;
-                    returnTooltip = `Market gain on your holdings over ${PERIOD_LABELS[prPeriod]}: value now − value at the start of the period − money you added (net buys). Computed from your daily portfolio snapshots since ${periodResult.startDate}.`;
+                    returnLabel = `${PERIOD_LABELS[prPeriod]} Return${periodResult.estimated ? ' (estimated)' : ''}`;
+                    returnTooltip = periodResult.estimated
+                        ? `Market gain on your holdings over ${PERIOD_LABELS[prPeriod]}: value now − value at the start of the period − money you added (net buys). The start-of-period value is reconstructed from your transaction history and historical prices (an estimate); it becomes exact as daily snapshots accumulate. Your "All" Total Return is exact today.`
+                        : `Market gain on your holdings over ${PERIOD_LABELS[prPeriod]}: value now − value at the start of the period − money you added (net buys). Computed from your daily portfolio snapshots since ${periodResult.startDate}.`;
                 } else {
                     retPct = null;
                     retDollar = null;

@@ -583,7 +583,10 @@ def get_portfolio_history():
             .limit(400) \
             .get()
         history = sorted(
-            [{'date': d.get('date'), 'value': round(d.get('total_value', 0), 2)}
+            [{'date': d.get('date'), 'value': round(d.get('total_value', 0), 2),
+              # 'backfill' = reconstructed estimate, 'live' = exact (live prices).
+              # Defaults to 'live' for legacy snapshots written before the source flag.
+              'source': d.get('source', 'live')}
              for d in snaps if d.get('date') and d.get('total_value', 0) > 0],
             key=lambda x: x['date']
         )
@@ -2812,6 +2815,7 @@ def take_portfolio_snapshot(user_id, assets, price_map=None):
             ref.set({
                 'date': today_str,
                 'total_value': investments_value,
+                'source': 'live',  # exact (live prices) — always wins over backfill estimates
                 'timestamp': firestore.SERVER_TIMESTAMP
             }, merge=True)
             logging.info(f"Took portfolio snapshot for {user_id}: ${investments_value:.2f}")

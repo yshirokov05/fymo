@@ -94,6 +94,7 @@ jobs:
           venv/bin/python test_realized_gains.py
           venv/bin/python test_tax_loss.py
           venv/bin/python test_health_score.py
+          venv/bin/python test_backfill.py
         working-directory: ./backend
 
       # ── 7. Deploy to Firebase (hosting + functions) ──────────────────────────

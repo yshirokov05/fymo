@@ -12,6 +12,41 @@ CACHE_TTL_SECONDS = 300 # 5 minutes
 _period_returns_cache = {}
 PERIOD_RETURNS_TTL_SECONDS = 300
 
+# Daily close-price history cache (1h TTL) for the snapshot backfill.
+_history_cache = {}
+HISTORY_TTL_SECONDS = 3600
+
+
+def get_price_history(ticker_symbol, days=400):
+    """Daily close prices for roughly the last `days` days.
+    Returns {'YYYY-MM-DD': close_price}. Used by backfill_service to reconstruct
+    historical portfolio value. Cached 1h per ticker. Empty dict on failure."""
+    ticker_upper = (ticker_symbol or '').upper().strip()
+    if not ticker_upper:
+        return {}
+    cached = _history_cache.get(ticker_upper)
+    if cached and time.time() - cached[0] < HISTORY_TTL_SECONDS:
+        return cached[1]
+    import yfinance as yf
+    out = {}
+    try:
+        period = '2y' if days > 365 else '1y'
+        hist = yf.Ticker(ticker_upper).history(period=period)
+        if hist is not None and len(hist) > 0:
+            for idx, row in hist.iterrows():
+                try:
+                    d = idx.strftime('%Y-%m-%d')
+                    close = float(row['Close'])
+                    if close > 0:
+                        out[d] = round(close, 4)
+                except Exception:
+                    continue
+        logging.info(f"[price_history] {ticker_upper}: {len(out)} daily closes")
+    except Exception as e:
+        logging.warning(f"[price_history] {ticker_upper} failed: {type(e).__name__}: {e}")
+    _history_cache[ticker_upper] = (time.time(), out)
+    return out
+
 def _stooq_fallback(ticker_symbol):
     """Keyless secondary price source for when yfinance is throttled or down.
     Uses Stooq's light CSV quote endpoint (no API key). Daily change is a rough

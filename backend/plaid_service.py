@@ -1008,6 +1008,16 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         }
         logging.info(f"Investment history for {user_id}: txns={len(inv_txns)}, accounts={len(by_account)}, periods={list(periods.keys())}")
 
+        # One-time historical snapshot backfill: reconstruct daily portfolio value
+        # from this transaction ledger × historical prices, so period returns
+        # (1W/1M/YTD/1Y) work immediately instead of waiting for live snapshots to
+        # accumulate. Runs once per user (flag-guarded), best-effort — never breaks sync.
+        try:
+            from backfill_service import backfill_snapshots
+            backfill_snapshots(user_id, new_assets, inv_txns, inv_sec_map)
+        except Exception as _bf_e:
+            logging.warning(f"Snapshot backfill failed for {user_id}: {_bf_e}")
+
         return new_assets, new_retirement_accounts, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids, investment_history
     except Exception as e:
         import traceback
