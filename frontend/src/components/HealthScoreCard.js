@@ -139,7 +139,7 @@ const HealthScoreCard = () => {
                 {/* Score ring */}
                 <div className="flex items-center gap-5">
                     <div className="relative flex-shrink-0">
-                        <svg width="130" height="130" viewBox="0 0 130 130" className="-rotate-90">
+                        <svg width="130" height="130" viewBox="0 0 130 130" className="-rotate-90" aria-hidden="true" focusable="false">
                             <circle cx="65" cy="65" r={ringRadius} strokeWidth="9"
                                     className="stroke-gray-100 dark:stroke-slate-700/60" fill="none" />
                             <circle cx="65" cy="65" r={ringRadius} strokeWidth="9"

@@ -582,14 +582,15 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                         <div className="space-y-4">
                             {getTaxableAssets().map((asset) => (
                                 <div key={asset.originalIndex} className="border p-4 rounded-md space-y-2 relative">
-                                    <button onClick={() => removeAsset(asset.originalIndex)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">
-                                        <Trash2 size={20} />
+                                    <button onClick={() => removeAsset(asset.originalIndex)} aria-label={`Remove ${asset.ticker || 'asset'}`} className="absolute top-2 right-2 text-red-500 hover:text-red-700 rounded focus:outline-none focus:ring-2 focus:ring-red-500">
+                                        <Trash2 size={20} aria-hidden="true" />
                                     </button>
                                     <div className="grid grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-500">Asset Type</label>
                                             <select
                                                 value={asset.asset_type}
+                                                aria-label="Asset type"
                                                 onChange={(e) => handleAssetChange(asset.originalIndex, 'asset_type', e.target.value)}
                                                 className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                             >
@@ -607,6 +608,7 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                             <input
                                                 type="text"
                                                 placeholder={asset.asset_type === 'HOUSING' ? 'Primary Residence' : 'e.g. AAPL'}
+                                                aria-label="Ticker or asset name"
                                                 value={asset.ticker}
                                                 onChange={(e) => handleAssetChange(asset.originalIndex, 'ticker', e.target.value.toUpperCase())}
                                                 disabled={['CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'].includes(asset.asset_type)}
@@ -618,6 +620,7 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                             <input
                                                 type="text"
                                                 placeholder="e.g. E*Trade Brokerage"
+                                                aria-label="Institution or account name"
                                                 value={asset.institution_name || ''}
                                                 onChange={(e) => handleAssetChange(asset.originalIndex, 'institution_name', e.target.value)}
                                                 className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -629,6 +632,7 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                             <label className="block text-xs font-medium text-gray-500">Tax Treatment</label>
                                             <select
                                                 value={asset.tax_treatment || 'TAXABLE'}
+                                                aria-label="Tax treatment"
                                                 onChange={(e) => handleAssetChange(asset.originalIndex, 'tax_treatment', e.target.value)}
                                                 className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                                             >
@@ -645,6 +649,7 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                                     type="number"
                                                     min="0"
                                                     placeholder="0"
+                                                    aria-label="Shares"
                                                     value={asset.shares === 0 ? '' : asset.shares}
                                                     onChange={(e) => handleAssetChange(asset.originalIndex, 'shares', Math.max(0, e.target.value))}
                                                     className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -656,6 +661,7 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                                     type="number"
                                                     min="0"
                                                     placeholder="0"
+                                                    aria-label="Cost per share"
                                                     value={asset.cost_per_share === 0 ? '' : (asset.cost_per_share || 0)}
                                                     onChange={(e) => handleAssetChange(asset.originalIndex, 'cost_per_share', Math.max(0, e.target.value))}
                                                     className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
@@ -666,6 +672,7 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                                 <input
                                                     type="number"
                                                     placeholder="0"
+                                                    aria-label="Total cost (auto-calculated)"
                                                     value={asset.cost_basis === 0 ? '' : asset.cost_basis}
                                                     readOnly
                                                     className="mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-md shadow-sm sm:text-sm cursor-not-allowed"

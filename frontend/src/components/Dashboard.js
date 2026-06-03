@@ -1179,7 +1179,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         into a tiny two-row wrap. */}
                     <Card title="Industry Allocation" icon={<PieChartIcon className="text-yellow-500" />}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                            <div className="h-[340px] relative">
+                            <div className="h-[340px] relative" role="img" aria-label="Industry allocation donut chart. A full category breakdown with values is listed beside it.">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <RechartsPieChart>
                                         <Pie
@@ -1270,7 +1270,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
 
                     <div className="self-start">
                     <Card title="Debt Allocation" icon={<PieChartIcon className="text-red-500" />}>
-                        <div className="h-[320px] w-full relative">
+                        <div className="h-[320px] w-full relative" role="img" aria-label="Debt allocation donut chart. The debt details table above lists each balance.">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <RechartsPieChart>
                                             <Pie
