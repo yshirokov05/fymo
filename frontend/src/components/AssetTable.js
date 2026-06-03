@@ -101,6 +101,11 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
         const marketValue = asset.marketValue || (isLiquidAsset || isHousing ? asset.shares : asset.shares * marketPrice);
 
         const totalCost = asset.total_cost || (asset.shares * asset.cost_basis);
+        // Plaid often returns NO cost basis for a holding (transferred-in shares,
+        // certain brokerages). We must NOT treat $0 basis as "bought for free" — that
+        // fabricates a fake gain equal to the full market value (e.g. PSIX showing
+        // +$4,099 / 0.00%). Mark such market holdings as unknown-basis and show "—".
+        const costKnown = (isLiquidAsset || isHousing) ? true : (totalCost > 0);
         const gainLoss = marketValue - totalCost;
         const gainLossPercent = (totalCost !== 0) ? (gainLoss / Math.abs(totalCost)) * 100 : 0;
 
@@ -178,7 +183,9 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-end space-x-1">
-                                        <span>${asset.cost_basis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className={costKnown ? '' : 'text-gray-400 dark:text-slate-500 italic'} title={costKnown ? undefined : "Your brokerage didn't report a cost basis for this holding. Click the pencil to enter it."}>
+                                            {costKnown ? `$${asset.cost_basis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'n/a'}
+                                        </span>
                                         {onUpdateCostBasis && (
                                             <button
                                                 onClick={e => startEdit(e, asset.plaid_account_id, asset.cost_basis)}
@@ -202,9 +209,15 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                             <td className="px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right text-gray-900 dark:text-slate-100 font-bold tabular-nums">
                                 ${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {gainLoss >= 0 ? '+' : '-'}${Math.abs(gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                <div className="text-[10px] font-medium opacity-70">({gainLossPercent.toFixed(2)}%)</div>
+                            <td className={`px-3 md:px-6 py-3 whitespace-nowrap text-sm text-right font-bold tabular-nums ${!costKnown ? 'text-gray-400 dark:text-slate-500' : (gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}`}>
+                                {!costKnown ? (
+                                    <span className="italic font-medium" title="No cost basis from your brokerage — enter one in the Cost/Sh column to see gain/loss.">n/a</span>
+                                ) : (
+                                    <>
+                                        {gainLoss >= 0 ? '+' : '-'}${Math.abs(gainLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        <div className="text-[10px] font-medium opacity-70">({gainLossPercent.toFixed(2)}%)</div>
+                                    </>
+                                )}
                             </td>
                         </>
                     ) : (
@@ -241,16 +254,24 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
             const marketPrice = asset.marketPrice || asset.current_price || (asset.shares > 0 ? asset.cost_basis / asset.shares : 0) || 1.0;
             const marketValue = asset.marketValue || (isLiquidAsset || isHousing ? asset.shares : asset.shares * marketPrice);
             const totalCost = asset.total_cost || (asset.shares * asset.cost_basis);
-            const gainLoss = (asset.total_gain !== null && asset.total_gain !== undefined) ? asset.total_gain : (marketValue - totalCost);
+            // Use the SAME gain definition as the rows (marketValue − cost), and exclude
+            // positions whose brokerage didn't report a cost basis — otherwise a $0-basis
+            // holding (e.g. PSIX) adds its full market value as a fake "gain" and the
+            // subtotal disagrees with the rows.
+            const costKnown = (isLiquidAsset || isHousing) ? true : (totalCost > 0);
             const dailyChange = (asset.daily_change_usd || 0) * asset.shares;
 
             acc.shares += asset.shares;
             acc.value += marketValue;
-            acc.cost += totalCost;
-            acc.gainLoss += gainLoss;
+            if (costKnown) {
+                acc.cost += totalCost;
+                acc.gainLoss += (marketValue - totalCost);
+            } else {
+                acc.unpricedBasis = true;  // flag that some positions are excluded from gain
+            }
             acc.dailyChange += dailyChange;
             return acc;
-        }, { shares: 0, value: 0, cost: 0, gainLoss: 0, dailyChange: 0 });
+        }, { shares: 0, value: 0, cost: 0, gainLoss: 0, dailyChange: 0, unpricedBasis: false });
 
         const groupGainLossPercent = groupTotals.cost !== 0 ? (groupTotals.gainLoss / Math.abs(groupTotals.cost)) * 100 : 0;
         // Daily % is the weighted-average daily change relative to yesterday's close,
