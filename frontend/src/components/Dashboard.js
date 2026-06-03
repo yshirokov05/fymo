@@ -121,24 +121,33 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
 
     const now = new Date();
     const yearStart = new Date(now.getFullYear(), 0, 1);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    // "Monthly" metrics use a TRAILING 30-DAY window, not calendar-month-to-date.
+    // Calendar-month-to-date collapses to ~$0 early in a month (or when bank sync
+    // lags a few days), which zeroed out cash flow AND made the Emergency Fund card
+    // wrongly say "link a bank" (it divides liquid assets by monthly spend).
+    const trailing30Start = new Date(now);
+    trailing30Start.setDate(trailing30Start.getDate() - 30);
 
     const ytdSpend = transactions
         .filter(t => t.amount > 0 && new Date(t.date) >= yearStart && t.category !== 'Ignore')
         .reduce((sum, t) => sum + t.amount, 0);
 
     const monthlySpend = transactions
-        .filter(t => t.amount > 0 && new Date(t.date) >= monthStart && t.category !== 'Ignore')
+        .filter(t => t.amount > 0 && new Date(t.date) >= trailing30Start && t.category !== 'Ignore')
         .reduce((sum, t) => sum + t.amount, 0);
 
-    // Income from manually-entered sources
+    // Income from manually-entered sources (already a stated monthly figure)
     const manualMonthlyIncome = incomes.reduce((sum, i) => sum + (i.monthly_income || 0), 0);
-    // Income from Plaid-detected paystubs this month (gross_amount = net deposit for is_net_primary)
-    // IMPORTANT: Parse date string as local date parts (not via new Date("YYYY-MM-DD") which
-    // is treated as UTC midnight and shifts to the previous day in US timezones, causing the
-    // first-of-month paycheck to be excluded from the current month's income calculation.
+    // Income from Plaid-detected paystubs in the trailing 30 days (matches the
+    // trailing-30-day spend window above). gross_amount = net deposit for is_net_primary.
+    // Parse date as local parts (not new Date("YYYY-MM-DD"), which is UTC midnight).
     const paystubMonthlyIncome = paystubs
-        .filter(p => { const [yr, mo] = p.date.split('-').map(Number); return yr === now.getFullYear() && mo - 1 === now.getMonth(); })
+        .filter(p => {
+            const [yr, mo, day] = (p.date || '').split('-').map(Number);
+            if (!yr) return false;
+            const d = new Date(yr, (mo || 1) - 1, day || 1);
+            return d >= trailing30Start && d <= now;
+        })
         .reduce((sum, p) => sum + (p.is_net_primary ? (p.gross_amount || 0) : (p.net_amount || Math.max(0, (p.gross_amount || 0) - (p.tax_withheld || 0)))), 0);
     const monthlyIncome = manualMonthlyIncome + paystubMonthlyIncome;
 
@@ -639,6 +648,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 <p className={`text-2xl font-bold ${monthlyCashFlow >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                     {monthlyCashFlow >= 0 ? '+' : ''}${monthlyCashFlow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
+                                <p className="text-xs text-gray-500 mt-0.5">Last 30 days</p>
                                 <div className="mt-2 space-y-1 text-xs text-gray-500">
                                     <div className="flex justify-between"><span>Income</span><span className="font-semibold text-green-600">${monthlyIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                                     <div className="flex justify-between"><span>Spending</span><span className="font-semibold text-red-500">${monthlySpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
