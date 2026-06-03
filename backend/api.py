@@ -661,6 +661,16 @@ def get_net_worth():
             except Exception as _me:
                 logging.warning(f"Milestone check failed for {request.uid}: {_me}")
 
+            # Daily market-value snapshot on dashboard load (idempotent — keyed by
+            # date, so multiple loads/day just refresh today's value with the latest
+            # prices). This builds the daily history the period-return feature needs,
+            # without the user having to manually sync. Reuses the price_map we
+            # already fetched above (no extra price call). Best-effort.
+            try:
+                take_portfolio_snapshot(request.uid, assets, price_map=price_map)
+            except Exception as _se:
+                logging.warning(f"Snapshot on dashboard load failed for {request.uid}: {_se}")
+
         return jsonify(net_worth_data)
     except Exception as e:
         import traceback
@@ -2763,23 +2773,38 @@ def submit_feedback():
 # GOALS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def take_portfolio_snapshot(user_id, assets):
-    """Stores the current total investment balance as a historical snapshot for MWR."""
+def take_portfolio_snapshot(user_id, assets, price_map=None):
+    """Stores the current total MARKET value of non-cash investments as a daily
+    historical snapshot. This is the source of truth for period returns, so it
+    must reflect live market prices — NOT cost basis. The Asset model carries no
+    current_price, so we price from the supplied price_map (fetched once by the
+    caller) or fetch fresh if none was provided."""
     from datetime import datetime
     try:
         db = get_db()
         if not db: return
-        
-        # Calculate total value of non-cash investments
+
+        # Calculate total MARKET value of non-cash investments
         liquid_types = {'CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS'}
         liquid_tickers = {'CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX'}
-        
+
+        non_cash = [a for a in assets if a.asset_type.name not in liquid_types and a.ticker not in liquid_tickers]
+        if price_map is None and non_cash:
+            # No prices passed — fetch them so we never silently fall back to cost basis.
+            try:
+                price_map = get_multiple_prices([a.ticker for a in non_cash])
+            except Exception:
+                price_map = {}
+
         investments_value = 0.0
-        for a in assets:
-            if a.asset_type.name not in liquid_types and a.ticker not in liquid_tickers:
-                price = getattr(a, 'current_price', None) or (a.cost_basis / a.shares if a.shares > 0 else 0)
-                investments_value += a.shares * price
-                
+        for a in non_cash:
+            pm = (price_map or {}).get(a.ticker)
+            market_price = pm.get('current_price') if isinstance(pm, dict) else None
+            # cost_basis is stored PER SHARE (CLAUDE.md rule #7), so it is itself a
+            # price-per-share fallback when no live market price is available.
+            price = market_price or a.cost_basis or 0
+            investments_value += a.shares * price
+
         if investments_value > 0:
             today_str = datetime.now().strftime('%Y-%m-%d')
             # Use date string as doc ID so we auto-overwrite if synced multiple times today
