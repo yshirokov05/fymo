@@ -13,7 +13,34 @@ _SECRETS = [
     "FERNET_KEY",
     "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID",
     "RESEND_API_KEY", "BRIEF_FROM_EMAIL",
+    "SENTRY_DSN",
 ]
+
+
+_sentry_started = False
+
+def _init_sentry():
+    """Initialize Sentry error monitoring if SENTRY_DSN is configured. No-op
+    otherwise, so the app deploys cleanly before the secret is added. Runs at
+    most once per warm instance."""
+    global _sentry_started
+    if _sentry_started:
+        return
+    dsn = os.environ.get("SENTRY_DSN", "").strip()
+    if not dsn:
+        return
+    _sentry_started = True
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=os.environ.get("PLAID_ENV", "production"),
+            traces_sample_rate=0.1,
+            send_default_pii=False,  # finance app — don't ship PII to the monitor
+        )
+        logging.info("Sentry initialized")
+    except Exception as e:
+        logging.warning(f"Sentry init failed (continuing without it): {e}")
 
 
 @https_fn.on_request(
@@ -33,6 +60,9 @@ def api_func(req: https_fn.Request) -> https_fn.Response:
                 if clean_val != val:
                     os.environ[key] = clean_val
         
+        # 1b. Initialize error monitoring (idempotent; no-op without SENTRY_DSN).
+        _init_sentry()
+
         # 2. Lazy Import of API to capture remaining import-time crashes
         import api
         with api.app.request_context(req.environ):
@@ -87,6 +117,7 @@ def scheduled_morning_briefs(event):
             clean = val.replace("\n", "").replace("\r", "").strip()
             if clean != val:
                 os.environ[key] = clean
+    _init_sentry()
     try:
         import brief_delivery_service
         result = brief_delivery_service.run_scheduled_delivery()

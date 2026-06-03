@@ -59,6 +59,9 @@ jobs:
         env:
           # Silence CRA's "treat warnings as errors" behavior in CI
           CI: false
+          # Frontend error monitoring. Empty/unset → Sentry no-ops (see index.js).
+          # Add a REACT_APP_SENTRY_DSN repo secret to activate.
+          REACT_APP_SENTRY_DSN: ${{ secrets.REACT_APP_SENTRY_DSN }}
 
       # ── 5. Python setup (backend validation) ─────────────────────────────────
       - name: Setup Python
