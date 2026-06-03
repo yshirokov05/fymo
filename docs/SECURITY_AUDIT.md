@@ -42,7 +42,8 @@ No `MAX_CONTENT_LENGTH` was set, so upload endpoints accepted arbitrarily large 
 Even with per-`uid` limits, an attacker who scripts unlimited Firebase signups gets a fresh rate-limit bucket per account.
 
 - **DONE (2026-05-15):** Per-IP rate limiting added on all six AI endpoints via `check_ip_rate_limit()` (keyed on a salted SHA-256 hash of `X-Forwarded-For`, never the raw IP). Limits set ~2.5× the per-user cap so shared office/household NAT isn't hit by normal use. This catches the common single-source multi-account attack.
-- **Still open (defeats per-IP):** rotating-IP / proxy / botnet abuse. Real defenses: require **email verification** before AI features unlock; disable anonymous auth in Firebase if unused. The Anthropic spend cap is the final backstop.
+- **DONE (2026-05-15):** email-verification gate on the priciest free AI endpoints (extract-document, upload_statement, goal_ai_guidance, card_summary). `request.email_verified` is checked server-side; unverified password signups get a 403 until they click the inbox link. Google sign-ins are auto-verified. Signup now sends the verification email. This is the friction that defeats rotating-IP multi-account abuse — a fresh account can't use expensive AI without a real, verifiable inbox.
+- **Still open (lowest priority):** disable anonymous auth in Firebase if unused. The Anthropic spend cap remains the final backstop.
 
 ### 🟡 MEDIUM — Client-facing traceback leak — FIXED
 
