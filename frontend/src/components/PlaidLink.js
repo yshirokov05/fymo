@@ -3,6 +3,7 @@ import { usePlaidLink } from 'react-plaid-link';
 import { useToast } from './Toast';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { track } from '../analytics';
 import { CreditCard, RefreshCw, AlertCircle, Info } from 'lucide-react';
 
 const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset, showHelper = true }) => {
@@ -59,6 +60,7 @@ const PlaidLink = ({ onPlaidSuccess, updateToken, onUpdateReset, showHelper = tr
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (onPlaidSuccess) {
+                track('plaid_link_success', { institution: metadata?.institution?.name || 'unknown' });
                 onPlaidSuccess(response.data);
                 showToast("Account connected successfully!", "success");
             }

@@ -6,6 +6,7 @@ import PlaidLink from './PlaidLink';
 import CategoryRulesManager from './CategoryRulesManager';
 import TwoFactorSettings from './TwoFactorSettings';
 import MorningBriefSettings from './MorningBriefSettings';
+import { track } from '../analytics';
 import axios from 'axios';
 import { useToast } from './Toast';
 
@@ -290,6 +291,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                         disabled={isCheckoutLoading}
                                         onClick={async () => {
                                             setIsCheckoutLoading(true);
+                                            track('begin_checkout', { value: 9.99, currency: 'USD', items: [{ item_name: 'Fymo Premium' }] });
                                             try {
                                                 const token = await currentUser.getIdToken();
                                                 const res = await axios.post('/api/create_checkout_session', {}, {

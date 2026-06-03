@@ -9,6 +9,7 @@ import {
     sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth } from '../firebase/config';
+import { track } from '../analytics';
 
 const AuthContext = createContext();
 
@@ -21,16 +22,24 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
 
     function signup(email, password) {
-        return createUserWithEmailAndPassword(auth, email, password);
+        return createUserWithEmailAndPassword(auth, email, password)
+            .then((cred) => { track('sign_up', { method: 'password' }); return cred; });
     }
 
     function login(email, password) {
-        return signInWithEmailAndPassword(auth, email, password);
+        return signInWithEmailAndPassword(auth, email, password)
+            .then((cred) => { track('login', { method: 'password' }); return cred; });
     }
 
     function loginWithGoogle() {
         const provider = new GoogleAuthProvider();
-        return signInWithPopup(auth, provider);
+        return signInWithPopup(auth, provider)
+            .then((cred) => {
+                // isNewUser distinguishes a first-time Google signup from a returning login
+                const isNew = cred?._tokenResponse?.isNewUser;
+                track(isNew ? 'sign_up' : 'login', { method: 'google' });
+                return cred;
+            });
     }
 
     function logout() {
