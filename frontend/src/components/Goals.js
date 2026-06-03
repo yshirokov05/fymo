@@ -108,15 +108,18 @@ const GoalCard = ({ goal, onUpdate, onDelete }) => {
                     <div className="flex items-center space-x-1 shrink-0">
                         <button
                             onClick={() => setExpanded(e => !e)}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                            aria-label={expanded ? `Collapse ${goal.name}` : `Expand ${goal.name}`}
+                            aria-expanded={expanded}
+                            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            {expanded ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
                         </button>
                         <button
                             onClick={() => onDelete(goal.id)}
-                            className="p-1.5 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            aria-label={`Delete goal ${goal.name}`}
+                            className="p-1.5 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                         >
-                            <Trash2 size={16} />
+                            <Trash2 size={16} aria-hidden="true" />
                         </button>
                     </div>
                 </div>
@@ -132,17 +135,18 @@ const GoalCard = ({ goal, onUpdate, onDelete }) => {
                                         type="number"
                                         value={editCurrent}
                                         onChange={e => setEditCurrent(e.target.value)}
-                                        className="w-28 text-sm font-bold border border-blue-400 rounded px-2 py-0.5 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 focus:outline-none"
+                                        aria-label={`Current saved amount for ${goal.name}`}
+                                        className="w-28 text-sm font-bold border border-blue-400 rounded px-2 py-0.5 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         autoFocus
                                     />
-                                    <button onClick={saveProgress} className="p-1 text-green-600 hover:text-green-700"><Check size={16} /></button>
-                                    <button onClick={() => setEditing(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                                    <button onClick={saveProgress} aria-label="Save progress" className="p-1 text-green-600 hover:text-green-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"><Check size={16} aria-hidden="true" /></button>
+                                    <button onClick={() => setEditing(false)} aria-label="Cancel" className="p-1 text-gray-400 hover:text-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"><X size={16} aria-hidden="true" /></button>
                                 </div>
                             ) : (
                                 <div className="flex items-center space-x-1">
                                     <span className="font-bold text-gray-800 dark:text-gray-100">{fmt(goal.current_amount)}</span>
-                                    <button onClick={() => { setEditCurrent(goal.current_amount); setEditing(true); }} className="p-0.5 text-gray-300 hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400 transition-colors">
-                                        <Edit3 size={13} />
+                                    <button onClick={() => { setEditCurrent(goal.current_amount); setEditing(true); }} aria-label={`Edit saved amount for ${goal.name}`} className="p-0.5 text-gray-300 hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400 transition-colors rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <Edit3 size={13} aria-hidden="true" />
                                     </button>
                                 </div>
                             )}

@@ -114,8 +114,15 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
 
         return (
             <React.Fragment key={`${asset.ticker}-${asset.institution_name}-${isSubRow ? 'sub' : 'main'}`}>
-                <tr className={`${isSubRow ? 'bg-gray-50/70 dark:bg-slate-900/30' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'} transition-colors ${hasMultipleAccounts ? 'cursor-pointer' : ''}`}
-                    onClick={() => hasMultipleAccounts && toggleRow(asset.ticker)}>
+                <tr className={`${isSubRow ? 'bg-gray-50/70 dark:bg-slate-900/30' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'} transition-colors ${hasMultipleAccounts ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500' : ''}`}
+                    onClick={() => hasMultipleAccounts && toggleRow(asset.ticker)}
+                    {...(hasMultipleAccounts && !isSubRow ? {
+                        role: 'button',
+                        tabIndex: 0,
+                        'aria-expanded': isExpanded,
+                        'aria-label': `${asset.ticker}, ${asset.accounts.length} accounts — ${isExpanded ? 'collapse' : 'expand'}`,
+                        onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRow(asset.ticker); } },
+                    } : {})}>
                     <td className="hidden sm:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-[10px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
                         <div className="flex items-center gap-1.5">
                             {hasMultipleAccounts && !isSubRow && (
@@ -160,13 +167,14 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                             type="number"
                                             value={editingCostBasis.value}
                                             onChange={e => setEditingCostBasis(prev => ({ ...prev, value: e.target.value }))}
-                                            className="w-20 text-xs border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none bg-white dark:bg-slate-700 dark:text-slate-100 text-right"
+                                            aria-label={`Cost per share for ${asset.ticker}`}
+                                            className="w-20 text-xs border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 dark:text-slate-100 text-right"
                                             autoFocus
                                             step="0.01"
                                             min="0"
                                         />
-                                        <button onClick={e => confirmEdit(e, asset.plaid_account_id)} className="text-green-600 dark:text-green-400 hover:text-green-800 p-0.5"><Check size={13} /></button>
-                                        <button onClick={cancelEdit} className="text-gray-400 dark:text-slate-500 hover:text-gray-600 p-0.5"><X size={13} /></button>
+                                        <button onClick={e => confirmEdit(e, asset.plaid_account_id)} aria-label="Save cost basis" className="text-green-600 dark:text-green-400 hover:text-green-800 p-0.5 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"><Check size={13} aria-hidden="true" /></button>
+                                        <button onClick={cancelEdit} aria-label="Cancel edit" className="text-gray-400 dark:text-slate-500 hover:text-gray-600 p-0.5 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"><X size={13} aria-hidden="true" /></button>
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-end space-x-1">
@@ -174,10 +182,11 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                         {onUpdateCostBasis && (
                                             <button
                                                 onClick={e => startEdit(e, asset.plaid_account_id, asset.cost_basis)}
-                                                className="opacity-0 group-hover/cb:opacity-100 transition-opacity text-gray-300 dark:text-slate-600 hover:text-blue-500 p-0.5"
+                                                className="opacity-0 group-hover/cb:opacity-100 focus:opacity-100 transition-opacity text-gray-300 dark:text-slate-600 hover:text-blue-500 p-0.5 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                 title="Edit cost basis"
+                                                aria-label={`Edit cost basis for ${asset.ticker}`}
                                             >
-                                                <Pencil size={11} />
+                                                <Pencil size={11} aria-hidden="true" />
                                             </button>
                                         )}
                                     </div>

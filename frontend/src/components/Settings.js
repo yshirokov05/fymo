@@ -341,7 +341,10 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                         </div>
                         <button
                             onClick={toggleDark}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                            role="switch"
+                            aria-checked={isDark}
+                            aria-label="Toggle dark mode"
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                                 isDark ? 'bg-indigo-600' : 'bg-gray-300'
                             }`}
                         >

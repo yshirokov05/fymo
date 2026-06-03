@@ -69,22 +69,26 @@ const Toast = ({ message, type, onClose }) => {
     };
 
     return (
-        <div className={`
+        <div
+            role={type === 'error' ? 'alert' : 'status'}
+            aria-live={type === 'error' ? 'assertive' : 'polite'}
+            className={`
             max-w-md w-full pointer-events-auto flex items-center p-4 rounded-xl border shadow-lg transition-all duration-300 transform
             ${isExiting ? 'opacity-0 translate-x-10 scale-95' : 'opacity-100 translate-x-0 scale-100'}
             ${getStyles()}
         `}>
-            <div className="flex-shrink-0 mr-3">
+            <div className="flex-shrink-0 mr-3" aria-hidden="true">
                 {getIcon()}
             </div>
             <div className="flex-1 font-medium text-sm">
                 {message}
             </div>
-            <button 
+            <button
                 onClick={handleClose}
-                className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Dismiss notification"
+                className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
             </button>
         </div>
     );
