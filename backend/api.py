@@ -280,6 +280,25 @@ def safe_enum(enum_class, value, default):
     except (KeyError, ValueError, TypeError):
         return default
 
+def _require_verified_email():
+    """
+    Returns (ok, response). ok=False with a 403 JSON response when the caller's
+    email is not verified — used to gate expensive free AI features against
+    scripted unverified-signup abuse (the rotating-IP multi-account gap that
+    per-IP limiting can't fully close). Google/OAuth sign-ins arrive verified,
+    so this only adds friction for unverified password signups. Premium-gated
+    endpoints (ask_advisor) and auto-fired ones (health_brief) skip this.
+    """
+    if getattr(request, 'email_verified', False):
+        return True, None
+    # `error` carries the friendly text (many components surface data.error directly);
+    # `code` is the machine-readable tag for components that want to offer a resend action.
+    return False, (jsonify({
+        'error': "Please verify your email to use AI features — check your inbox for the verification link.",
+        'code': 'email_unverified'
+    }), 403)
+
+
 def is_user_authorized(uid, email=None):
     """
     Checks if a user is authorized based on Firestore 'whitelist' collection.
@@ -2321,6 +2340,9 @@ def upload_statement():
             
     # AI Fallback Path (PDFs, Images, and unrecognized CSVs) — Claude vision/document
     # ARCH-4: Rate Limiting specific to expensive AI features. fail_closed (Claude call).
+    _ok, _resp = _require_verified_email()
+    if not _ok:
+        return _resp
     if not check_rate_limit(request.uid, 'extract_statement', limit_per_hour=10, fail_closed=True):
         return jsonify({'error': "Upload limit reached. Please try again later."}), 429
     if not check_ip_rate_limit('extract_statement', limit_per_hour=30):
@@ -2423,6 +2445,9 @@ def upload_statement():
 def extract_document():
     # ARCH-4: Rate Limiting specific to expensive AI features. fail_closed so a
     # Firestore outage pauses (not uncaps) the most expensive endpoint we have.
+    _ok, _resp = _require_verified_email()
+    if not _ok:
+        return _resp
     if not check_rate_limit(request.uid, 'extract_doc', limit_per_hour=20, fail_closed=True):
         return jsonify({'error': "Extraction limit reached. Please try again later."}), 429
     if not check_ip_rate_limit('extract_doc', limit_per_hour=50):
@@ -2837,6 +2862,9 @@ def delete_goal(goal_id):
 @app.route('/api/goals/ai_guidance', methods=['POST'])
 @auth_required  # SEC: was @token_required — Claude text call; reject guests
 def goal_ai_guidance():
+    _ok, _resp = _require_verified_email()
+    if not _ok:
+        return _resp
     if not check_rate_limit(request.uid, 'goal_guidance', limit_per_hour=15, fail_closed=True):
         return jsonify({'error': 'Rate limit reached. Please wait before requesting more guidance.'}), 429
     if not check_ip_rate_limit('goal_guidance', limit_per_hour=40):
@@ -2955,6 +2983,9 @@ def _normalize_card_key(s: str) -> str:
 def get_card_summary():
     """Return an AI-generated No-BS summary for a credit card. Cached per user
     in /users/{uid}/card_summaries/{normalized_key} for 30 days."""
+    _ok, _resp = _require_verified_email()
+    if not _ok:
+        return _resp
     if not check_rate_limit(request.uid, 'card_summary', limit_per_hour=10, fail_closed=True):
         return jsonify({'error': 'Rate limit reached. Try again later.'}), 429
     if not check_ip_rate_limit('card_summary', limit_per_hour=30):

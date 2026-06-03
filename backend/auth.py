@@ -30,12 +30,15 @@ def token_required(f):
             decoded_token = auth.verify_id_token(id_token)
             request.uid = decoded_token['uid']
             request.email = decoded_token.get('email', '')
+            # email_verified gates expensive AI features against scripted
+            # unverified-signup abuse. Google/OAuth sign-ins arrive verified.
+            request.email_verified = bool(decoded_token.get('email_verified', False))
         except Exception as e:
             # If token is provided but invalid, we reject it
             return jsonify({'message': 'Token is invalid!', 'error': str(e)}), 401
-        
+
         return f(*args, **kwargs)
-    
+
     return decorated
 
 def auth_required(f):
@@ -54,9 +57,10 @@ def auth_required(f):
             decoded_token = auth.verify_id_token(id_token)
             request.uid = decoded_token['uid']
             request.email = decoded_token.get('email', '')
+            request.email_verified = bool(decoded_token.get('email_verified', False))
         except Exception as e:
             return jsonify({'message': 'Token is invalid!', 'error': str(e)}), 401
-        
+
         return f(*args, **kwargs)
-    
+
     return decorated

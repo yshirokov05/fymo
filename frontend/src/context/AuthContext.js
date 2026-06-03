@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    signOut, 
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
     onAuthStateChanged,
     GoogleAuthProvider,
     signInWithPopup,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    sendEmailVerification
 } from 'firebase/auth';
 import { auth } from '../firebase/config';
 import { track } from '../analytics';
@@ -23,7 +24,20 @@ export function AuthProvider({ children }) {
 
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password)
-            .then((cred) => { track('sign_up', { method: 'password' }); return cred; });
+            .then((cred) => {
+                track('sign_up', { method: 'password' });
+                // Fire the verification email so AI features (gated on
+                // email_verified server-side) can be unlocked. Best-effort.
+                try { sendEmailVerification(cred.user); } catch (_e) { /* non-fatal */ }
+                return cred;
+            });
+    }
+
+    function resendVerification() {
+        if (auth.currentUser) {
+            return sendEmailVerification(auth.currentUser);
+        }
+        return Promise.reject(new Error('Not signed in'));
     }
 
     function login(email, password) {
@@ -65,7 +79,8 @@ export function AuthProvider({ children }) {
         signup,
         loginWithGoogle,
         logout,
-        resetPassword
+        resetPassword,
+        resendVerification
     };
 
     return (
