@@ -33,6 +33,12 @@ firebase functions:secrets:set BACKUP_BUCKET
 # → paste:  personal-finance-app-18cbc-firestore-backups
 ```
 
+**6. Add `"BACKUP_BUCKET"` back into the `_SECRETS` list in `backend/main.py`.**
+It was removed so the deploy wouldn't fail on an uncreated secret; now that the
+secret exists, declaring it lets the function read it. (Declaring a secret that
+does NOT exist breaks the whole functions deploy — that's why this is a separate,
+after-creation step.)
+
 Then redeploy (push any commit, or `firebase deploy --only functions:scheduled_firestore_backup`).
 
 ## Verify it works

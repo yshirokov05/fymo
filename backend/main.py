@@ -7,14 +7,22 @@ from firebase_functions import https_fn, scheduler_fn
 # Shared secret list — keep in sync between HTTP and scheduled functions.
 # RESEND_API_KEY is optional: brief delivery no-ops if it's unset, so the
 # project deploys cleanly before the secret is configured.
+# IMPORTANT: every name listed here MUST already exist in Google Secret Manager,
+# or the functions deploy fails with "secret not found" (this broke deploys
+# #149–#151). Only add a name here AFTER creating the secret:
+#     firebase functions:secrets:set NAME
+#
+# SENTRY_DSN and BACKUP_BUCKET are intentionally NOT listed yet — they haven't
+# been created, and the code no-ops cleanly without them. To enable later:
+#   1) firebase functions:secrets:set SENTRY_DSN     (or BACKUP_BUCKET)
+#   2) add the name to this list
+#   3) redeploy
 _SECRETS = [
     "PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ENV", "PLAID_REDIRECT_URI",
     "GEMINI_API_KEY", "ANTHROPIC_API_KEY",
     "FERNET_KEY",
     "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID",
     "RESEND_API_KEY", "BRIEF_FROM_EMAIL",
-    "SENTRY_DSN",
-    "BACKUP_BUCKET",
 ]
 
 
@@ -28,7 +36,9 @@ def _init_sentry():
     if _sentry_started:
         return
     dsn = os.environ.get("SENTRY_DSN", "").strip()
-    if not dsn:
+    # Require a real DSN (Sentry DSNs are https URLs). Anything else — empty,
+    # or a placeholder — is treated as "off" so init never errors on junk.
+    if not dsn.startswith("http"):
         return
     _sentry_started = True
     try:
