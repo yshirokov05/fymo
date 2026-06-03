@@ -97,7 +97,45 @@ def _markdown_to_html(md: str) -> str:
     return '\n'.join(out)
 
 
-def _wrap_email_html(brief_html: str, user_first_name: str = '') -> str:
+# CAN-SPAM: every recurring/commercial email MUST carry a valid physical postal
+# address. REPLACE this placeholder before enabling email delivery — a fake or
+# missing address is itself a CAN-SPAM violation. A PO box or registered-agent
+# address is acceptable; you don't have to use a home address.
+PHYSICAL_MAILING_ADDRESS = "[YOUR MAILING ADDRESS — REQUIRED BEFORE ENABLING EMAIL]"
+
+
+def _unsubscribe_serializer():
+    from itsdangerous import URLSafeSerializer
+    secret = os.environ.get('FERNET_KEY', '') or 'fymo-unsub-fallback'
+    return URLSafeSerializer(secret, salt='morning-brief-unsubscribe')
+
+
+def make_unsubscribe_token(user_id: str) -> str:
+    try:
+        return _unsubscribe_serializer().dumps(user_id)
+    except Exception:
+        return ''
+
+
+def verify_unsubscribe_token(token: str):
+    """Return the user_id encoded in a valid unsubscribe token, else None."""
+    if not token:
+        return None
+    try:
+        return _unsubscribe_serializer().loads(token)
+    except Exception:
+        return None
+
+
+def unsubscribe_url_for(user_id: str) -> str:
+    """Non-expiring, signed, no-login unsubscribe link for CAN-SPAM compliance."""
+    tok = make_unsubscribe_token(user_id)
+    if not tok:
+        return "https://projectfymo.com"
+    return f"https://projectfymo.com/api/morning_brief/unsubscribe?token={tok}"
+
+
+def _wrap_email_html(brief_html: str, user_first_name: str = '', unsubscribe_url: str = 'https://projectfymo.com') -> str:
     """Wrap the brief in a minimal email shell. Inline styles only for client compatibility."""
     greeting = f"Good morning{(' ' + user_first_name) if user_first_name else ''},"
     return f"""<!DOCTYPE html>
@@ -116,8 +154,12 @@ def _wrap_email_html(brief_html: str, user_first_name: str = '') -> str:
       </td></tr>
       <tr><td style="padding:24px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center">
         <a href="https://projectfymo.com" style="font-family:-apple-system,sans-serif;color:#2563eb;text-decoration:none;font-size:13px;font-weight:600">Open Fymo →</a>
-        <div style="font-family:-apple-system,sans-serif;color:#9ca3af;font-size:11px;margin-top:12px">
-          You're receiving this because you enabled daily morning briefs in <a href="https://projectfymo.com" style="color:#6b7280">Settings</a>.
+        <div style="font-family:-apple-system,sans-serif;color:#9ca3af;font-size:11px;margin-top:12px;line-height:1.6">
+          You're receiving this because you enabled daily morning briefs in Settings.<br/>
+          <a href="{unsubscribe_url}" style="color:#6b7280;text-decoration:underline">Unsubscribe</a>
+          &nbsp;·&nbsp;
+          <a href="https://projectfymo.com" style="color:#6b7280;text-decoration:underline">Manage email preferences</a>
+          <div style="margin-top:8px;color:#b0b6c0">Fymo · {PHYSICAL_MAILING_ADDRESS}</div>
         </div>
       </td></tr>
     </table>
@@ -163,10 +205,14 @@ def generate_brief_markdown_for_user(user_id: str) -> str:
     return ''
 
 
-def send_brief(to_email: str, brief_markdown: str, user_first_name: str = '') -> bool:
+def send_brief(to_email: str, brief_markdown: str, user_first_name: str = '', unsubscribe_url: str = 'https://projectfymo.com') -> bool:
     """
     Send one user's brief. Returns True on success, False on (logged) failure.
     No-op + returns False when Resend isn't configured.
+
+    CAN-SPAM: includes a visible unsubscribe link + physical address in the body
+    (via _wrap_email_html) AND machine-readable List-Unsubscribe headers so Gmail/
+    Apple Mail render a native one-click unsubscribe button.
     """
     resend = _resend_client()
     if resend is None:
@@ -177,7 +223,7 @@ def send_brief(to_email: str, brief_markdown: str, user_first_name: str = '') ->
 
     from_addr = os.environ.get('BRIEF_FROM_EMAIL', 'Fymo <briefs@projectfymo.com>')
     subject = f"Your Fymo morning brief · {date.today().strftime('%b %-d')}"
-    body_html = _wrap_email_html(_markdown_to_html(brief_markdown), user_first_name)
+    body_html = _wrap_email_html(_markdown_to_html(brief_markdown), user_first_name, unsubscribe_url)
 
     try:
         resend.Emails.send({
@@ -185,6 +231,11 @@ def send_brief(to_email: str, brief_markdown: str, user_first_name: str = '') ->
             'to': [to_email],
             'subject': subject,
             'html': body_html,
+            'headers': {
+                # RFC 8058 one-click unsubscribe — required by Gmail/Yahoo bulk-sender rules.
+                'List-Unsubscribe': f'<{unsubscribe_url}>',
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+            },
         })
         logging.info(f"[brief_delivery] sent to {to_email}")
         return True
@@ -243,7 +294,7 @@ def run_scheduled_delivery():
                 skipped += 1
                 continue
             first_name = (user_data.get('display_name') or '').split(' ')[0] if user_data.get('display_name') else ''
-            success = send_brief(to_email, md, first_name)
+            success = send_brief(to_email, md, first_name, unsubscribe_url=unsubscribe_url_for(uid))
             if success:
                 if delivery_ref:
                     try:

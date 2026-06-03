@@ -1,8 +1,9 @@
-import React from 'react';
-import { Shield, Database, Lock, Eye, Mail, Trash2, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, Database, Lock, Eye, Mail, Trash2, RefreshCw, BarChart2, CreditCard, Ban } from 'lucide-react';
+import { isAnalyticsOptedOut, setAnalyticsOptOut } from '../analytics';
 
-const Section = ({ icon, title, children }) => (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+const Section = ({ icon, title, children, id }) => (
+    <div id={id} className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
         <div className="flex items-center space-x-3 mb-3">
             <div className="text-blue-600 dark:text-blue-400">{icon}</div>
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{title}</h3>
@@ -14,13 +15,15 @@ const Section = ({ icon, title, children }) => (
 );
 
 const PrivacyPolicy = () => {
+    const [optedOut, setOptedOut] = useState(isAnalyticsOptedOut());
+
     return (
         <div className="space-y-6 max-w-4xl mx-auto pb-12">
             <div>
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-slate-700 pb-4">Privacy Policy</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Effective Date: April 10, 2026 · Last Updated: April 10, 2026</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Effective Date: June 2, 2026 · Last Updated: June 2, 2026</p>
                 <p className="text-gray-600 dark:text-gray-300 mt-4 leading-relaxed">
-                    Fymo ("Fymo", "we", "our", or "us") is operated by Yury Shirokov as a solo project. This Privacy Policy describes what data we collect, why we collect it, how it is stored and protected, and your rights regarding that data. By using Fymo, you agree to the practices described in this policy.
+                    Fymo ("Fymo", "we", "our", or "us") is operated by Yury Shirokov as a sole proprietorship. This Privacy Policy describes what data we collect, why we collect it, how it is stored and protected, and your rights regarding that data. By using Fymo, you agree to the practices described in this policy.
                 </p>
             </div>
 
@@ -30,7 +33,7 @@ const PrivacyPolicy = () => {
                     <p><strong className="text-gray-800 dark:text-gray-100">Financial data you enter:</strong> Assets, debts, income sources, insurance policies, budgets, and paystubs that you manually input into the app.</p>
                     <p><strong className="text-gray-800 dark:text-gray-100">Bank-synced data (if you connect via Plaid):</strong> Account balances, transaction history, and investment holdings fetched through your linked financial institutions. We never see or store your bank username or password.</p>
                     <p><strong className="text-gray-800 dark:text-gray-100">Billing data:</strong> If you subscribe, Stripe processes your payment. We store only your Stripe customer ID and subscription ID — never your full card number.</p>
-                    <p><strong className="text-gray-800 dark:text-gray-100">Usage data:</strong> Basic request logs (timestamps, error messages) used solely for debugging. No behavioral analytics or tracking cookies.</p>
+                    <p><strong className="text-gray-800 dark:text-gray-100">Analytics &amp; usage data:</strong> We use Google Analytics (GA4) to understand aggregate, anonymized product usage — which features are used and where users drop off in signup. We have configured Google Analytics to <em>disable advertising signals and ad personalization and to anonymize IP addresses</em>, so this data is not used for cross-context behavioral advertising. We also keep basic server request logs (timestamps, error messages) for debugging.</p>
                 </Section>
 
                 <Section icon={<Lock size={22} />} title="How We Store and Protect Your Data">
@@ -40,25 +43,40 @@ const PrivacyPolicy = () => {
                 </Section>
 
                 <Section icon={<Eye size={22} />} title="How We Use Your Data">
-                    <p>We use your data exclusively to provide the Fymo service to you:</p>
+                    <p>We use your data to provide and improve the Fymo service:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
                         <li>Displaying your net worth, budgets, tax estimates, and financial summaries</li>
                         <li>Syncing transactions and balances from your linked bank accounts via Plaid</li>
                         <li>Generating AI-powered financial insights via Anthropic&apos;s Claude API (your data is sent to Claude solely to produce your personalized summary — Anthropic does not use API inputs to train their models under our commercial API agreement)</li>
                         <li>Processing your subscription payment via Stripe</li>
+                        <li>Measuring aggregate product usage via Google Analytics (anonymized; opt-out below)</li>
                     </ul>
-                    <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">We do not sell, rent, share, or monetize your personal or financial data in any form.</strong></p>
+                    <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">We do not sell your personal or financial data for money, and we never share your financial data (balances, transactions, holdings) with advertisers.</strong> See the California section below for how we treat analytics under the CPRA definition of "sale/share."</p>
+                </Section>
+
+                <Section icon={<BarChart2 size={22} />} title="Cookies &amp; Tracking">
+                    <p>Fymo uses essential cookies/local storage required for authentication and app function. We use Google Analytics, which sets analytics cookies to measure aggregate usage. We do not use third-party advertising or retargeting cookies.</p>
+                    <p>You can opt out of analytics at any time using the control in the California section below, or by enabling your browser's "Global Privacy Control" (GPC) signal, which we honor.</p>
                 </Section>
 
                 <Section icon={<Shield size={22} />} title="Third-Party Services">
                     <p>Fymo uses the following third-party services, each subject to their own privacy policies:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
-                        <li><strong className="text-gray-800 dark:text-gray-100">Google Firebase & Firestore</strong> — Authentication and database hosting (Google Privacy Policy)</li>
-                        <li><strong className="text-gray-800 dark:text-gray-100">Plaid</strong> — Bank account connectivity (Plaid Privacy Policy). Plaid is subject to its own data practices with your financial institution.</li>
-                        <li><strong className="text-gray-800 dark:text-gray-100">Stripe</strong> — Payment processing (Stripe Privacy Policy)</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Google Firebase &amp; Firestore</strong> — Authentication and database hosting</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Plaid</strong> — Bank account connectivity. Plaid is subject to its own data practices with your financial institution.</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Stripe</strong> — Payment processing</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Anthropic Claude API</strong> — AI financial guidance and document extraction (paystubs, statements, insurance PDFs, check images). Data sent to Claude is limited to a sanitized financial summary or the uploaded document, and is not used for model training per Anthropic's API terms.</li>
-                        <li><strong className="text-gray-800 dark:text-gray-100">Yahoo Finance</strong> — Real-time asset price lookups (no personal data sent)</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Google Analytics (GA4)</strong> — Aggregate, anonymized product analytics (ad signals disabled). Subject to opt-out below.</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Resend</strong> — Transactional/opt-in email delivery (e.g. the Morning Brief, if you enable it)</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Yahoo Finance / Stooq</strong> — Asset price lookups (no personal data sent)</li>
                     </ul>
+                </Section>
+
+                <Section icon={<CreditCard size={22} />} title="Subscriptions, Cancellation &amp; Refunds" id="cancellation">
+                    <p>Fymo Premium is billed at $9.99/month through Stripe. Your subscription renews automatically each month until you cancel.</p>
+                    <p><strong className="text-gray-800 dark:text-gray-100">How to cancel:</strong> Go to <em>Settings → Manage Subscription</em> to open the Stripe customer portal, then cancel in one click. You may cancel at any time, for any reason.</p>
+                    <p><strong className="text-gray-800 dark:text-gray-100">What happens when you cancel:</strong> You keep Premium access through the end of your current paid billing period, after which the subscription ends and you are not charged again. We do not provide prorated refunds for partial months, except where required by law.</p>
+                    <p>If you believe you were charged in error, contact us at the email below and we will work with you in good faith.</p>
                 </Section>
 
                 <Section icon={<RefreshCw size={22} />} title="Data Retention">
@@ -66,22 +84,42 @@ const PrivacyPolicy = () => {
                     <p>If you wish to have your entire account and all associated data deleted, contact us at the email below and we will process it within 30 days.</p>
                 </Section>
 
+                <Section icon={<Ban size={22} />} title="California Privacy Rights (CCPA / CPRA) — Do Not Sell or Share" id="do-not-sell">
+                    <p>Under the California Consumer Privacy Act (as amended by the CPRA), the use of analytics services like Google Analytics may be considered a "sale" or "sharing" of personal information, even when no money changes hands. We do not sell your data for money and we disable Google's advertising features — but to give you full control, you may opt out of all analytics collection here:</p>
+                    <div className="mt-3 flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                        <div>
+                            <p className="font-bold text-gray-800 dark:text-gray-100">Do Not Sell or Share My Personal Information</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{optedOut ? 'You are currently opted OUT of analytics.' : 'Analytics is currently ON (anonymized).'}</p>
+                        </div>
+                        <button
+                            onClick={() => { setAnalyticsOptOut(!optedOut); setOptedOut(!optedOut); }}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${optedOut ? 'bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                        >
+                            {optedOut ? 'Re-enable analytics' : 'Opt out'}
+                        </button>
+                    </div>
+                    <p className="mt-3">We also honor the <strong className="text-gray-800 dark:text-gray-100">Global Privacy Control (GPC)</strong> browser signal. Your other California rights are listed below.</p>
+                </Section>
+
                 <Section icon={<Trash2 size={22} />} title="Your Rights (CCPA / GDPR)">
                     <p>Depending on where you live, you may have the following rights regarding your data:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
-                        <li><strong className="text-gray-800 dark:text-gray-100">Right to access:</strong> Request a copy of the data we hold about you</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Right to access / know:</strong> Request a copy of the data we hold about you</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Right to deletion:</strong> Request permanent deletion of your account and all associated data</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Right to portability:</strong> Request your financial data in a portable format</li>
-                        <li><strong className="text-gray-800 dark:text-gray-100">Right to opt out:</strong> Disconnect your bank accounts at any time via the Settings page</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Right to correct:</strong> Request correction of inaccurate personal information</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Right to opt out of sale/share:</strong> Use the control above, or disconnect your bank accounts anytime via Settings</li>
+                        <li><strong className="text-gray-800 dark:text-gray-100">Right to non-discrimination:</strong> We will not deny service or charge you differently for exercising these rights</li>
                     </ul>
-                    <p className="mt-2">California residents: Under CCPA, you have the right to know what personal information we collect and the right to request its deletion. We do not sell personal information.</p>
+                    <p className="mt-2">To exercise any of these rights, email us at the address below. We will respond to verified requests within 30 days. You may designate an authorized agent to make a request on your behalf.</p>
                 </Section>
 
                 <Section icon={<Mail size={22} />} title="Contact">
                     <p>For any privacy-related questions, data requests, or concerns, contact:</p>
                     <p className="mt-2">
-                        <strong className="text-gray-800 dark:text-gray-100">Yury Shirokov</strong><br />
-                        <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">yshirokov05@gmail.com</a>
+                        <strong className="text-gray-800 dark:text-gray-100">Yury Shirokov — Fymo</strong><br />
+                        <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">yshirokov05@gmail.com</a><br />
+                        <span className="text-gray-500 dark:text-gray-400">[MAILING ADDRESS — add a PO box or business address before launch]</span>
                     </p>
                     <p className="mt-2 text-xs text-gray-500">We will respond to all verified data requests within 30 days.</p>
                 </Section>

@@ -991,6 +991,39 @@ def update_morning_brief_preferences():
     return jsonify({'success': True, 'enabled': enabled})
 
 
+@app.route('/api/morning_brief/unsubscribe', methods=['GET', 'POST'])
+def morning_brief_unsubscribe():
+    """
+    CAN-SPAM / RFC-8058 one-click unsubscribe. NO AUTH by design — the whole point
+    is that a recipient can opt out without logging in. The signed token encodes
+    the uid; we verify it and flip morning_brief_email.enabled = False. GET returns
+    a confirmation page; POST (List-Unsubscribe-Post one-click) returns 200.
+    """
+    token = request.args.get('token') or (request.form.get('token') if request.form else None)
+    from brief_delivery_service import verify_unsubscribe_token
+    uid = verify_unsubscribe_token(token)
+    if not uid:
+        return ("<html><body style='font-family:sans-serif;text-align:center;padding:60px'>"
+                "<h2>Invalid or expired unsubscribe link.</h2>"
+                "<p>You can manage email preferences in your Fymo settings.</p></body></html>",
+                400, {'Content-Type': 'text/html'})
+    try:
+        db = get_db()
+        if db:
+            db.collection('users').document(uid).set(
+                {'morning_brief_email': {'enabled': False}}, merge=True)
+    except Exception as e:
+        logging.error(f"unsubscribe write failed for {uid}: {e}")
+    if request.method == 'POST':
+        return ('', 200)  # one-click; mail client doesn't render a body
+    return ("<html><body style='font-family:-apple-system,sans-serif;text-align:center;padding:60px;color:#111827'>"
+            "<h2>You're unsubscribed.</h2>"
+            "<p style='color:#6b7280'>You will no longer receive Fymo morning brief emails. "
+            "You can re-enable them anytime in Settings.</p>"
+            "<a href='https://projectfymo.com' style='color:#2563eb'>Return to Fymo</a></body></html>",
+            200, {'Content-Type': 'text/html'})
+
+
 @app.route('/api/morning_brief/send_test', methods=['POST'])
 @token_required
 def send_test_morning_brief():
@@ -1003,7 +1036,7 @@ def send_test_morning_brief():
     if not _resend_key or not _resend_key.startswith('re_'):
         return jsonify({'error': 'Email service not configured. RESEND_API_KEY must be a real Resend key (starts with re_).'}), 503
 
-    from brief_delivery_service import send_brief, generate_brief_markdown_for_user
+    from brief_delivery_service import send_brief, generate_brief_markdown_for_user, unsubscribe_url_for
 
     doc = _get_user_doc(request.uid) or {}
     prefs = doc.get('morning_brief_email') or {}
@@ -1015,7 +1048,7 @@ def send_test_morning_brief():
         md = generate_brief_markdown_for_user(request.uid)
         if not md:
             return jsonify({'error': 'Brief generation returned empty content.'}), 500
-        ok = send_brief(to_email, md)
+        ok = send_brief(to_email, md, unsubscribe_url=unsubscribe_url_for(request.uid))
         if not ok:
             return jsonify({'error': 'Send failed — check function logs.'}), 502
         return jsonify({'success': True, 'sent_to': to_email})

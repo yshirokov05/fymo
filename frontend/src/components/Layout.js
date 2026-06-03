@@ -56,6 +56,10 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-slate-950 overflow-hidden">
+            {/* A11y: keyboard skip-link — first focusable element, jumps past nav to content */}
+            <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:bg-blue-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:font-bold">
+                Skip to main content
+            </a>
             {/* Desktop Sidebar */}
             <div className="hidden md:flex md:w-56 bg-slate-950 text-white flex-shrink-0 flex-col border-r border-slate-800/60">
                 <div className="px-5 py-5 flex items-center justify-between">
@@ -109,8 +113,8 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                     <div className="relative w-full max-w-xs bg-gray-900 text-white flex flex-col h-full shadow-xl">
                         <div className="p-6 flex items-center justify-between border-b border-gray-800">
                             <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Fymo</span>
-                            <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white">
-                                <X size={24} />
+                            <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Close navigation menu" className="text-gray-400 hover:text-white">
+                                <X size={24} aria-hidden="true" />
                             </button>
                         </div>
                         <nav className="flex-1 mt-6 px-4 space-y-2 overflow-y-auto pb-20">
@@ -156,15 +160,15 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
             <div className="flex-1 flex flex-col overflow-hidden bg-gray-50 dark:bg-slate-900 relative">
                 {/* Mobile Top Bar */}
                 <header className="md:hidden bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
-                    <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center space-x-1">
-                        <Menu size={24} />
+                    <button onClick={() => setIsMobileMenuOpen(true)} aria-label="Open navigation menu" aria-expanded={isMobileMenuOpen} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center space-x-1">
+                        <Menu size={24} aria-hidden="true" />
                         <span className="text-xs font-bold uppercase tracking-tight">Menu</span>
                     </button>
                     <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>Fymo</span>
                     <div className="w-16"></div>
                 </header>
 
-                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+                <main id="main-content" tabIndex={-1} aria-label="Main content" className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
                     <div className="max-w-7xl mx-auto">
                         {children}
                     </div>

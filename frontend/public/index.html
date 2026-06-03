@@ -123,13 +123,28 @@
 
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!-- Google Analytics GA4 -->
+    <!-- Google Analytics GA4 — privacy-hardened for CCPA/CPRA.
+         Ad signals + ad personalization are disabled and IP is anonymized, so
+         the data is NOT used for cross-context behavioral advertising (the thing
+         that triggers "sale/share" classification under CPRA). A user opt-out
+         ("Do Not Sell or Share My Personal Information") flips Google's standard
+         kill-switch BEFORE any hit fires. -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DPMJ663964"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      try {
+        // Honor an explicit opt-out OR the browser Global Privacy Control signal.
+        if (localStorage.getItem('fymo-analytics-optout') === '1' || navigator.globalPrivacyControl === true) {
+          window['ga-disable-G-DPMJ663964'] = true;
+        }
+      } catch (e) { /* localStorage blocked — proceed with default config */ }
       gtag('js', new Date());
-      gtag('config', 'G-DPMJ663964');
+      gtag('config', 'G-DPMJ663964', {
+        anonymize_ip: true,
+        allow_google_signals: false,
+        allow_ad_personalization_signals: false
+      });
     </script>
   </head>
   <body>

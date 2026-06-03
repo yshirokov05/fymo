@@ -18,7 +18,7 @@ const TermsOfService = () => {
         <div className="space-y-6 max-w-4xl mx-auto pb-12">
             <div>
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-slate-700 pb-4">Terms of Service</h2>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Effective Date: April 10, 2026 · Last Updated: April 10, 2026</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Effective Date: June 2, 2026 · Last Updated: June 2, 2026</p>
                 <p className="text-gray-600 dark:text-gray-300 mt-4 leading-relaxed">
                     These Terms of Service ("Terms") govern your use of Fymo, operated by Yury Shirokov. By creating an account or using the service, you agree to be bound by these Terms. If you do not agree, do not use the service.
                 </p>
@@ -50,12 +50,13 @@ const TermsOfService = () => {
 
                 <Section icon={<CreditCard size={22} />} title="3. Subscription & Billing">
                     <p>Fymo offers a free tier and a Premium subscription at <strong className="text-gray-800 dark:text-gray-100">$9.99/month</strong>, billed via Stripe.</p>
+                    <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">Automatic renewal:</strong> Your Premium subscription <strong className="text-gray-800 dark:text-gray-100">automatically renews every month</strong> and your payment method is charged $9.99 each billing cycle until you cancel. There is no fixed end date unless you cancel.</p>
+                    <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">How to cancel:</strong> Open <em>Settings → Manage Subscription</em> to launch the Stripe customer portal, where you can cancel in one click at any time, for any reason — no email or phone call required. You can do this immediately after subscribing.</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
-                        <li>Subscriptions are billed monthly on the anniversary of your sign-up date</li>
-                        <li>You may cancel at any time via Settings → Account → Cancel Subscription. Your access continues until the end of the current billing period</li>
-                        <li>We do not offer refunds for partial billing periods</li>
-                        <li>Pricing may change with 30 days' notice. Continued use after a price change constitutes acceptance</li>
-                        <li>Failed payments may result in suspension of Premium features until the payment method is updated</li>
+                        <li>When you cancel, you keep Premium access through the end of the current paid period; you are not charged again afterward.</li>
+                        <li>We do not provide prorated refunds for partial billing periods, except where required by law.</li>
+                        <li>Pricing may change with at least 30 days' notice. Continued use after a price change constitutes acceptance.</li>
+                        <li>Failed payments may result in suspension of Premium features until the payment method is updated.</li>
                     </ul>
                     <p className="mt-2">All payment processing is handled by Stripe. Fymo does not store your credit card information.</p>
                 </Section>
@@ -98,15 +99,29 @@ const TermsOfService = () => {
                     <p>The financial data you enter remains yours. We claim no ownership over your personal financial data.</p>
                 </Section>
 
-                <Section icon={<FileText size={22} />} title="9. Governing Law">
+                <Section icon={<Scale size={22} />} title="9. Copyright Complaints & Takedown">
+                    <p>We respect intellectual-property rights. If you believe any content made available through Fymo infringes your copyright, send a written notice to <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">yshirokov05@gmail.com</a> that includes:</p>
+                    <ul className="list-disc list-inside space-y-1 mt-2">
+                        <li>Your physical or electronic signature;</li>
+                        <li>Identification of the copyrighted work you claim has been infringed;</li>
+                        <li>Identification of the material that is claimed to be infringing and where it is located on the service;</li>
+                        <li>Your contact information (address, telephone number, and email);</li>
+                        <li>A statement that you have a good-faith belief that the use is not authorized by the copyright owner, its agent, or the law; and</li>
+                        <li>A statement, made under penalty of perjury, that the information in your notice is accurate and that you are the copyright owner or authorized to act on the owner's behalf.</li>
+                    </ul>
+                    <p className="mt-2">We will review valid notices and remove or disable access to allegedly infringing material where appropriate, and may terminate the accounts of repeat infringers. We will respond to counter-notices in accordance with applicable law.</p>
+                </Section>
+
+                <Section icon={<Scale size={22} />} title="10. Governing Law">
                     <p>These Terms are governed by the laws of the State of California, United States, without regard to conflict of law principles. Any disputes shall be resolved in the courts of California.</p>
                 </Section>
 
-                <Section icon={<Mail size={22} />} title="10. Contact">
+                <Section icon={<Mail size={22} />} title="11. Contact">
                     <p>For questions about these Terms, contact:</p>
                     <p className="mt-2">
-                        <strong className="text-gray-800 dark:text-gray-100">Yury Shirokov</strong><br />
-                        <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">yshirokov05@gmail.com</a>
+                        <strong className="text-gray-800 dark:text-gray-100">Yury Shirokov — Fymo</strong><br />
+                        <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">yshirokov05@gmail.com</a><br />
+                        <span className="text-gray-500 dark:text-gray-400">[MAILING ADDRESS — add a PO box or business address before launch]</span>
                     </p>
                 </Section>
             </div>
