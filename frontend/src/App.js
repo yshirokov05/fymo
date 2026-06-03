@@ -327,6 +327,19 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setLoading(false);
         setError(null);
     } catch (error) {
+        // 409 = optimistic-concurrency conflict: another tab or a Plaid sync
+        // saved while this edit was open. Don't clobber — reload the latest
+        // state and tell the user to re-apply, so no data is silently lost.
+        if (error.response?.status === 409) {
+            showToast(
+                error.response.data?.message || "Your data changed elsewhere — reloading the latest. Please re-apply your edit.",
+                "error"
+            );
+            setIsModalOpen(false);
+            await fetchData();
+            setLoading(false);
+            return;
+        }
         const msg = error.response?.data?.error || error.message;
         showToast(msg, "error");
         setError(msg);

@@ -6,7 +6,7 @@ from flask_cors import CORS
 from price_service import get_current_price, get_multiple_prices, validate_ticker
 from calculations import calculate_net_worth
 from models import User, Income, Asset, Debt, AssetType, RetirementAccount, AccountType, Insurance, InsuranceFrequency, HourlyType, PlaidItem, Budget, Transaction, Paystub, IncomeType, FilingStatus, USState, TaxTreatment, DebtType, EmploymentType
-from firestore_db import get_user_data, save_user_data, get_db, wipe_user_subcollections, save_feedback
+from firestore_db import get_user_data, save_user_data, get_db, wipe_user_subcollections, save_feedback, ConcurrentModificationError
 from auth import token_required, auth_required
 import uuid
 import plaid_service
@@ -1207,6 +1207,10 @@ def update_portfolio():
     data = request.get_json()
     uid = "demo_user" if request.uid == "guest" else request.uid
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=uid)
+    # OCC: snapshot the doc version at read time. If another writer (second tab,
+    # Plaid sync) commits before our save, save_user_data raises and we 409 instead
+    # of silently clobbering their write.
+    _rev_at_read = getattr(user, 'rev', 0)
     # Capture current paystubs before modifications (used to detect deletions below)
     _paystubs_before_save_ids = {p.id for p in paystubs}
     _paystubs_before_save_map = {p.id: p for p in paystubs}
@@ -1425,7 +1429,16 @@ def update_portfolio():
         except Exception as _e:
             logging.error(f"Failed to delete paystubs from subcollection: {_e}")
 
-    save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid)
+    try:
+        save_user_data(user, incomes, assets, debts, retirement_accounts, insurances, plaid_items=plaid_items, budgets=budgets, transactions=transactions, paystubs=paystubs, custom_rules=custom_rules, has_completed_onboarding=has_completed_onboarding, custom_categories=custom_categories, outstanding_checks=outstanding_checks, ignored_flexible=ignored_flexible, user_id=uid, expected_rev=_rev_at_read)
+    except ConcurrentModificationError:
+        # Another writer (second tab or a Plaid sync) committed since we read.
+        # Refuse to clobber — tell the client to refetch and retry.
+        logging.warning(f"Concurrent modification on portfolio save for {uid}; returning 409")
+        return jsonify({
+            'error': 'conflict',
+            'message': "Your data was updated elsewhere (another tab or a bank sync). Reloading the latest — please re-apply your change."
+        }), 409
 
     price_map = get_multiple_prices([a.ticker for a in assets])
     

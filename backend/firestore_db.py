@@ -66,6 +66,21 @@ def _empty_user_data():
     """Default UserData instance for missing/error cases."""
     return UserData(user=User(filing_status=FilingStatus.SINGLE, state=USState.CA))
 
+
+class ConcurrentModificationError(Exception):
+    """
+    Raised by save_user_data when the user document changed since the caller
+    read it (optimistic concurrency control). Lets the API return 409 Conflict
+    instead of silently overwriting a concurrent edit — the core fix for the
+    "I edited my assets and they vanished" data-loss class.
+    """
+    def __init__(self, current_rev=None, expected_rev=None):
+        self.current_rev = current_rev
+        self.expected_rev = expected_rev
+        super().__init__(
+            f"Concurrent modification: stored rev {current_rev} != expected {expected_rev}"
+        )
+
 # SEC-2: Encryption for Plaid tokens at rest
 # In production, set FERNET_KEY in your environment/Secret Manager
 # Deep sanitise to remove any internal or trailing newlines (\n or \r)
@@ -174,6 +189,9 @@ def get_user_data(user_id="default_user", fields=None):
     )
     
     user.investment_history = data.get('investment_history')
+    # Optimistic-concurrency version. Stashed on the user object (like
+    # investment_history) so callers that tuple-unpack still get it via `user.rev`.
+    user.rev = data.get('rev', 0) or 0
 
     custom_categories = data.get('custom_categories', [])
     ignored_flexible = data.get('ignored_flexible', [])
@@ -318,10 +336,20 @@ def get_user_data(user_id="default_user", fields=None):
     )
 
 def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances,
-                   plaid_items=None, budgets=None, transactions=None, paystubs=None, custom_rules=None, 
-                   has_completed_onboarding=None, custom_categories=None, outstanding_checks=None, 
-                   ignored_flexible=None, user_id="default_user"):
-    """Saves state to Firestore using subcollections for transactions/paystubs and encrypting Plaid tokens."""
+                   plaid_items=None, budgets=None, transactions=None, paystubs=None, custom_rules=None,
+                   has_completed_onboarding=None, custom_categories=None, outstanding_checks=None,
+                   ignored_flexible=None, user_id="default_user", expected_rev=None):
+    """Saves state to Firestore using subcollections for transactions/paystubs and encrypting Plaid tokens.
+
+    Concurrency: the top-level user document (which holds assets, debts, incomes,
+    budgets, etc.) is written inside a Firestore transaction that bumps a `rev`
+    counter. When `expected_rev` is provided, the write is rejected with
+    ConcurrentModificationError if the stored rev no longer matches — i.e. another
+    writer (a second browser tab, or a Plaid sync) committed since the caller read
+    the data. This prevents silent last-writer-wins clobbering of user edits.
+    Callers that don't pass expected_rev get an atomic last-writer-wins write that
+    still bumps rev (so interactive callers can detect the change). Returns new rev.
+    """
     if plaid_items is None: plaid_items = []
     if budgets is None: budgets = []
     if transactions is None: transactions = []
@@ -476,8 +504,23 @@ def save_user_data(user, incomes, assets, debts, retirement_accounts, insurances
         'stripe_customer_id': getattr(user, 'stripe_customer_id', None),
         'stripe_subscription_id': getattr(user, 'stripe_subscription_id', None)
     }
-    user_ref.set(data, merge=True)
-    logging.info(f"Successfully saved encrypted state for {user_id}")
+    # Transactional commit with optimistic-concurrency rev check. Reads the
+    # current rev inside the transaction; if expected_rev was supplied and no
+    # longer matches, abort with ConcurrentModificationError (→ 409 at the API).
+    @firestore.transactional
+    def _commit(txn):
+        snap = user_ref.get(transaction=txn)
+        current_rev = (snap.to_dict() or {}).get('rev', 0) if snap.exists else 0
+        current_rev = current_rev or 0
+        if expected_rev is not None and current_rev != expected_rev:
+            raise ConcurrentModificationError(current_rev, expected_rev)
+        data['rev'] = current_rev + 1
+        txn.set(user_ref, data, merge=True)
+        return current_rev + 1
+
+    new_rev = _commit(db.transaction())
+    logging.info(f"Successfully saved encrypted state for {user_id} (rev {new_rev})")
+    return new_rev
 
 def wipe_user_subcollections(user_id):
     """Deletes all documents in transactions and paystubs subcollections for a user."""
