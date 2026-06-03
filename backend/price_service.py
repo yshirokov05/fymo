@@ -12,11 +12,56 @@ CACHE_TTL_SECONDS = 300 # 5 minutes
 _period_returns_cache = {}
 PERIOD_RETURNS_TTL_SECONDS = 300
 
+def _stooq_fallback(ticker_symbol):
+    """Keyless secondary price source for when yfinance is throttled or down.
+    Uses Stooq's light CSV quote endpoint (no API key). Daily change is a rough
+    Open→Close proxy since the light endpoint carries no previous close.
+    Returns a price dict or None. Best-effort — never raises."""
+    import requests, csv, io
+    sym = (ticker_symbol or '').lower().strip()
+    if not sym:
+        return None
+    # Stooq suffixes US equities/ETFs with `.us`; try that first, then bare symbol.
+    for s in (f"{sym}.us", sym):
+        try:
+            url = f"https://stooq.com/q/l/?s={s}&f=sd2t2ohlcv&h&e=csv"
+            resp = requests.get(url, timeout=4)
+            if resp.status_code != 200:
+                continue
+            rows = list(csv.DictReader(io.StringIO(resp.text)))
+            if not rows:
+                continue
+            row = rows[0]
+            close = row.get('Close')
+            if close in (None, '', 'N/D'):
+                continue
+            price = float(close)
+            if price <= 0:
+                continue
+            try:
+                open_p = float(row.get('Open') or 0)
+            except (ValueError, TypeError):
+                open_p = 0
+            chg_usd = round(price - open_p, 2) if open_p > 0 else 0.0
+            chg_pct = round((chg_usd / open_p) * 100, 2) if open_p > 0 else 0.0
+            logging.info(f"[price] {ticker_symbol}: served from Stooq fallback (${price})")
+            return {
+                'current_price': round(price, 2),
+                'daily_change_usd': chg_usd,
+                'daily_change_percent': chg_pct,
+                'sector': 'Other',
+            }
+        except Exception:
+            continue
+    return None
+
+
 def get_current_price(ticker_symbol):
     """
     Fetches the current market price and daily change for a given ticker symbol using yfinance.
     Returns a dict with current_price, daily_change_usd, daily_change_percent.
-    Uses an in-memory cache to avoid redundant hits.
+    Uses an in-memory cache to avoid redundant hits. Falls back to Stooq when
+    yfinance returns nothing (it's an unofficial scraper that breaks periodically).
     """
     import yfinance as yf
     
@@ -47,9 +92,12 @@ def get_current_price(ticker_symbol):
         ticker = yf.Ticker(ticker_symbol)
         # Fetch 2 days to get previous close
         hist = ticker.history(period='2d')
-        
+
         if hist.empty or len(hist) < 1:
-            return None
+            fb = _stooq_fallback(ticker_symbol)
+            if fb:
+                _price_cache[ticker_symbol] = (time.time(), fb)
+            return fb
             
         current_price = float(hist['Close'].iloc[-1])
         
@@ -89,7 +137,11 @@ def get_current_price(ticker_symbol):
         
     except Exception as e:
         logging.error(f"Error fetching price for {ticker_symbol}: {e}")
-        return None
+        # yfinance failed — try the keyless Stooq fallback before giving up.
+        fb = _stooq_fallback(ticker_symbol)
+        if fb:
+            _price_cache[ticker_symbol] = (time.time(), fb)
+        return fb
 
 def get_multiple_prices(tickers):
     """

@@ -142,23 +142,32 @@ def asset_to_dict(asset, price_map=None):
     daily_change_usd = 0.0
     daily_change_percent = 0.0
     sector = 'Financial Services'
-    
+    price_unavailable = False
+
     # If it's not a basic cash account, try to get price and sector
     if (asset.asset_type not in [AssetType.CASH, AssetType.HOUSING, AssetType.SAVINGS, AssetType.CHECKING, AssetType.HIGH_YIELD_SAVINGS] and not is_cash_ticker):
         if price_map and asset.ticker in price_map:
             p_data = price_map[asset.ticker]
         else:
             p_data = get_current_price(asset.ticker)
-            
-        if p_data:
+
+        if p_data and p_data.get('current_price'):
             current_price = p_data.get('current_price', 1.0)
             daily_change_usd = p_data.get('daily_change_usd', 0.0)
             daily_change_percent = p_data.get('daily_change_percent', 0.0)
             sector = p_data.get('sector', 'Other')
+        else:
+            # Graceful degradation: yfinance AND the Stooq fallback both failed.
+            # Show cost basis (per share) as the price so the position's value ≈
+            # what was paid, instead of collapsing to $1.00/share. Flagged so the
+            # UI can show a "price unavailable" indicator.
+            current_price = asset.cost_basis if (asset.cost_basis or 0) > 0 else 1.0
+            sector = 'Other'
+            price_unavailable = True
     else:
         # It IS a cash/checking/savings asset
         sector = 'Financial Services'
-            
+
     return {
         'ticker': asset.ticker,
         'shares': asset.shares,
@@ -168,6 +177,7 @@ def asset_to_dict(asset, price_map=None):
         'current_price': current_price,
         'daily_change_usd': daily_change_usd,
         'daily_change_percent': daily_change_percent,
+        'price_unavailable': price_unavailable,
         'sector': sector,
         'retirement_account_id': getattr(asset, 'retirement_account_id', None),
         'plaid_account_id': getattr(asset, 'plaid_account_id', None),
