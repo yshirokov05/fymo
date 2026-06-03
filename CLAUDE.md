@@ -128,12 +128,13 @@ All writes are read-modify-write. There are currently no Firestore transactions.
 ### 8. Paystub Net-Primary Flag
 Plaid auto-detected paystubs have `is_net_primary=True`. Their `gross_amount` is actually the net deposit. `calculations.py` excludes these from gross income to avoid taxing already-taxed money. The tax card shows N/A when all payroll data is net-primary and no manual gross income exists.
 
-### 9. Rate Limiting
-All expensive endpoints use the Firestore-based `check_rate_limit(uid, action, limit_per_hour)` pattern. Current limits:
-- AI Analyst: 20/hr
-- Goal AI Guidance: 15/hr
+### 9. Rate Limiting & cost-abuse defense
+All expensive endpoints use the Firestore-based `check_rate_limit(uid, action, limit_per_hour, fail_closed=False)` pattern. The limiter is **transactional** (Firestore `@firestore.transactional` — fixes the prior read-modify-write race) and supports **fail-closed** mode. Current limits:
+- AI Analyst (`ask_advisor`): 20/hr — also `@auth_required` + premium-gated (`is_user_authorized`)
+- Goal AI Guidance: 15/hr · Statement extract: 10/hr · Document extract: 20/hr · Card summary: 10/hr · Health brief: 40/hr
 - Plaid Sync: 15/hr
-- Morning/Health Brief: per-endpoint limits in `advisor_service.py`
+
+**CRITICAL RULE: any endpoint that calls Claude or Plaid MUST use `@auth_required` (NOT `@token_required`) and pass `fail_closed=True` to `check_rate_limit`.** `@token_required` admits unauthenticated requests as `uid="guest"`, and guests skip the limiter — so a Claude endpoint on `@token_required` is an open, unmetered cost vector. This was a real vuln (fixed 2026-05-15, see `docs/SECURITY_AUDIT.md`). `MAX_CONTENT_LENGTH` is 10 MB to cap upload-based vision cost. A provider-side monthly spend cap in the Anthropic Console is the required backstop.
 
 ## Known Technical Debt (Do Not Introduce More)
 

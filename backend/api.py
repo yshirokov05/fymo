@@ -21,6 +21,11 @@ import diagnostics_service
 from concurrent.futures import ThreadPoolExecutor
 
 app = Flask(__name__)
+# SEC: Cap request bodies at 10 MB. Without this, the (formerly guest-reachable)
+# document-upload endpoints accept arbitrarily large files, maximizing Claude
+# vision token cost per call and risking memory exhaustion. Bank statements /
+# paystub photos are well under this. Flask returns 413 automatically when exceeded.
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 CORS(app, supports_credentials=True, resources={r"/api/*": {
     "origins": [
         "https://personal-finance-app-18cbc.web.app",
@@ -45,37 +50,67 @@ def get_diagnostics():
     return jsonify(diagnostics_service.get_secret_diagnostics())
 
 # ARCH-4: Simple Firestore-based rate limiting
-def check_rate_limit(uid, action, limit_per_hour=20):
+def check_rate_limit(uid, action, limit_per_hour=20, fail_closed=False):
     """
     Checks if a user has exceeded the hourly limit for a specific action.
-    Uses Firestore for persistence across serverless instances.
+    Uses a Firestore TRANSACTION for persistence + atomicity across serverless
+    instances.
+
+    Two hardening changes over the original implementation:
+      • Transactional read-modify-write. The previous version did a plain
+        get() then set(), so N concurrent requests all read the same count,
+        all passed the check, and all wrote — letting an attacker blow past
+        a "20/hr" cap by firing requests in parallel. The transaction
+        serializes the increment and retries on contention.
+      • fail_closed flag. The original returned True (allow) whenever
+        Firestore was unavailable — a fail-OPEN cost control, which is
+        backwards. Expensive Claude/Plaid endpoints pass fail_closed=True so
+        a Firestore blip pauses spend instead of uncapping it. Cheap demo
+        reads (net_worth) keep the lenient default so the demo never breaks.
+
+    Note: guests are skipped here, but every EXPENSIVE endpoint now rejects
+    guests at the decorator (@auth_required) BEFORE reaching this function,
+    so the guest skip only applies to cheap, non-AI demo routes.
     """
-    if uid == "guest": return True # Skip for guests on non-sensitive routes
-    
+    if uid == "guest":
+        return True  # Demo-mode reads only; expensive routes are @auth_required
+
     db = get_db()
-    if not db: return True
-    
+    if not db:
+        return not fail_closed  # fail_closed → deny when DB unavailable
+
     now = datetime.utcnow()
     one_hour_ago = now - timedelta(hours=1)
-    
-    # Store/Update usage in a dedicated subcollection or document
-    # Using a document per user/action for simplicity
     limit_ref = db.collection('rate_limits').document(f"{uid}_{action}")
-    doc = limit_ref.get()
-    
-    usage = []
-    if doc.exists:
-        data = doc.to_dict()
-        # Filter only timestamps within the last hour
-        usage = [t for t in data.get('calls', []) if t.replace(tzinfo=None) > one_hour_ago]
-    
-    if len(usage) >= limit_per_hour:
-        return False
-        
-    # Add current call and save
-    usage.append(now)
-    limit_ref.set({'calls': usage})
-    return True
+
+    def _to_naive(t):
+        # Firestore returns tz-aware datetimes; normalize for comparison.
+        try:
+            return t.replace(tzinfo=None) if hasattr(t, 'replace') else None
+        except Exception:
+            return None
+
+    @firestore.transactional
+    def _run(transaction):
+        snap = limit_ref.get(transaction=transaction)
+        usage = []
+        if snap.exists:
+            data = snap.to_dict() or {}
+            for t in data.get('calls', []):
+                n = _to_naive(t)
+                if n and n > one_hour_ago:
+                    usage.append(t)
+        if len(usage) >= limit_per_hour:
+            return False
+        usage.append(now)
+        transaction.set(limit_ref, {'calls': usage})
+        return True
+
+    try:
+        return _run(db.transaction())
+    except Exception as e:
+        logging.error(f"check_rate_limit transaction failed for {uid}_{action}: {e}")
+        return not fail_closed
 
 def asset_to_dict(asset, price_map=None):
     is_cash_ticker = asset.ticker in ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX']
@@ -2125,6 +2160,11 @@ def ask_advisor():
 @app.route('/api/health_brief', methods=['GET'])
 @auth_required
 def get_health_brief():
+    # SEC: this fires a Claude call (generate_health_brief) but previously had NO
+    # rate limit — any logged-in account could spam it. 40/hr is generous for
+    # legitimate dashboard use (a few section fetches per load) while capping abuse.
+    if not check_rate_limit(request.uid, 'health_brief', limit_per_hour=40, fail_closed=True):
+        return jsonify({'error': "Brief limit reached. Please try again in a bit."}), 429
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     
     memory_string = get_contextual_memory(request.uid)
@@ -2197,9 +2237,9 @@ def process_extracted_transactions(new_transactions, uid):
     })
 
 @app.route('/api/upload_statement', methods=['POST'])
-@token_required
+@auth_required  # SEC: was @token_required — Claude vision/document; reject guests
 def upload_statement():
-    uid = "demo_user" if request.uid == "guest" else request.uid
+    uid = request.uid  # auth_required guarantees a real uid (guests rejected with 401)
     if 'file' not in request.files:
         return jsonify({'error': "No file part"}), 400
         
@@ -2225,8 +2265,8 @@ def upload_statement():
             file.seek(0)
             
     # AI Fallback Path (PDFs, Images, and unrecognized CSVs) — Claude vision/document
-    # ARCH-4: Rate Limiting specific to expensive AI features
-    if not check_rate_limit(request.uid, 'extract_statement', limit_per_hour=10):
+    # ARCH-4: Rate Limiting specific to expensive AI features. fail_closed (Claude call).
+    if not check_rate_limit(request.uid, 'extract_statement', limit_per_hour=10, fail_closed=True):
         return jsonify({'error': "Upload limit reached. Please try again later."}), 429
 
     import base64
@@ -2322,10 +2362,11 @@ def upload_statement():
                 pass
 
 @app.route('/api/extract-document', methods=['POST'])
-@token_required
+@auth_required  # SEC: was @token_required — Claude vision is the priciest call; reject guests
 def extract_document():
-    # ARCH-4: Rate Limiting specific to expensive AI features
-    if not check_rate_limit(request.uid, 'extract_doc', limit_per_hour=20):
+    # ARCH-4: Rate Limiting specific to expensive AI features. fail_closed so a
+    # Firestore outage pauses (not uncaps) the most expensive endpoint we have.
+    if not check_rate_limit(request.uid, 'extract_doc', limit_per_hour=20, fail_closed=True):
         return jsonify({'error': "Extraction limit reached. Please try again later."}), 429
         
     doc_type = request.form.get('doc_type', 'tax')
@@ -2735,9 +2776,9 @@ def delete_goal(goal_id):
 
 
 @app.route('/api/goals/ai_guidance', methods=['POST'])
-@token_required
+@auth_required  # SEC: was @token_required — Claude text call; reject guests
 def goal_ai_guidance():
-    if not check_rate_limit(request.uid, 'goal_guidance', limit_per_hour=15):
+    if not check_rate_limit(request.uid, 'goal_guidance', limit_per_hour=15, fail_closed=True):
         return jsonify({'error': 'Rate limit reached. Please wait before requesting more guidance.'}), 429
 
     data = request.get_json(silent=True) or {}
@@ -2849,11 +2890,11 @@ def _normalize_card_key(s: str) -> str:
 
 
 @app.route('/api/debts/card_summary', methods=['POST'])
-@token_required
+@auth_required  # SEC: was @token_required — Claude text call; reject guests
 def get_card_summary():
     """Return an AI-generated No-BS summary for a credit card. Cached per user
     in /users/{uid}/card_summaries/{normalized_key} for 30 days."""
-    if not check_rate_limit(request.uid, 'card_summary', limit_per_hour=10):
+    if not check_rate_limit(request.uid, 'card_summary', limit_per_hour=10, fail_closed=True):
         return jsonify({'error': 'Rate limit reached. Try again later.'}), 429
 
     data = request.get_json(silent=True) or {}
