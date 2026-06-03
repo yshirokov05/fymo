@@ -14,6 +14,7 @@ _SECRETS = [
     "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID",
     "RESEND_API_KEY", "BRIEF_FROM_EMAIL",
     "SENTRY_DSN",
+    "BACKUP_BUCKET",
 ]
 
 
@@ -124,3 +125,44 @@ def scheduled_morning_briefs(event):
         logging.info(f"scheduled_morning_briefs complete: {result}")
     except Exception:
         logging.error(f"scheduled_morning_briefs crashed: {traceback.format_exc()}")
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 9 * * *",  # daily 09:00 UTC
+    timezone=scheduler_fn.Timezone("UTC"),
+    region="us-west2",
+    memory=512,
+    timeout_sec=540,
+    secrets=_SECRETS,
+)
+def scheduled_firestore_backup(event):
+    """
+    Daily managed export of the entire Firestore database to a GCS bucket.
+    Insurance against a bad write / bug corrupting user data — exports are
+    restorable via `gcloud firestore import`.
+
+    No-ops unless BACKUP_BUCKET is set, so the function deploys cleanly before
+    the bucket exists. See docs/BACKUPS_SETUP.md for the one-time bucket + IAM
+    setup. Set a GCS lifecycle rule on the bucket to expire backups (e.g. 30d).
+    """
+    import datetime as _dt
+    bucket = os.environ.get("BACKUP_BUCKET", "").strip().replace("gs://", "").strip("/")
+    if not bucket:
+        logging.info("scheduled_firestore_backup: BACKUP_BUCKET unset, skipping")
+        return
+    _init_sentry()
+    try:
+        project_id = (
+            os.environ.get("GCLOUD_PROJECT")
+            or os.environ.get("GOOGLE_CLOUD_PROJECT")
+            or "personal-finance-app-18cbc"
+        )
+        from google.cloud import firestore_admin_v1
+        client = firestore_admin_v1.FirestoreAdminClient()
+        db_name = client.database_path(project_id, "(default)")
+        stamp = _dt.datetime.utcnow().strftime("%Y-%m-%d")
+        output_uri = f"gs://{bucket}/firestore-backups/{stamp}"
+        client.export_documents(request={"name": db_name, "output_uri_prefix": output_uri})
+        logging.info(f"scheduled_firestore_backup: export started → {output_uri}")
+    except Exception:
+        logging.error(f"scheduled_firestore_backup crashed: {traceback.format_exc()}")
