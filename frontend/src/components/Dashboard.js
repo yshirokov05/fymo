@@ -106,18 +106,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
         hasLinkedBank: false,  // can't infer from props
     };
     // --- Financial Health Metrics ---
-    // Auto-select the best available period on mount so we never show N/A by default.
-    // Preferred order: ytd → 1m → 1w → 1y → 2y → 5y → all
-    // If period_returns has no data at all, fall through to 'all' which uses cost-basis.
-    const [prPeriod, setPrPeriod] = useState(() => {
-        const pr = investmentHistory?.period_returns;
-        if (pr) {
-            for (const p of ['ytd', '1m', '1w', '1y', '2y', '5y']) {
-                if (pr[p] != null) return p;
-            }
-        }
-        return 'all';
-    });
+    // Default to "All" — the Total Return (current value vs cost basis), which is
+    // always accurate today. Period returns (1W/1M/…) come from daily snapshots and
+    // populate as history accumulates; landing on "All" avoids showing a
+    // "building history" state on first load.
+    const [prPeriod, setPrPeriod] = useState('all');
     const [prAccount, setPrAccount] = useState('all');
     const [showMath, setShowMath] = useState(false);
     const { isDark } = useTheme();
@@ -776,83 +769,72 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     allTimeRetDollar = curVal - costBasisForReturn;
                 }
 
-                // Period-specific return takes priority when available.
-                // If a non-"all" period is selected and we couldn't compute it, show N/A —
-                // do NOT silently swap to all-time return. Showing all-time when YTD is
-                // selected is misleading; users expect the headline to match the selector.
+                // ── Period return: snapshot-based, Vanguard-style market gain ───────
+                // gain$ = (value now) − (value at period start) − (net money you added),
+                // where net money added = buys − sells over the period (moving cash INTO
+                // securities raises the snapshot value without being a market gain).
+                // pct = gain$ / start value.
+                //
+                // This uses our own daily portfolio_snapshots — NOT the old per-ticker
+                // yfinance reconstruction, which produced garbage for thinly-traded small
+                // caps (UEC/ASM/USAS/PSIX) and the confusing N/A. When we don't yet have a
+                // snapshot near the period start, we honestly say "building history"
+                // instead of showing a wrong number.
                 const isAllPeriod = prPeriod === 'all';
-                const periodRetPct = (!isAllPeriod && ih?.period_returns?.[prPeriod] != null)
-                    ? ih.period_returns[prPeriod]
-                    : null;
-                const hasPeriodReturn = periodRetPct !== null;
-
-                // Coverage metadata: % of portfolio value that was priceable for this period
-                const periodCoverage = ih?.period_returns_coverage?.[prPeriod] ?? null;
-                const isPartialCoverage = periodCoverage !== null && periodCoverage < 50;
-
-                // ── Portfolio-history fallback ──────────────────────────────────────
-                // When the backend's per-ticker yfinance fetch can't price enough holdings
-                // for the selected window (most common for 1W when yfinance is throttled),
-                // fall back to our own daily portfolio_snapshots. Less mathematically pure
-                // than a TWR (mixes cash flows with returns) but vastly better than N/A,
-                // and accurate when there are no buys/sells in the period.
-                const fallbackPeriodReturn = (() => {
-                    if (isAllPeriod || hasPeriodReturn || !portfolioHistory || portfolioHistory.length < 2) {
-                        return null;
-                    }
-                    const latest = portfolioHistory[portfolioHistory.length - 1];
-                    if (!latest || !(latest.value > 0)) return null;
-                    // Resolve target date for this period
+                const periodResult = (() => {
+                    if (isAllPeriod || !portfolioHistory || portfolioHistory.length < 2) return null;
                     const today = new Date();
                     let target;
                     if (prPeriod === 'ytd') {
-                        target = new Date(today.getFullYear(), 0, 1);
+                        target = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
                     } else {
                         const days = { '1w': 7, '1m': 30, '1y': 365, '2y': 730, '5y': 1825 }[prPeriod];
                         if (!days) return null;
                         target = new Date(today);
-                        target.setDate(target.getDate() - days);
+                        target.setUTCDate(target.getUTCDate() - days);
                     }
                     const targetStr = target.toISOString().slice(0, 10);
-                    // Earliest snapshot on or after target date — only valid if it predates
-                    // latest by a meaningful gap, otherwise we'd be dividing today by itself.
-                    const start = portfolioHistory.find(h => h.date >= targetStr && h.date < latest.date);
-                    if (!start || !(start.value > 0)) return null;
-                    return ((latest.value - start.value) / start.value) * 100;
+                    const startSnap = portfolioHistory.find(h => h.date >= targetStr);
+                    if (!startSnap || !(startSnap.value > 0)) return null;
+                    // The earliest qualifying snapshot must be NEAR the period start, else we
+                    // don't actually have history covering this window (e.g. YTD selected but
+                    // our first snapshot is from last month → don't call it YTD).
+                    const startDate = new Date(startSnap.date + 'T00:00:00Z');
+                    const toleranceDays = prPeriod === '1w' ? 4 : prPeriod === '1m' ? 8 : 25;
+                    if ((startDate - target) / 86400000 > toleranceDays) return null;
+                    const Vs = startSnap.value;
+                    const Ve = curVal || portfolioHistory[portfolioHistory.length - 1].value;
+                    const netInvested = (selD.invested || 0) - (selD.proceeds || 0);
+                    const gain = Ve - Vs - netInvested;
+                    return { gain, pct: Vs > 0 ? (gain / Vs) * 100 : null, startDate: startSnap.date };
                 })();
-                const usingFallback = !hasPeriodReturn && fallbackPeriodReturn !== null && !isAllPeriod;
-                const periodMissing = !isAllPeriod && !hasPeriodReturn && !usingFallback;
+                const usingPeriodSnapshot = !isAllPeriod && periodResult !== null && periodResult.pct !== null;
 
                 // Final display values
-                let retPct, retDollar, returnLabel, returnTooltip;
-                if (periodMissing) {
-                    // Honest N/A: backend couldn't compute and we have no snapshot history.
-                    retPct = null;
-                    retDollar = null;
-                    returnLabel = `${PERIOD_LABELS[prPeriod]} unavailable`;
-                    returnTooltip = `Couldn't compute ${PERIOD_LABELS[prPeriod]} return — yfinance couldn't price enough holdings and we don't yet have ${PERIOD_LABELS[prPeriod]} of portfolio snapshots. Sync again or try a longer period.`;
-                } else if (hasPeriodReturn) {
-                    retPct = periodRetPct;
-                    retDollar = null;
-                    returnLabel = isPartialCoverage
-                        ? `${PERIOD_LABELS[prPeriod]} Return (${periodCoverage}% priced)`
-                        : `${PERIOD_LABELS[prPeriod]} Return`;
-                    returnTooltip = isPartialCoverage
-                        ? `Weighted return for ${PERIOD_LABELS[prPeriod]} based on ${periodCoverage}% of your portfolio by value — some holdings (e.g. thinly-traded or OTC stocks) couldn't be priced for this window and are excluded from the weighted average.`
-                        : `Weighted holding-period return for ${PERIOD_LABELS[prPeriod]}: each ticker's return is weighted by its current market value. Tickers without pricing data are excluded.`;
-                } else if (usingFallback) {
-                    retPct = fallbackPeriodReturn;
-                    retDollar = null;
-                    returnLabel = `${PERIOD_LABELS[prPeriod]} Return (approx)`;
-                    returnTooltip = `Backend per-ticker pricing was unavailable for this window, so this is computed from your portfolio-value snapshots: (current value − value at start of period) / start value. Does not account for buys/sells inside the window, so it's an approximation when you've been actively trading.`;
-                } else {
-                    // All period selected — show cost-basis-based all-time return
+                let retPct, retDollar, returnLabel, returnTooltip, retDollarLabel = 'unrealized';
+                let buildingHistory = false;
+                if (isAllPeriod) {
                     retPct = allTimeRetPct;
                     retDollar = allTimeRetDollar;
-                    returnLabel = retPct !== null ? 'All-Time Unrealized' : 'Return Unavailable';
+                    returnLabel = retPct !== null ? 'Total Return (unrealized)' : 'Return Unavailable';
                     returnTooltip = retPct !== null
-                        ? `Unrealized gain on your CURRENT holdings vs ${basisSource === 'institution' ? 'institution-reported' : 'manually entered'} cost basis. This is "what your positions are worth right now vs what you paid for them" — it does NOT include realized gains from past sales or dividends. For a true period-over-period return, click 1W/1M/YTD/etc.`
+                        ? `How much your current holdings are up versus what you paid (cost basis${basisSource === 'institution' ? ', reported by your brokerage' : ', entered manually'}). Holdings with no reported cost basis are excluded. This is unrealized — see "Total Profit" below for unrealized + realized + dividends combined.`
                         : (rejectionReason || 'Return could not be computed.');
+                } else if (usingPeriodSnapshot) {
+                    retPct = periodResult.pct;
+                    retDollar = periodResult.gain;
+                    retDollarLabel = `gained (${PERIOD_LABELS[prPeriod]})`;
+                    returnLabel = `${PERIOD_LABELS[prPeriod]} Return`;
+                    returnTooltip = `Market gain on your holdings over ${PERIOD_LABELS[prPeriod]}: value now − value at the start of the period − money you added (net buys). Computed from your daily portfolio snapshots since ${periodResult.startDate}.`;
+                } else {
+                    retPct = null;
+                    retDollar = null;
+                    buildingHistory = true;
+                    const firstSnap = (portfolioHistory && portfolioHistory.length) ? portfolioHistory[0].date : null;
+                    returnLabel = `${PERIOD_LABELS[prPeriod]} — building history`;
+                    returnTooltip = firstSnap
+                        ? `Period returns are computed from daily snapshots of your portfolio value. We've been tracking since ${firstSnap}, so ${PERIOD_LABELS[prPeriod]} unlocks once we have a snapshot from the start of that window. Your Total Return (click "All") and realized gains are accurate today.`
+                        : `Period returns need daily portfolio snapshots, which begin after your first sync. Check back as history builds — or click "All" for your total unrealized return now.`;
                 }
                 const pos = (retPct || 0) >= 0;
 
@@ -899,19 +881,19 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                     {returnLabel}
                                     <InfoTip size={11} className="text-gray-500" text={returnTooltip} />
                                 </p>
-                                {periodMissing && (
+                                {buildingHistory && (
                                     <button
                                         onClick={() => setPrPeriod('all')}
                                         className="text-xs text-blue-400 hover:text-blue-300 mt-1 underline underline-offset-2"
                                     >
-                                        See all-time return →
+                                        See total return →
                                     </button>
                                 )}
 
                                 {retDollar !== null && (
                                     <p className={`text-base font-bold mt-2 ${retDollar >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                         {retDollar >= 0 ? '+' : '-'}{fmt(retDollar)}
-                                        <span className="text-xs font-normal text-gray-500 ml-1">unrealized</span>
+                                        <span className="text-xs font-normal text-gray-500 ml-1">{retDollarLabel}</span>
                                     </p>
                                 )}
 
@@ -1025,7 +1007,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                 )}
 
                                 {/* Rejection warning — shown when guards tripped (corrupt data path) */}
-                                {rejectionReason && !hasPeriodReturn && (
+                                {rejectionReason && isAllPeriod && (
                                     <div className="mt-3 flex items-start gap-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                                         <AlertTriangle size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
                                         <p className="text-[11px] text-amber-200 leading-relaxed">{rejectionReason}</p>
@@ -1082,17 +1064,17 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                                 </>
                                             );
                                         })()}
-                                        {hasPeriodReturn && (
+                                        {usingPeriodSnapshot && (
                                             <div className="flex justify-between text-gray-400 pt-1.5 mt-1.5 border-t border-white/5">
                                                 <span>{PERIOD_LABELS[prPeriod]} Start Value</span>
-                                                <span className="text-blue-300">reconstructed</span>
+                                                <span className="text-blue-300">from snapshot</span>
                                             </div>
                                         )}
                                         <div className="pt-1.5 mt-1.5 border-t border-white/5 text-gray-500">
                                             <div className="text-[10px] leading-snug">
-                                                Formula: {hasPeriodReturn
-                                                    ? '(Current − Period-Start Value) / Period-Start Value × 100'
-                                                    : '(Current − Cost Basis) / Cost Basis × 100'}
+                                                Formula: {usingPeriodSnapshot
+                                                    ? '(Value now − Start value − Net buys) / Start value × 100'
+                                                    : '(Current Value − Cost Basis) / Cost Basis × 100'}
                                             </div>
                                         </div>
                                     </div>

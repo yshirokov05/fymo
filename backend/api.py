@@ -572,13 +572,15 @@ def get_categories_config():
 @app.route('/api/portfolio_history', methods=['GET'])
 @token_required
 def get_portfolio_history():
-    """Return last 90 portfolio_snapshots for the sparkline chart."""
+    """Return recent portfolio_snapshots for the trend chart + period-return math.
+    Up to 400 days so period returns (incl. 1Y) can use a real period-start snapshot
+    as history accumulates."""
     try:
         db = get_db()
         snaps = db.collection('users').document(request.uid) \
             .collection('portfolio_snapshots') \
             .order_by('date', direction=firestore.Query.DESCENDING) \
-            .limit(90) \
+            .limit(400) \
             .get()
         history = sorted(
             [{'date': d.get('date'), 'value': round(d.get('total_value', 0), 2)}
