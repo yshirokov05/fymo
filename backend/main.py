@@ -39,12 +39,22 @@ def api_func(req: https_fn.Request) -> https_fn.Response:
             return api.app.full_dispatch_request()
             
     except Exception:
-        # 3. Immortal Debugger: Return the actual traceback as JSON
-        error_info = {
-            "status": "CRASH",
-            "error": traceback.format_exc(),
-            "env_check": {k: len(os.environ.get(k, "")) for k in ["ANTHROPIC_API_KEY", "FERNET_KEY"]}
-        }
+        # SEC: full tracebacks are gated behind an opt-in flag. Returning
+        # traceback.format_exc() to clients by default leaks internal file
+        # paths, library versions, and code structure to anyone who can
+        # trigger a top-level crash. The traceback is always logged server-side
+        # (visible in Cloud Logging); set DEBUG_TRACEBACKS=1 only when you need
+        # it echoed back to the client while debugging a deploy.
+        tb = traceback.format_exc()
+        logging.error(f"Unhandled top-level crash: {tb}")
+        if os.environ.get("DEBUG_TRACEBACKS") == "1":
+            error_info = {
+                "status": "CRASH",
+                "error": tb,
+                "env_check": {k: len(os.environ.get(k, "")) for k in ["ANTHROPIC_API_KEY", "FERNET_KEY"]}
+            }
+        else:
+            error_info = {"status": "error", "error": "Internal server error."}
         return https_fn.Response(
             json.dumps(error_info),
             status=500,

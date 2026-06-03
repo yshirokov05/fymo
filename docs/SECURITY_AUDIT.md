@@ -37,14 +37,20 @@ Was `@auth_required` (good) but had no `check_rate_limit` at all — any logged-
 
 No `MAX_CONTENT_LENGTH` was set, so upload endpoints accepted arbitrarily large files (maximizing per-call Claude token cost + memory risk). Set `app.config['MAX_CONTENT_LENGTH'] = 10 MB`.
 
-### 🟡 MEDIUM — Account-creation bypass — OPEN (needs manual decision)
+### 🟡 MEDIUM — Account-creation bypass — PARTIALLY MITIGATED
 
-Even with per-`uid` limits, an attacker who scripts unlimited Firebase signups gets a fresh rate-limit bucket per account. Mitigations to consider:
-- Require **email verification** before expensive AI features are enabled.
-- Add **per-IP** rate limiting on the AI endpoints (extract `X-Forwarded-For` behind the Cloud Functions proxy).
-- Disable anonymous auth in the Firebase console if not used.
+Even with per-`uid` limits, an attacker who scripts unlimited Firebase signups gets a fresh rate-limit bucket per account.
 
-Not yet implemented — the Anthropic spend cap (below) is the backstop until then.
+- **DONE (2026-05-15):** Per-IP rate limiting added on all six AI endpoints via `check_ip_rate_limit()` (keyed on a salted SHA-256 hash of `X-Forwarded-For`, never the raw IP). Limits set ~2.5× the per-user cap so shared office/household NAT isn't hit by normal use. This catches the common single-source multi-account attack.
+- **Still open (defeats per-IP):** rotating-IP / proxy / botnet abuse. Real defenses: require **email verification** before AI features unlock; disable anonymous auth in Firebase if unused. The Anthropic spend cap is the final backstop.
+
+### 🟡 MEDIUM — Client-facing traceback leak — FIXED
+
+`main.py`'s top-level exception handler returned `traceback.format_exc()` to the client on any unhandled crash, leaking internal file paths, library versions, and code structure. Now gated behind `DEBUG_TRACEBACKS=1` (off by default); the traceback is always logged server-side to Cloud Logging instead. Only fired on import/context-level crashes (route errors are caught in `api.py`), so blast radius was limited.
+
+### 🐛 BUGFIX (not security) — advisor memory writes silently dropped — FIXED
+
+`ask_advisor`'s background reflection thread accessed `request.uid` *inside* the spawned daemon thread, where Flask's request context doesn't exist — so every memory write raised "working outside of request context" and was silently dropped. Bound `uid` to a local before starting the thread.
 
 ### 🟢 Verified SOUND (no action needed)
 
@@ -77,7 +83,8 @@ Do #1 today, regardless of anything else.
 
 ## Recommended follow-ups (not blocking)
 
-- Per-IP rate limiting on AI endpoints (defense against multi-account abuse).
-- Email-verification gate before AI features.
+- Email-verification gate before AI features unlock (defeats rotating-IP multi-account abuse that per-IP limiting can't catch).
 - Frontend: hide AI-feature buttons for guests so they get a "sign in" prompt instead of a 401 toast (UX polish; security is already enforced server-side).
 - Migrate the main user-doc save path (`save_user_data`) to transactions too — still read-modify-write (acknowledged tech debt).
+- `ADMIN_MIGRATION_KEY` is not a declared Cloud Functions secret, so `/api/admin/grant_premium` and `/api/admin/migrate_whitelist_to_subscribed` currently always return 403 (fail-closed — safe, but unusable). Declare it in `main.py` `_SECRETS` + set the secret if you want to use them.
+- `_sanitize_for_ai()` only strips non-printable chars; it does not redact PII. That's acceptable (per-user data isolation prevents cross-user leakage, and sending a user's own data to Claude is the product's function), but the CLAUDE.md description overstates it.

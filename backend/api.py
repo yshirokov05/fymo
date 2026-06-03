@@ -50,41 +50,23 @@ def get_diagnostics():
     return jsonify(diagnostics_service.get_secret_diagnostics())
 
 # ARCH-4: Simple Firestore-based rate limiting
-def check_rate_limit(uid, action, limit_per_hour=20, fail_closed=False):
+def _rate_limit_by_key(doc_key, limit_per_hour, fail_closed=False):
     """
-    Checks if a user has exceeded the hourly limit for a specific action.
-    Uses a Firestore TRANSACTION for persistence + atomicity across serverless
-    instances.
-
-    Two hardening changes over the original implementation:
-      • Transactional read-modify-write. The previous version did a plain
-        get() then set(), so N concurrent requests all read the same count,
-        all passed the check, and all wrote — letting an attacker blow past
-        a "20/hr" cap by firing requests in parallel. The transaction
-        serializes the increment and retries on contention.
-      • fail_closed flag. The original returned True (allow) whenever
-        Firestore was unavailable — a fail-OPEN cost control, which is
-        backwards. Expensive Claude/Plaid endpoints pass fail_closed=True so
-        a Firestore blip pauses spend instead of uncapping it. Cheap demo
-        reads (net_worth) keep the lenient default so the demo never breaks.
-
-    Note: guests are skipped here, but every EXPENSIVE endpoint now rejects
-    guests at the decorator (@auth_required) BEFORE reaching this function,
-    so the guest skip only applies to cheap, non-AI demo routes.
+    Core sliding-window limiter. Transactional read-modify-write against
+    rate_limits/{doc_key} so concurrent requests can't all pass the same
+    check (the old plain get()→set() let a parallel burst blow past the cap).
+    Returns True if the call is allowed (and records it), False if over limit.
+    On DB error: returns `not fail_closed` (deny when fail_closed=True).
     """
-    if uid == "guest":
-        return True  # Demo-mode reads only; expensive routes are @auth_required
-
     db = get_db()
     if not db:
-        return not fail_closed  # fail_closed → deny when DB unavailable
+        return not fail_closed
 
     now = datetime.utcnow()
     one_hour_ago = now - timedelta(hours=1)
-    limit_ref = db.collection('rate_limits').document(f"{uid}_{action}")
+    limit_ref = db.collection('rate_limits').document(doc_key)
 
     def _to_naive(t):
-        # Firestore returns tz-aware datetimes; normalize for comparison.
         try:
             return t.replace(tzinfo=None) if hasattr(t, 'replace') else None
         except Exception:
@@ -95,8 +77,7 @@ def check_rate_limit(uid, action, limit_per_hour=20, fail_closed=False):
         snap = limit_ref.get(transaction=transaction)
         usage = []
         if snap.exists:
-            data = snap.to_dict() or {}
-            for t in data.get('calls', []):
+            for t in (snap.to_dict() or {}).get('calls', []):
                 n = _to_naive(t)
                 if n and n > one_hour_ago:
                     usage.append(t)
@@ -109,8 +90,50 @@ def check_rate_limit(uid, action, limit_per_hour=20, fail_closed=False):
     try:
         return _run(db.transaction())
     except Exception as e:
-        logging.error(f"check_rate_limit transaction failed for {uid}_{action}: {e}")
+        logging.error(f"rate limit transaction failed for {doc_key}: {e}")
         return not fail_closed
+
+
+def check_rate_limit(uid, action, limit_per_hour=20, fail_closed=False):
+    """
+    Per-user hourly limit. Guests are skipped here, but every EXPENSIVE
+    endpoint rejects guests at the decorator (@auth_required) BEFORE reaching
+    this function, so the guest skip only applies to cheap, non-AI demo routes.
+
+    Pass fail_closed=True on Claude/Plaid endpoints so a Firestore blip pauses
+    spend instead of uncapping it.
+    """
+    if uid == "guest":
+        return True  # Demo-mode reads only; expensive routes are @auth_required
+    return _rate_limit_by_key(f"{uid}_{action}", limit_per_hour, fail_closed)
+
+
+def _client_ip():
+    """Best-effort client IP behind the Cloud Functions / Cloud Run proxy.
+    X-Forwarded-For is a comma-separated chain; the first entry is the
+    original client."""
+    xff = request.headers.get('X-Forwarded-For', '') or ''
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.remote_addr or ''
+
+
+def check_ip_rate_limit(action, limit_per_hour, fail_closed=True):
+    """
+    Per-IP hourly limit, applied IN ADDITION to the per-user limit on expensive
+    AI endpoints. Defends against scripted multi-account abuse from one source:
+    even with N freshly-created Firebase accounts, all calls from the same IP
+    share this bucket. Set higher than the per-user limit so legitimately
+    shared IPs (office/household NAT) aren't blocked by normal use.
+
+    The raw IP is never stored — only a salted SHA-256 hash (PII hygiene).
+    """
+    ip = _client_ip()
+    if not ip:
+        return True  # can't identify the source; per-user limit still applies
+    import hashlib
+    ip_hash = hashlib.sha256(f"fymo-rl::{ip}".encode()).hexdigest()[:24]
+    return _rate_limit_by_key(f"ip_{ip_hash}_{action}", limit_per_hour, fail_closed)
 
 def asset_to_dict(asset, price_map=None):
     is_cash_ticker = asset.ticker in ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX']
@@ -2095,9 +2118,11 @@ def ask_advisor():
     if not is_user_authorized(request.uid, getattr(request, 'email', None)):
         return jsonify({'error': "Access restricted to Premium accounts."}), 403
         
-    # ARCH-4: Strict Rate limit for AI Advisor (20 calls / hour)
-    if not check_rate_limit(request.uid, 'ask_advisor', limit_per_hour=20):
+    # ARCH-4: Strict Rate limit for AI Advisor (20 calls / hour) + per-IP backstop
+    if not check_rate_limit(request.uid, 'ask_advisor', limit_per_hour=20, fail_closed=True):
         return jsonify({'error': "AI Advisor limit reached. Please try again in an hour."}), 429
+    if not check_ip_rate_limit('ask_advisor', limit_per_hour=50):
+        return jsonify({'error': "Too many requests from your network. Please try again in an hour."}), 429
 
     data = request.get_json()
     user_prompt = data.get('prompt')
@@ -2122,12 +2147,17 @@ def ask_advisor():
     financial_data['contextual_memory'] = memory_string  # Persistent memory
 
     # 3. Reflection middleware (Background task — fire-and-forget)
+    # BUGFIX: capture uid in the request thread. `request` is context-local and
+    # is NOT available inside the spawned daemon thread — accessing request.uid
+    # there raised "working outside of request context" and silently dropped
+    # every memory write. Bind it to a local before the thread starts.
+    _reflect_uid = request.uid
     def reflect_and_save():
         import advisor_service as _adv
         new_fact = _adv.extract_user_memory(user_prompt, memory_string)
         if new_fact:
             firestore_db.save_user_memory(
-                user_id=request.uid,
+                user_id=_reflect_uid,
                 fact_id=new_fact.get('fact_id'),
                 category=new_fact.get('category'),
                 content=new_fact.get('content')
@@ -2165,6 +2195,8 @@ def get_health_brief():
     # legitimate dashboard use (a few section fetches per load) while capping abuse.
     if not check_rate_limit(request.uid, 'health_brief', limit_per_hour=40, fail_closed=True):
         return jsonify({'error': "Brief limit reached. Please try again in a bit."}), 429
+    if not check_ip_rate_limit('health_brief', limit_per_hour=100):
+        return jsonify({'error': "Too many requests from your network. Please try again in a bit."}), 429
     user, incomes, assets, debts, retirement_accounts, insurances, plaid_items, budgets, transactions, paystubs, custom_rules, has_completed_onboarding, custom_categories, outstanding_checks, ignored_flexible = get_user_data(user_id=request.uid)
     
     memory_string = get_contextual_memory(request.uid)
@@ -2268,6 +2300,8 @@ def upload_statement():
     # ARCH-4: Rate Limiting specific to expensive AI features. fail_closed (Claude call).
     if not check_rate_limit(request.uid, 'extract_statement', limit_per_hour=10, fail_closed=True):
         return jsonify({'error': "Upload limit reached. Please try again later."}), 429
+    if not check_ip_rate_limit('extract_statement', limit_per_hour=30):
+        return jsonify({'error': "Too many requests from your network. Please try again later."}), 429
 
     import base64
     import tempfile
@@ -2368,6 +2402,8 @@ def extract_document():
     # Firestore outage pauses (not uncaps) the most expensive endpoint we have.
     if not check_rate_limit(request.uid, 'extract_doc', limit_per_hour=20, fail_closed=True):
         return jsonify({'error': "Extraction limit reached. Please try again later."}), 429
+    if not check_ip_rate_limit('extract_doc', limit_per_hour=50):
+        return jsonify({'error': "Too many requests from your network. Please try again later."}), 429
         
     doc_type = request.form.get('doc_type', 'tax')
     
@@ -2780,6 +2816,8 @@ def delete_goal(goal_id):
 def goal_ai_guidance():
     if not check_rate_limit(request.uid, 'goal_guidance', limit_per_hour=15, fail_closed=True):
         return jsonify({'error': 'Rate limit reached. Please wait before requesting more guidance.'}), 429
+    if not check_ip_rate_limit('goal_guidance', limit_per_hour=40):
+        return jsonify({'error': 'Too many requests from your network. Please try again later.'}), 429
 
     data = request.get_json(silent=True) or {}
     goal = data.get('goal', {})
@@ -2896,6 +2934,8 @@ def get_card_summary():
     in /users/{uid}/card_summaries/{normalized_key} for 30 days."""
     if not check_rate_limit(request.uid, 'card_summary', limit_per_hour=10, fail_closed=True):
         return jsonify({'error': 'Rate limit reached. Try again later.'}), 429
+    if not check_ip_rate_limit('card_summary', limit_per_hour=30):
+        return jsonify({'error': 'Too many requests from your network. Try again later.'}), 429
 
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
