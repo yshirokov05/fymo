@@ -79,6 +79,20 @@ jobs:
         run: venv/bin/python -m py_compile main.py api.py models.py firestore_db.py auth.py
         working-directory: ./backend
 
+      # ── 6.5 Financial-math unit tests ────────────────────────────────────────
+      # Pure, deterministic tests (no network, no Firestore) covering the tax
+      # engine, net-worth/asset valuation, FIFO realized gains, tax-loss harvest,
+      # and the health score. A regression here = wrong financial numbers shown
+      # to users, so a failure must BLOCK the deploy.
+      - name: Run backend unit tests
+        run: |
+          venv/bin/python test_tax_logic.py
+          venv/bin/python test_calculations.py
+          venv/bin/python test_realized_gains.py
+          venv/bin/python test_tax_loss.py
+          venv/bin/python test_health_score.py
+        working-directory: ./backend
+
       # ── 7. Deploy to Firebase (hosting + functions) ──────────────────────────
       - name: Deploy to Firebase
         run: |
