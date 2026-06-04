@@ -53,6 +53,11 @@ _LIQUID_OR_FIXED_TYPES = {'CASH', 'SAVINGS', 'CHECKING', 'HIGH_YIELD_SAVINGS', '
 _BACKFILL_DAYS = 400
 _RECENT_SKIP_DAYS = 2  # don't overwrite the last ~2 days — those are live/near-live
 
+# Bump this when the reconstruction logic changes in a way that should force every
+# user's history to be rebuilt once (a version mismatch triggers a clean wipe+rebuild).
+# v2: rebuild anchored to CURRENT holdings + wipe stale/garbage snapshots.
+_BACKFILL_VERSION = 2
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PURE reconstruction core (no I/O — unit-tested in test_backfill.py)
@@ -194,22 +199,44 @@ def backfill_snapshots(user_id, assets, inv_txns, inv_sec_map, force=False):
 
     user_ref = db.collection('users').document(user_id)
 
-    # ── Run-once guard (self-healing) ───────────────────────────────────────
-    # Skip ONLY if a prior run actually populated history. A throttled run (yfinance
-    # returning empty) can finish having written ~nothing; we must re-run those, or
-    # the user is stuck at "building history" forever. So we gate on real snapshot
-    # count, not just the boolean flag.
+    # ── Run / re-run decision (self-healing) ────────────────────────────────
+    # Re-run when ANY of: never run; prior run wrote too little (throttled empty);
+    # the logic VERSION changed (forces a one-time clean rebuild after a fix); or the
+    # stored history is STALE. Staleness happens when securities are transferred IN
+    # after a prior backfill — transfers aren't 'buy' txns, so the old anchor missed
+    # them and the whole series sits ~30%+ below the real holdings value. We detect it
+    # by comparing the newest stored snapshot to current holdings' cost basis.
     if not force:
         try:
-            snap = user_ref.get()
-            if snap.exists and (snap.to_dict() or {}).get('snapshots_backfilled'):
-                existing_cnt = len(user_ref.collection('portfolio_snapshots').limit(40).get())
-                if existing_cnt >= 30:
-                    logging.info(f"[backfill] {user_id}: already backfilled ({existing_cnt}+ snapshots) — skipping")
-                    return 0
-                logging.info(f"[backfill] {user_id}: prior backfill left only {existing_cnt} snapshots — re-running")
+            doc = (user_ref.get().to_dict() or {})
         except Exception:
-            pass  # if the read fails, proceed — worst case we re-backfill once
+            doc = {}
+        done = bool(doc.get('snapshots_backfilled'))
+        ver = doc.get('snapshots_backfill_version', 0) or 0
+        if done and ver >= _BACKFILL_VERSION:
+            try:
+                newest = list(user_ref.collection('portfolio_snapshots')
+                              .order_by('date', direction=firestore.Query.DESCENDING).limit(1).get())
+                newest_val = float((newest[0].to_dict() or {}).get('total_value', 0)) if newest else 0.0
+            except Exception:
+                newest_val = 0.0
+            cost_basis_total = 0.0
+            for a in (assets or []):
+                try:
+                    if a.asset_type.name in _LIQUID_OR_FIXED_TYPES:
+                        continue
+                    if (a.ticker or '').upper().strip() in CASH_LIKE_TICKERS:
+                        continue
+                    cost_basis_total += float(a.shares or 0) * float(a.cost_basis or 0)
+                except Exception:
+                    continue
+            stale = cost_basis_total > 0 and newest_val < 0.8 * cost_basis_total
+            if not stale:
+                logging.info(f"[backfill] {user_id}: up to date (v{ver}, newest=${newest_val:,.0f}) — skipping")
+                return 0
+            logging.info(f"[backfill] {user_id}: STALE (newest=${newest_val:,.0f} vs cost_basis=${cost_basis_total:,.0f}) — rebuilding")
+        else:
+            logging.info(f"[backfill] {user_id}: (re)build needed (done={done}, ver={ver} < {_BACKFILL_VERSION})")
 
     signed_txns, txn_tickers = build_signed_txns(inv_txns, inv_sec_map)
     current_shares = build_current_shares(assets)
@@ -251,30 +278,42 @@ def backfill_snapshots(user_id, assets, inv_txns, inv_sec_map, force=False):
     # (or any 'transfer' txns / no-price tickers) tells us exactly where to fix.
     _log_accuracy_diag(user_id, inv_txns, current_shares, histories, reconstructed)
 
-    # Dates that already have an EXACT (live) snapshot — never overwrite those.
-    live_dates = set()
-    try:
-        existing = user_ref.collection('portfolio_snapshots').get()
-        for doc in existing:
-            if (doc.to_dict() or {}).get('source') == 'live':
-                live_dates.add(doc.id)
-    except Exception:
-        pass
-
-    # ── Persist (batched), skipping days that already have a live snapshot ──
     coll = user_ref.collection('portfolio_snapshots')
+
+    # ── WIPE existing snapshots before rebuilding ───────────────────────────
+    # This is a clean (re)build. Old snapshots may be STALE (anchored to pre-transfer
+    # holdings) or GARBAGE (old buggy 'live' writes on weekends that the trading-day
+    # backfill can't overwrite). Live snapshots for the most recent days regenerate
+    # on the next dashboard load via take_portfolio_snapshot.
+    wiped = 0
+    try:
+        existing = list(coll.get())
+        dbatch = db.batch()
+        dn = 0
+        for d in existing:
+            dbatch.delete(d.reference)
+            dn += 1
+            wiped += 1
+            if dn >= 450:
+                dbatch.commit()
+                dbatch = db.batch()
+                dn = 0
+        if dn > 0:
+            dbatch.commit()
+    except Exception as e:
+        logging.warning(f"[backfill] {user_id}: wipe failed (continuing): {e}")
+
+    # ── Persist reconstructed snapshots (batched) ───────────────────────────
     written = 0
     batch = db.batch()
     n = 0
     for dstr, value in reconstructed.items():
-        if dstr in live_dates:
-            continue
         batch.set(coll.document(dstr), {
             'date': dstr,
             'total_value': value,
             'source': 'backfill',
             'timestamp': firestore.SERVER_TIMESTAMP,
-        }, merge=True)
+        })
         n += 1
         written += 1
         if n >= 450:  # Firestore batch cap is 500 ops
@@ -286,8 +325,8 @@ def backfill_snapshots(user_id, assets, inv_txns, inv_sec_map, force=False):
 
     _mark_done(user_ref, firestore)
     logging.info(
-        f"[backfill] {user_id}: wrote {written} reconstructed snapshots "
-        f"({len(fetch_tickers)} tickers, {len(signed_txns)} txns, {len(live_dates)} live days preserved)"
+        f"[backfill] {user_id}: wiped {wiped}, wrote {written} reconstructed snapshots "
+        f"({len(fetch_tickers)} tickers, {len(signed_txns)} txns)"
     )
     return written
 
@@ -337,10 +376,12 @@ def _log_accuracy_diag(user_id, inv_txns, current_shares, histories, reconstruct
 
 
 def _mark_done(user_ref, firestore):
-    """Set the run-once flag so we don't re-backfill on every sync."""
+    """Record that the backfill ran (with its logic version) so we don't rebuild on
+    every sync — only when never-run, version-bumped, or detected stale."""
     try:
         user_ref.set({
             'snapshots_backfilled': True,
+            'snapshots_backfill_version': _BACKFILL_VERSION,
             'snapshots_backfilled_at': firestore.SERVER_TIMESTAMP,
         }, merge=True)
     except Exception as e:
