@@ -813,7 +813,12 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                     const toleranceDays = prPeriod === '1w' ? 4 : prPeriod === '1m' ? 8 : 25;
                     if ((startDate - target) / 86400000 > toleranceDays) return null;
                     const Vs = startSnap.value;
-                    const Ve = curVal || portfolioHistory[portfolioHistory.length - 1].value;
+                    // End value MUST use the same basis as the start value (the daily
+                    // snapshot series = non-cash holdings × price). Using ih.current_value
+                    // here instead mixes in cash-sweep/Plaid-basis dollars and inflates the
+                    // gain. The latest snapshot (written on this dashboard load) is the
+                    // consistent end value; fall back to curVal only if no snapshot exists.
+                    const Ve = (portfolioHistory[portfolioHistory.length - 1]?.value) || curVal;
                     const netInvested = (selD.invested || 0) - (selD.proceeds || 0);
                     const gain = Ve - Vs - netInvested;
                     // A 'backfill' start snapshot is a reconstructed estimate (vs 'live' = exact).
