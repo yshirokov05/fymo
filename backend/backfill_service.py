@@ -236,6 +236,14 @@ def backfill_snapshots(user_id, assets, inv_txns, inv_sec_map, force=False):
         logging.warning(f"[backfill] {user_id}: reconstruction produced no positive days")
         return 0
 
+    # ── Accuracy diagnostics ────────────────────────────────────────────────
+    # Logged (grep `[backfill-diag]`) so we can verify reconstruction against
+    # reality instead of asking the user to eyeball it. The key signal is `ratio`:
+    # reconstructing the most-recent day from shares×historical-price should be
+    # within a couple % of the user's actual current holdings value. A large gap
+    # (or any 'transfer' txns / no-price tickers) tells us exactly where to fix.
+    _log_accuracy_diag(user_id, inv_txns, current_shares, histories, reconstructed)
+
     # Dates that already have an EXACT (live) snapshot — never overwrite those.
     live_dates = set()
     try:
@@ -275,6 +283,50 @@ def backfill_snapshots(user_id, assets, inv_txns, inv_sec_map, force=False):
         f"({len(fetch_tickers)} tickers, {len(signed_txns)} txns, {len(live_dates)} live days preserved)"
     )
     return written
+
+
+def _log_accuracy_diag(user_id, inv_txns, current_shares, histories, reconstructed):
+    """Emit a structured accuracy report to the logs (best-effort, never raises).
+
+    This is the verification loop: after a sync, these lines reveal the real shape
+    of the user's data — which txn types exist, whether transferred-in positions are
+    present, which tickers lack historical prices, and how close a reconstructed
+    recent day is to the actual current holdings value (`ratio` ≈ 1.0 = sound)."""
+    try:
+        from collections import Counter
+        type_counts = Counter()
+        transfer_count = 0
+        for t in (inv_txns or []):
+            ty = (t.get('type') or '').lower()
+            st = (t.get('subtype') or '').lower()
+            type_counts[ty or st or 'unknown'] += 1
+            if 'transfer' in ty or 'transfer' in st:
+                transfer_count += 1
+
+        latest_price = {}
+        for tk, h in histories.items():
+            if h:
+                latest_price[tk] = h[max(h.keys())]
+
+        current_value_est = sum(sh * latest_price.get(tk, 0.0) for tk, sh in current_shares.items())
+        no_price = [tk for tk, sh in current_shares.items() if sh > 1e-9 and not latest_price.get(tk)]
+        recon_latest_date = max(reconstructed.keys()) if reconstructed else None
+        recon_latest_val = reconstructed.get(recon_latest_date, 0.0) if recon_latest_date else 0.0
+        ratio = (recon_latest_val / current_value_est) if current_value_est else 0.0
+
+        logging.info(
+            f"[backfill-diag] {user_id}: txn_types={dict(type_counts)} transfers={transfer_count} | "
+            f"current_holdings_est=${current_value_est:,.0f} "
+            f"recon_latest({recon_latest_date})=${recon_latest_val:,.0f} ratio={ratio:.3f} | "
+            f"no_price_tickers={no_price}"
+        )
+        for tk in sorted(current_shares):
+            logging.info(
+                f"[backfill-diag] {user_id}:   {tk}: shares={current_shares[tk]:.4f} "
+                f"latest_price=${latest_price.get(tk, 0.0):.2f}"
+            )
+    except Exception as e:
+        logging.warning(f"[backfill-diag] {user_id}: diagnostics failed: {e}")
 
 
 def _mark_done(user_ref, firestore):
