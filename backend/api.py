@@ -582,14 +582,23 @@ def get_portfolio_history():
             .order_by('date', direction=firestore.Query.DESCENDING) \
             .limit(400) \
             .get()
-        history = sorted(
-            [{'date': d.get('date'), 'value': round(d.get('total_value', 0), 2),
-              # 'backfill' = reconstructed estimate, 'live' = exact (live prices).
-              # Defaults to 'live' for legacy snapshots written before the source flag.
-              'source': d.get('source', 'live')}
-             for d in snaps if d.get('date') and d.get('total_value', 0) > 0],
-            key=lambda x: x['date']
-        )
+        # NOTE: `d` is a Firestore DocumentSnapshot, whose .get() takes ONLY a field
+        # path — NOT a default. `d.get('total_value', 0)` raises "takes 2 positional
+        # arguments but 3 were given", which silently emptied this endpoint (the real
+        # reason period returns showed N/A forever). Convert to a plain dict first.
+        history = []
+        for d in snaps:
+            doc = d.to_dict() or {}
+            date = doc.get('date')
+            val = doc.get('total_value', 0)
+            if date and val and val > 0:
+                history.append({
+                    'date': date,
+                    'value': round(val, 2),
+                    # 'backfill' = reconstructed estimate, 'live' = exact. Default 'live' for legacy.
+                    'source': doc.get('source', 'live'),
+                })
+        history.sort(key=lambda x: x['date'])
         return jsonify({'history': history})
     except Exception as e:
         return jsonify({'history': [], 'error': str(e)}), 200
