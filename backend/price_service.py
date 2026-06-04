@@ -27,24 +27,76 @@ def get_price_history(ticker_symbol, days=400):
     cached = _history_cache.get(ticker_upper)
     if cached and time.time() - cached[0] < HISTORY_TTL_SECONDS:
         return cached[1]
+    # PRIMARY: Yahoo's lightweight chart API via direct HTTP with a browser UA.
+    # This sidesteps the yfinance library's crumb/consent handshake, which Yahoo
+    # blocks from Cloud Functions' datacenter IPs (the documented 1W/1M N/A cause).
+    out = _yahoo_chart_history(ticker_upper, days)
+    if not out:
+        # FALLBACK: the yfinance library (reliable locally; often throttled server-side).
+        out = _yfinance_history(ticker_upper, days)
+    _history_cache[ticker_upper] = (time.time(), out)
+    return out
+
+
+def _yahoo_chart_history(ticker_symbol, days=400):
+    """Keyless daily CLOSE history via Yahoo's chart API (single direct HTTP GET).
+    Returns {'YYYY-MM-DD': close} of RAW closes (actual market price that day, which
+    is what portfolio-value reconstruction needs — not split/dividend-adjusted).
+    Tries both Yahoo hosts. Best-effort — never raises."""
+    import requests
+    from datetime import datetime
+    sym = (ticker_symbol or '').upper().strip()
+    if not sym:
+        return {}
+    rng = '2y' if days > 365 else '1y'
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+    for host in ('query1.finance.yahoo.com', 'query2.finance.yahoo.com'):
+        try:
+            url = f"https://{host}/v8/finance/chart/{sym}?range={rng}&interval=1d"
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code != 200:
+                continue
+            result = ((resp.json().get('chart') or {}).get('result') or [None])[0]
+            if not result:
+                continue
+            ts = result.get('timestamp') or []
+            quote = ((result.get('indicators') or {}).get('quote') or [{}])[0]
+            closes = quote.get('close') or []
+            out = {}
+            for t, c in zip(ts, closes):
+                if c is None or c <= 0:
+                    continue
+                out[datetime.utcfromtimestamp(t).strftime('%Y-%m-%d')] = round(float(c), 4)
+            if out:
+                logging.info(f"[price_history] {sym}: {len(out)} closes via Yahoo chart API ({host})")
+                return out
+        except Exception as e:
+            logging.warning(f"[price_history] {sym} chart API {host} failed: {type(e).__name__}")
+            continue
+    return {}
+
+
+def _yfinance_history(ticker_symbol, days=400):
+    """Daily CLOSE history via the yfinance library. Fallback for when the chart
+    API is unavailable. Returns {'YYYY-MM-DD': close}. Best-effort — never raises."""
     import yfinance as yf
+    ticker_upper = (ticker_symbol or '').upper().strip()
     out = {}
     try:
         period = '2y' if days > 365 else '1y'
-        hist = yf.Ticker(ticker_upper).history(period=period)
+        hist = yf.Ticker(ticker_upper).history(period=period, auto_adjust=False)
         if hist is not None and len(hist) > 0:
             for idx, row in hist.iterrows():
                 try:
-                    d = idx.strftime('%Y-%m-%d')
                     close = float(row['Close'])
                     if close > 0:
-                        out[d] = round(close, 4)
+                        out[idx.strftime('%Y-%m-%d')] = round(close, 4)
                 except Exception:
                     continue
-        logging.info(f"[price_history] {ticker_upper}: {len(out)} daily closes")
+            logging.info(f"[price_history] {ticker_upper}: {len(out)} closes via yfinance library")
     except Exception as e:
-        logging.warning(f"[price_history] {ticker_upper} failed: {type(e).__name__}: {e}")
-    _history_cache[ticker_upper] = (time.time(), out)
+        logging.warning(f"[price_history] {ticker_upper} yfinance failed: {type(e).__name__}: {e}")
     return out
 
 def _stooq_fallback(ticker_symbol):

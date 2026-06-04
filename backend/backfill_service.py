@@ -194,13 +194,20 @@ def backfill_snapshots(user_id, assets, inv_txns, inv_sec_map, force=False):
 
     user_ref = db.collection('users').document(user_id)
 
-    # ── Run-once guard ──────────────────────────────────────────────────────
+    # ── Run-once guard (self-healing) ───────────────────────────────────────
+    # Skip ONLY if a prior run actually populated history. A throttled run (yfinance
+    # returning empty) can finish having written ~nothing; we must re-run those, or
+    # the user is stuck at "building history" forever. So we gate on real snapshot
+    # count, not just the boolean flag.
     if not force:
         try:
             snap = user_ref.get()
             if snap.exists and (snap.to_dict() or {}).get('snapshots_backfilled'):
-                logging.info(f"[backfill] {user_id}: already backfilled — skipping")
-                return 0
+                existing_cnt = len(user_ref.collection('portfolio_snapshots').limit(40).get())
+                if existing_cnt >= 30:
+                    logging.info(f"[backfill] {user_id}: already backfilled ({existing_cnt}+ snapshots) — skipping")
+                    return 0
+                logging.info(f"[backfill] {user_id}: prior backfill left only {existing_cnt} snapshots — re-running")
         except Exception:
             pass  # if the read fails, proceed — worst case we re-backfill once
 
