@@ -1569,6 +1569,10 @@ def plaid_sync():
     try:
         all_new_assets, all_new_ra, all_new_transactions, all_new_debts, all_new_paystubs, all_new_incomes = [], [], [], [], [], []
         synced_ids_total = []
+        # Combined investment-transaction ledger across ALL Plaid items, so the
+        # snapshot backfill can reconstruct against the full portfolio (not per-item).
+        all_inv_txns = []
+        combined_inv_sec_map = {}
         PERIOD_KEYS = ('1w', '1m', 'ytd', '1y', '2y', '5y', 'all')
         combined_investment_history = {
             'current_value': 0.0,
@@ -1610,7 +1614,10 @@ def plaid_sync():
                 pi = future_to_pi[future]
                 try:
                     res = future.result()
-                    new_assets, new_ra, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids, inv_history = res
+                    new_assets, new_ra, new_transactions, new_debts, new_paystubs, new_incomes, synced_account_ids, inv_history, inv_txns, inv_sec_map = res
+                    all_inv_txns.extend(inv_txns or [])
+                    if inv_sec_map:
+                        combined_inv_sec_map.update(inv_sec_map)
                     all_new_assets.extend(new_assets)
                     all_new_ra.extend(new_ra)
                     all_new_transactions.extend(new_transactions)
@@ -1753,12 +1760,15 @@ def plaid_sync():
                     .limit(2000).get()
                 # Build sorted list of (date_str, value) — exclude today so we get historical values
                 _today_str = _today.strftime('%Y-%m-%d')
-                _snaps = sorted(
-                    [(d.get('date'), d.get('total_value', 0))
-                     for d in _snap_docs
-                     if d.get('date') and d.get('total_value', 0) > 0 and d.get('date') < _today_str],
-                    key=lambda x: x[0]
-                )
+                # d is a DocumentSnapshot — .get() takes no default, so convert to dict
+                # first (the same bug that silently emptied /api/portfolio_history).
+                _snap_rows = []
+                for d in _snap_docs:
+                    _sd = d.to_dict() or {}
+                    _dt = _sd.get('date'); _tv = _sd.get('total_value', 0)
+                    if _dt and _tv and _tv > 0 and _dt < _today_str:
+                        _snap_rows.append((_dt, _tv))
+                _snaps = sorted(_snap_rows, key=lambda x: x[0])
                 if _snaps:
                     _snap_date_strs = [s[0] for s in _snaps]
                     _snap_val_map = {s[0]: s[1] for s in _snaps}
@@ -1843,6 +1853,17 @@ def plaid_sync():
                 merged_plaid[ma_key] = ma
 
         assets = list(merged_plaid.values())
+
+        # ── Historical snapshot backfill (COMBINED holdings, run ONCE) ──────────
+        # Reconstruct daily portfolio value from the full cross-institution holdings
+        # × historical prices, using the combined transaction ledger. Runs here (not
+        # per-item) so multi-brokerage users aren't under-counted. Version/staleness-
+        # guarded inside, so normal syncs skip it cheaply; best-effort — never breaks sync.
+        try:
+            from backfill_service import backfill_snapshots
+            backfill_snapshots(request.uid, assets, all_inv_txns, combined_inv_sec_map)
+        except Exception as _bf_e:
+            logging.warning(f"Snapshot backfill failed for {request.uid}: {_bf_e}")
 
         # DEBTS: Preserve manual interest rates and manual NAME overrides
         existing_plaid_debts = {d.plaid_account_id: d for d in debts if d.plaid_account_id}
