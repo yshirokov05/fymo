@@ -23,24 +23,47 @@ const monthsUntil = (dateStr) => {
     return diff;
 };
 
+// Parse inline bold/italic into React elements (no dangerouslySetInnerHTML)
+const parseInline = (text) => {
+    const parts = [];
+    let remaining = text;
+    let key = 0;
+    while (remaining.length > 0) {
+        const boldMatch = remaining.match(/^(.*?)\*\*(.*?)\*\*(.*)/s);
+        const italicMatch = remaining.match(/^(.*?)\*(.*?)\*(.*)/s);
+        if (boldMatch && (!italicMatch || boldMatch[1].length <= italicMatch[1].length)) {
+            if (boldMatch[1]) parts.push(<span key={key++}>{boldMatch[1]}</span>);
+            parts.push(<strong key={key++}>{boldMatch[2]}</strong>);
+            remaining = boldMatch[3];
+        } else if (italicMatch) {
+            if (italicMatch[1]) parts.push(<span key={key++}>{italicMatch[1]}</span>);
+            parts.push(<em key={key++}>{italicMatch[2]}</em>);
+            remaining = italicMatch[3];
+        } else {
+            parts.push(<span key={key++}>{remaining}</span>);
+            break;
+        }
+    }
+    return parts.length === 0 ? text : parts;
+};
+
 const formatGuidance = (text) => {
     if (!text) return null;
     const lines = text.split('\n').filter(l => l.trim());
     return lines.map((line, i) => {
         const trimmed = line.trim();
-        const isBold = trimmed.startsWith('**') && trimmed.includes('**', 2);
         const isNumbered = /^\d+\./.test(trimmed);
         const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('• ');
 
-        let content = trimmed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
-        if (isBullet) content = content.replace(/^[-•]\s*/, '');
+        const content = isBullet ? trimmed.replace(/^[-•]\s*/, '') : trimmed;
 
         return (
             <p
                 key={i}
                 className={`${isNumbered ? 'font-medium text-gray-800 dark:text-gray-100 mt-2' : isBullet ? 'pl-4 before:content-["•"] before:mr-2 before:text-blue-500' : 'text-gray-600 dark:text-gray-300'} text-sm leading-relaxed`}
-                dangerouslySetInnerHTML={{ __html: content }}
-            />
+            >
+                {parseInline(content)}
+            </p>
         );
     });
 };

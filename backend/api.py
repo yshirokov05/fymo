@@ -30,6 +30,8 @@ CORS(app, supports_credentials=True, resources={r"/api/*": {
     "origins": [
         "https://personal-finance-app-18cbc.web.app",
         "https://personal-finance-app-18cbc.firebaseapp.com",
+        "https://projectfymo.com",
+        "https://www.projectfymo.com",
         "http://localhost:3000"
     ],
     "allow_headers": ["Authorization", "Content-Type"],
@@ -40,6 +42,19 @@ stripe.api_key = os.getenv('STRIPE_SECRET_KEY', '').strip()
 STRIPE_PRICE_ID = os.getenv('STRIPE_PRICE_ID', '').strip()
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '').strip()
 APP_URL = "https://personal-finance-app-18cbc.web.app"
+
+def _validate_file_magic(file_bytes: bytes, ext: str) -> bool:
+    """Return True if file_bytes header matches the expected type for ext."""
+    signatures = {
+        '.pdf':  b'%PDF',
+        '.png':  b'\x89PNG\r\n\x1a\n',
+        '.jpg':  b'\xff\xd8\xff',
+        '.jpeg': b'\xff\xd8\xff',
+    }
+    expected = signatures.get(ext.lower())
+    if expected is None:
+        return False
+    return file_bytes[:len(expected)] == expected
 
 @app.route('/api/diagnostics', methods=['GET'])
 @auth_required
@@ -2402,10 +2417,16 @@ def upload_statement():
     import os
     ext = os.path.splitext(file.filename)[1].lower()
     allowed_exts = {'.csv', '.pdf', '.png', '.jpg', '.jpeg'}
-    
+
     if ext not in allowed_exts:
         return jsonify({'error': f"Invalid format {ext}. Supported: PDF, Image, CSV."}), 400
-        
+
+    if ext != '.csv':
+        file_bytes = file.read()
+        if not _validate_file_magic(file_bytes, ext):
+            return jsonify({'error': 'File content does not match the declared file type.'}), 400
+        file.seek(0)  # reset for subsequent reads
+
     if ext == '.csv':
         try:
             content = file.read().decode('utf-8')
@@ -2545,6 +2566,11 @@ def extract_document():
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in allowed_exts:
         return jsonify({'error': f"Invalid file type. Supported types: {', '.join(allowed_exts)}"}), 400
+
+    file_bytes = file.read()
+    if not _validate_file_magic(file_bytes, ext):
+        return jsonify({'error': 'File content does not match the declared file type.'}), 400
+    file.seek(0)  # reset for subsequent reads
 
     import json
     import base64
