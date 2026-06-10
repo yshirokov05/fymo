@@ -46,7 +46,7 @@ const formatGuidance = (text) => {
 };
 
 const GoalCard = ({ goal, onUpdate, onDelete }) => {
-    const { currentUser } = useAuth();
+    const { currentUser, isGuest, promptSignIn } = useAuth();
     const [expanded, setExpanded] = useState(false);
     const [guidance, setGuidance] = useState(null);
     const [loadingGuidance, setLoadingGuidance] = useState(false);
@@ -188,13 +188,24 @@ const GoalCard = ({ goal, onUpdate, onDelete }) => {
                     {/* AI Guidance */}
                     <div>
                         {!guidance && !loadingGuidance && (
-                            <button
-                                onClick={fetchGuidance}
-                                className="flex items-center space-x-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-violet-500 to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
-                            >
-                                <Sparkles size={16} />
-                                <span>Get AI Guidance</span>
-                            </button>
+                            isGuest ? (
+                                <button
+                                    onClick={() => promptSignIn()}
+                                    title="Sign in to use AI features"
+                                    className="flex items-center space-x-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-violet-500 to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+                                >
+                                    <Sparkles size={16} />
+                                    <span>Sign in for AI guidance</span>
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={fetchGuidance}
+                                    className="flex items-center space-x-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-violet-500 to-blue-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+                                >
+                                    <Sparkles size={16} />
+                                    <span>Get AI Guidance</span>
+                                </button>
+                            )
                         )}
                         {loadingGuidance && (
                             <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 py-2">

@@ -59,8 +59,8 @@ const BriefIcon = ({ type }) => {
 
 // ── Main Component ───────────────────────────────────────────────────────────
 
-const AIAnalyst = ({ isPremium, onUpgrade }) => {
-    const { currentUser } = useAuth();
+const AIAnalyst = ({ isPremium, isGuest = false, onUpgrade }) => {
+    const { currentUser, promptSignIn } = useAuth();
 
     const [brief, setBrief] = useState('');
     const [newsBrief, setNewsBrief] = useState('');
@@ -274,7 +274,7 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
             </div>
 
             {/* ── Brief + Market Pulse ── */}
-            {isPremium && (
+            {isPremium && !isGuest && (
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
                     {/* Health Brief — 3 cols */}
@@ -400,8 +400,29 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
 
 
 
+                    {/* Guest gate — sign in to unlock AI features */}
+                    {isGuest && (
+                        <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-white via-white/95 to-transparent flex items-end justify-center pb-6">
+                            <div className="text-center max-w-xs px-4">
+                                <div className="inline-flex bg-blue-100 p-3 rounded-full mb-3">
+                                    <Lock className="text-blue-600" size={20} />
+                                </div>
+                                <h3 className="text-lg font-black text-gray-900 mb-1">Sign in to use AI features</h3>
+                                <p className="text-gray-500 text-xs mb-4 leading-relaxed">
+                                    Create a free account to chat with the Fymo AI Analyst powered by Claude Sonnet.
+                                </p>
+                                <button
+                                    onClick={() => promptSignIn()}
+                                    className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95 flex items-center mx-auto"
+                                >
+                                    <Sparkles size={14} className="mr-2" /> Sign Up Free
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Premium gate */}
-                    {!isPremium && (
+                    {!isGuest && !isPremium && (
                         <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-white via-white/95 to-transparent flex items-end justify-center pb-6">
                             <div className="text-center max-w-xs px-4">
                                 <div className="inline-flex bg-blue-100 p-3 rounded-full mb-3">
@@ -425,7 +446,7 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                 </div>
 
                 {/* Quick prompts — visible early in conversation */}
-                {isPremium && !isLoading && messages.length < 4 && (
+                {isPremium && !isGuest && !isLoading && messages.length < 4 && (
                     <div className="px-4 pt-3 pb-2 bg-white border-t border-gray-100">
                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-2">Quick asks</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -465,15 +486,15 @@ const AIAnalyst = ({ isPremium, onUpgrade }) => {
                         type="text"
                         value={input}
                         onChange={e => setInput(e.target.value)}
-                        placeholder={isPremium ? 'Ask about your portfolio, taxes, budget, or anything financial...' : 'Upgrade to unlock AI consultation'}
+                        placeholder={isGuest ? 'Sign in to use AI features' : isPremium ? 'Ask about your portfolio, taxes, budget, or anything financial...' : 'Upgrade to unlock AI consultation'}
                         className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isLoading || !isPremium}
+                        disabled={isLoading || !isPremium || isGuest}
                     />
                     <button
                         type="submit"
-                        disabled={isLoading || !input.trim() || !isPremium}
+                        disabled={isLoading || !input.trim() || !isPremium || isGuest}
                         className={`p-3.5 rounded-xl transition-all ${
-                            !isLoading && input.trim() && isPremium
+                            !isLoading && input.trim() && isPremium && !isGuest
                                 ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200 active:scale-95'
                                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         }`}

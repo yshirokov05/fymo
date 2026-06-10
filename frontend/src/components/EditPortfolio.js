@@ -267,8 +267,8 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                                 <option value="CAPITAL_GAINS">Capital Gains / Sales</option>
                                             </select>
                                         </div>
-                                        <button onClick={() => removeIncome(income.originalIndex)} className="text-red-500 hover:text-red-700">
-                                            <Trash2 size={20} />
+                                        <button onClick={() => removeIncome(income.originalIndex)} aria-label="Remove income source" className="text-red-500 hover:text-red-700">
+                                            <Trash2 size={20} aria-hidden="true" />
                                         </button>
                                     </div>
 
@@ -405,8 +405,8 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                                             <option value="YEARLY">Yearly</option>
                                         </select>
                                     </div>
-                                    <button onClick={() => removeInsurance(index)} className="col-span-1 text-red-500 hover:text-red-700 justify-self-center mb-2">
-                                        <Trash2 size={20} />
+                                    <button onClick={() => removeInsurance(index)} aria-label="Remove insurance policy" className="col-span-1 text-red-500 hover:text-red-700 justify-self-center mb-2">
+                                        <Trash2 size={20} aria-hidden="true" />
                                     </button>
                                 </div>
                             ))}
@@ -709,8 +709,8 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
                         <div className="space-y-4">
                             {debts.map((debt, index) => (
                                 <div key={index} className="border p-4 rounded-md space-y-2 relative">
-                                    <button onClick={() => removeDebt(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">
-                                        <Trash2 size={20} />
+                                    <button onClick={() => removeDebt(index)} aria-label={`Remove debt ${debt.name || ''}`.trim()} className="absolute top-2 right-2 text-red-500 hover:text-red-700">
+                                        <Trash2 size={20} aria-hidden="true" />
                                     </button>
                                     <div className="grid grid-cols-3 gap-4">
                                         <div>

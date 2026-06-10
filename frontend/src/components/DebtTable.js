@@ -42,7 +42,7 @@ const Stat = ({ label, value, accent = 'text-gray-800 dark:text-slate-100' }) =>
 );
 
 const DebtCard = ({ debt }) => {
-    const { currentUser, isGuest } = useAuth();
+    const { currentUser, isGuest, promptSignIn } = useAuth();
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -176,17 +176,29 @@ const DebtCard = ({ debt }) => {
             {isRevolving && (
                 <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700/60">
                     {!summary && !error && (
-                        <button
-                            type="button"
-                            onClick={fetchSummary}
-                            disabled={loading}
-                            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1.5 disabled:opacity-60"
-                        >
-                            {loading
-                                ? <Loader2 size={12} className="animate-spin" />
-                                : <Sparkles size={12} />}
-                            <span>{loading ? 'Analyzing card…' : 'What is this card? (No-BS summary)'}</span>
-                        </button>
+                        isGuest ? (
+                            <button
+                                type="button"
+                                onClick={() => promptSignIn()}
+                                title="Sign in to use AI features"
+                                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1.5"
+                            >
+                                <Sparkles size={12} />
+                                <span>Sign in for AI card summary</span>
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={fetchSummary}
+                                disabled={loading}
+                                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1.5 disabled:opacity-60"
+                            >
+                                {loading
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : <Sparkles size={12} />}
+                                <span>{loading ? 'Analyzing card…' : 'What is this card? (No-BS summary)'}</span>
+                            </button>
+                        )
                     )}
                     {error && (
                         <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">

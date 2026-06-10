@@ -9,8 +9,8 @@ const CheckTracker = ({
     onDataUpdate, 
     saveUserData 
 }) => {
-    const { currentUser } = useAuth();
-    
+    const { currentUser, isGuest, promptSignIn } = useAuth();
+
     // --- Safe to Spend Calculation ---
     const checkingBalance = assets
         .filter(a => a.asset_type === 'CHECKING')
@@ -159,13 +159,14 @@ const CheckTracker = ({
                         accept=".pdf, .png, .jpg, .jpeg" 
                         className="hidden" 
                     />
-                    <button 
+                    <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => (isGuest ? promptSignIn() : fileInputRef.current?.click())}
+                        title={isGuest ? 'Sign in to use AI features' : undefined}
                         className="flex items-center space-x-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 py-2 px-4 rounded-md transition-colors"
                     >
                         {ocrStatus === 'uploading' ? <Loader2 size={16} className="animate-spin" /> : <Image size={16} />}
-                        <span>{ocrStatus === 'uploading' ? 'Analyzing...' : 'Scan Check Image'}</span>
+                        <span>{isGuest ? 'Sign in to scan' : ocrStatus === 'uploading' ? 'Analyzing...' : 'Scan Check Image'}</span>
                     </button>
                 </div>
                 <p className="mb-4 text-[10px] text-gray-400 italic">

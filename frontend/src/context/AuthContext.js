@@ -21,6 +21,16 @@ export function useAuth() {
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    // Guest/demo mode. Toggled by global window events so any component can
+    // enter ("continue-as-guest") or exit ("fymo:open-auth") guest mode.
+    // Exposed via useAuth() so AI-feature entry points can gate themselves.
+    const [isGuest, setIsGuest] = useState(false);
+
+    // Send a guest to the auth screen. Reuses the existing global event that
+    // App.js already listens for to drop guest mode and show the LandingPage.
+    function promptSignIn(mode = 'signup') {
+        window.dispatchEvent(new CustomEvent('fymo:open-auth', { detail: { mode } }));
+    }
 
     function signup(email, password) {
         return createUserWithEmailAndPassword(auth, email, password)
@@ -67,14 +77,29 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
+            // A signed-in user is never a guest.
+            if (user) setIsGuest(false);
             setLoading(false);
         });
 
         return unsubscribe;
     }, []);
 
+    useEffect(() => {
+        const handleGuest = () => setIsGuest(true);
+        const handleOpenAuth = () => setIsGuest(false);
+        window.addEventListener('continue-as-guest', handleGuest);
+        window.addEventListener('fymo:open-auth', handleOpenAuth);
+        return () => {
+            window.removeEventListener('continue-as-guest', handleGuest);
+            window.removeEventListener('fymo:open-auth', handleOpenAuth);
+        };
+    }, []);
+
     const value = {
         currentUser,
+        isGuest,
+        promptSignIn,
         login,
         signup,
         loginWithGoogle,

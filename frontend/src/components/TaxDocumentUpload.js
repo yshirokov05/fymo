@@ -4,7 +4,7 @@ import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const TaxDocumentUpload = ({ onUploadSuccess, docType = 'tax' }) => {
-    const { currentUser } = useAuth();
+    const { currentUser, isGuest, promptSignIn } = useAuth();
     const [status, setStatus] = useState('idle'); // idle, uploading, success, error
     const [message, setMessage] = useState('');
     const fileInputRef = useRef(null);
@@ -77,12 +77,13 @@ const TaxDocumentUpload = ({ onUploadSuccess, docType = 'tax' }) => {
             />
             
             {status === 'idle' && (
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
+                <button
+                    onClick={() => (isGuest ? promptSignIn() : fileInputRef.current?.click())}
+                    title={isGuest ? 'Sign in to use AI features' : undefined}
                     className="flex items-center justify-center space-x-2 w-full py-2 px-4 border border-indigo-200 shadow-sm text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                     <Upload size={18} />
-                    <span>Auto-fill via Document Upload (Option)</span>
+                    <span>{isGuest ? 'Sign in to use AI document upload' : 'Auto-fill via Document Upload (Option)'}</span>
                 </button>
             )}
 

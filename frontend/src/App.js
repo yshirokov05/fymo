@@ -156,6 +156,16 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [newlyCrossedMilestone, setNewlyCrossedMilestone] = useState(null);
 
+  // Statement extraction is a Claude-backed feature — guests get 401 server-side.
+  // Send them to the auth screen instead of opening the upload modal.
+  const openStatementUpload = () => {
+    if (isGuest) {
+      window.dispatchEvent(new CustomEvent('fymo:open-auth', { detail: { mode: 'signup' } }));
+      return;
+    }
+    setIsUploadOpen(true);
+  };
+
   const fetchData = async () => {
     // Guard: Don't fetch until auth is resolved
     if (!isGuest && !currentUser) {
@@ -798,11 +808,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">Debts & Liabilities</h2>
                 <button
-                    onClick={() => setIsUploadOpen(true)}
+                    onClick={openStatementUpload}
+                    title={isGuest ? 'Sign in to use AI features' : undefined}
                     className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium whitespace-nowrap self-start sm:self-auto"
                 >
                     <Upload size={18} />
-                    <span>Import Statement</span>
+                    <span>{isGuest ? 'Sign in to import' : 'Import Statement'}</span>
                 </button>
             </div>
                <div className="bg-white dark:bg-slate-800 p-4 sm:p-8 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
@@ -852,11 +863,11 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 setManualSubscriptions={setManualSubscriptionMerchants}
                 ignoredFlexible={ignoredFlexibleCategories}
                 onUpdateIgnoredFlexible={handleUpdateIgnoredFlexible}
-                onImportStatement={() => setIsUploadOpen(true)}
+                onImportStatement={openStatementUpload}
               />
           );
       case 'advisor':
-          return <AIAnalyst isPremium={isPremium} onUpgrade={() => setActiveView('settings')} />;
+          return <AIAnalyst isPremium={isPremium} isGuest={isGuest} onUpgrade={() => setActiveView('settings')} />;
       case 'income':
           return (
               <Income
@@ -1019,16 +1030,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
 }
 
 function App() {
-    const { currentUser } = useAuth();
-    const [isGuest, setIsGuest] = useState(false);
+    // Guest mode now lives in AuthContext so any component can gate AI features
+    // off it via useAuth(). App.js consumes it here instead of owning the state.
+    const { currentUser, isGuest } = useAuth();
     const [showOnboarding, setShowOnboarding] = useState(false);
     // Landing page can deep-link to Privacy / Terms before auth
     const [landingView, setLandingView] = useState(null); // null | 'privacy' | 'terms'
 
     useEffect(() => {
-        const handleGuest = () => setIsGuest(true);
-        window.addEventListener('continue-as-guest', handleGuest);
-
         const handleStartOnboarding = () => setShowOnboarding(true);
         window.addEventListener('start-onboarding', handleStartOnboarding);
 
@@ -1038,16 +1047,10 @@ function App() {
         window.addEventListener('nav-privacy', handlePrivacy);
         window.addEventListener('nav-terms', handleTerms);
 
-        // Guest mode: "Sign Up Free" CTA from any component resets guest state → LandingPage
-        const handleOpenAuth = () => setIsGuest(false);
-        window.addEventListener('fymo:open-auth', handleOpenAuth);
-
         return () => {
-            window.removeEventListener('continue-as-guest', handleGuest);
             window.removeEventListener('start-onboarding', handleStartOnboarding);
             window.removeEventListener('nav-privacy', handlePrivacy);
             window.removeEventListener('nav-terms', handleTerms);
-            window.removeEventListener('fymo:open-auth', handleOpenAuth);
         };
     }, []);
 
@@ -1087,7 +1090,7 @@ function App() {
             {(currentUser || isGuest) ? (
                 <MainContent
                     isGuest={isGuest}
-                    onResetGuest={() => setIsGuest(false)}
+                    onResetGuest={() => window.dispatchEvent(new CustomEvent('fymo:open-auth', { detail: { mode: 'signup' } }))}
                     showOnboarding={showOnboarding}
                     setShowOnboarding={setShowOnboarding}
                 />
