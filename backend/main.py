@@ -23,7 +23,8 @@ _SECRETS = [
     "FERNET_KEY",
     "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID",
     "RESEND_API_KEY", "BRIEF_FROM_EMAIL",
-    "ADMIN_MIGRATION_KEY",
+    # ADMIN_MIGRATION_KEY intentionally not declared here until the secret is
+    # created in Secret Manager. Endpoint fails-closed (403) without it.
 ]
 
 
