@@ -307,6 +307,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                     >
                                         {isCheckoutLoading ? 'Redirecting...' : 'Subscribe — $9.99/mo'}
                                     </button>
+                                    <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-2">Renews monthly · Cancel anytime from Settings</p>
                                 </div>
                             </div>
                         </div>
