@@ -619,7 +619,12 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
       (paystubs || []).length > 0 || (insurances || []).length > 0 || (plaidItems || []).length > 0,
   };
 
-  if (loading && !isModalOpen) {
+  // NOTE: do NOT show the full-screen loader while the guided Onboarding flow is
+  // active. handleSave() toggles `loading` on every step save (asset/debt), and
+  // swapping to this loader unmounts <Onboarding/>, which resets its internal
+  // `step` state back to 0 — making the flow jump back to the welcome/"initial
+  // question" screen even though the data saved fine.
+  if (loading && !isModalOpen && !showOnboarding) {
     return <Layout activeView={activeView} setActiveView={setActiveView} capabilities={capabilities}><div>Loading...</div></Layout>;
   }
 
