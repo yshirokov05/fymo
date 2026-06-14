@@ -4,6 +4,7 @@ import plaid
 from plaid.api import plaid_api
 from plaid.model.link_token_create_request import LinkTokenCreateRequest
 from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUser
+from plaid.model.link_token_create_request_update import LinkTokenCreateRequestUpdate
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.investments_holdings_get_request import InvestmentsHoldingsGetRequest
@@ -83,17 +84,29 @@ def create_link_token(user_id):
 def create_update_token(user_id, access_token):
     """
     Generates a link token in 'update' mode to fix an existing item connection.
+
+    `account_selection_enabled=True` re-presents Plaid's account-selection screen
+    so the user can grant access to accounts opened AFTER the original link (e.g. a
+    newly opened Vanguard Cash Plus account). Without this flag, update mode only
+    repairs auth on the originally authorized accounts and silently omits any new
+    account — which is why a freshly opened account never shows up on re-sync.
     """
     try:
-        request = LinkTokenCreateRequest(
-            products=[Products('transactions')],
-            optional_products=[Products('investments'), Products('liabilities'), Products('identity')],
-            client_name="Financial HQ",
-            country_codes=[CountryCode('US')],
-            language='en',
-            user=LinkTokenCreateRequestUser(client_user_id=str(user_id)),
-            access_token=access_token # This triggers 'update' mode
-        )
+        args = {
+            "products": [Products('transactions')],
+            "optional_products": [Products('investments'), Products('liabilities'), Products('identity')],
+            "client_name": "Financial HQ",
+            "country_codes": [CountryCode('US')],
+            "language": 'en',
+            "user": LinkTokenCreateRequestUser(client_user_id=str(user_id)),
+            "access_token": access_token,  # This triggers 'update' mode
+            "update": LinkTokenCreateRequestUpdate(account_selection_enabled=True),
+        }
+        # In Production, OAuth institutions require a redirect_uri in update mode too.
+        if PLAID_REDIRECT_URI:
+            args["redirect_uri"] = PLAID_REDIRECT_URI
+
+        request = LinkTokenCreateRequest(**args)
         response = client.link_token_create(request)
         return response.to_dict()['link_token']
     except Exception as e:
