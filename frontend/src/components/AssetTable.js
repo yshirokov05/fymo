@@ -112,6 +112,24 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
         const hasMultipleAccounts = asset.accounts && asset.accounts.length > 1;
         const isExpanded = expandedRows[asset.ticker];
 
+        // ── Legible name for cash rows ──────────────────────────────────────
+        // Plaid cash sweeps come through with ticker "CASH"/"USD" and money-market
+        // holdings as "VMFXX" etc. Shown raw, multiple accounts all read as "CASH"
+        // with no hint of where they live — and the Account column is hidden on
+        // mobile. So for liquid rows, lead with the institution/account name and
+        // demote the ticker to a small sublabel (skipping the generic placeholders).
+        const GENERIC_CASH_TICKERS = ['CASH', 'USD', 'CUR:USD'];
+        const nameLabel = (isLiquidAsset && asset.institution_name)
+            ? asset.institution_name
+            : asset.ticker;
+        const nameSub = (isLiquidAsset
+            && asset.institution_name
+            && asset.ticker
+            && asset.ticker !== asset.institution_name
+            && !GENERIC_CASH_TICKERS.includes(asset.ticker))
+            ? asset.ticker
+            : null;
+
         const isRetirement = asset.tax_treatment === 'RETIREMENT';
         const treatmentChipClass = isRetirement
             ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20'
@@ -144,7 +162,12 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                     {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                                 </span>
                             )}
-                            {asset.ticker}
+                            <span className="flex flex-col leading-tight">
+                                <span>{nameLabel}</span>
+                                {nameSub && (
+                                    <span className="text-[10px] font-medium text-gray-400 dark:text-slate-500 uppercase tracking-wide">{nameSub}</span>
+                                )}
+                            </span>
                         </div>
                     </td>
                     <td className="hidden md:table-cell px-3 md:px-6 py-3 whitespace-nowrap text-xs">
