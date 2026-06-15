@@ -38,8 +38,17 @@ const EditPortfolio = ({ onSave, assets: initialAssets, incomes: initialIncomes,
         const asset = { ...updatedAssets[index], [field]: value };
         
         if (field === 'shares' || field === 'cost_per_share') {
-            const shares = field === 'shares' ? Number(value) : Number(asset.shares);
-            const costPerShare = field === 'cost_per_share' ? Number(value) : Number(asset.cost_per_share || 0);
+            // Coerce to a safe, non-negative number. Invalid input (NaN from a stray
+            // paste or an "e"/"-" in a number field) must never reach cost_basis —
+            // it feeds the portfolio return calculations, and a NaN there silently
+            // corrupts them. One of the two inputs already clamped with Math.max(0,…);
+            // doing it centrally here covers both call sites.
+            const toNum = (v) => {
+                const n = Number(v);
+                return Number.isFinite(n) && n > 0 ? n : 0;
+            };
+            const shares = field === 'shares' ? toNum(value) : toNum(asset.shares);
+            const costPerShare = field === 'cost_per_share' ? toNum(value) : toNum(asset.cost_per_share);
             asset.cost_basis = shares * costPerShare;
         }
 
