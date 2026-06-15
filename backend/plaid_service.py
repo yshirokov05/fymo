@@ -859,8 +859,10 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
         # transaction ledger, but Plaid's ledger is incomplete for transferred-in
         # positions and pre-5yr holdings, so _val_at_start systematically undercounted
         # actual portfolio value at period start — producing absurd returns like +343%
-        # for 1W. Drop the reconstruction; rely on per-ticker yfinance returns.
-        # yfinance auto_adjust=True already includes dividends in the return %.
+        # for 1W. Drop the reconstruction; rely on per-ticker returns from
+        # get_multi_period_returns. Those are PRICE-only (raw closes from the Yahoo
+        # chart API) — dividends are tracked separately — which keeps this consistent
+        # with the snapshot-based portfolio period return and with the benchmarks.
         period_returns = {}
         period_returns_coverage = {}
         try:
