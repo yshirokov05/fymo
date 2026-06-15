@@ -17,14 +17,31 @@ _history_cache = {}
 HISTORY_TTL_SECONDS = 3600
 
 
+def _range_for_days(days):
+    """Map a lookback in days to a Yahoo/yfinance range string. Buckets so the
+    history cache stays warm across the handful of windows we actually request."""
+    if days > 1825:
+        return '10y'
+    if days > 730:
+        return '5y'
+    if days > 365:
+        return '2y'
+    return '1y'
+
+
 def get_price_history(ticker_symbol, days=400):
     """Daily close prices for roughly the last `days` days.
     Returns {'YYYY-MM-DD': close_price}. Used by backfill_service to reconstruct
-    historical portfolio value. Cached 1h per ticker. Empty dict on failure."""
+    historical portfolio value AND by get_multi_period_returns. Cached 1h per
+    (ticker, range). Empty dict on failure."""
     ticker_upper = (ticker_symbol or '').upper().strip()
     if not ticker_upper:
         return {}
-    cached = _history_cache.get(ticker_upper)
+    rng = _range_for_days(days)
+    # Cache key includes the range — a 1y fetch must not satisfy a later 5y request
+    # (the previous ticker-only key silently truncated long-window callers).
+    cache_key = f"{ticker_upper}:{rng}"
+    cached = _history_cache.get(cache_key)
     if cached and time.time() - cached[0] < HISTORY_TTL_SECONDS:
         return cached[1]
     # PRIMARY: Yahoo's lightweight chart API via direct HTTP with a browser UA.
@@ -34,7 +51,10 @@ def get_price_history(ticker_symbol, days=400):
     if not out:
         # FALLBACK: the yfinance library (reliable locally; often throttled server-side).
         out = _yfinance_history(ticker_upper, days)
-    _history_cache[ticker_upper] = (time.time(), out)
+    # Only cache a successful fetch. Caching an empty result would block this ticker
+    # for the full TTL after a single transient failure.
+    if out:
+        _history_cache[cache_key] = (time.time(), out)
     return out
 
 
@@ -48,7 +68,7 @@ def _yahoo_chart_history(ticker_symbol, days=400):
     sym = (ticker_symbol or '').upper().strip()
     if not sym:
         return {}
-    rng = '2y' if days > 365 else '1y'
+    rng = _range_for_days(days)
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                              'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
     for host in ('query1.finance.yahoo.com', 'query2.finance.yahoo.com'):
@@ -84,7 +104,7 @@ def _yfinance_history(ticker_symbol, days=400):
     ticker_upper = (ticker_symbol or '').upper().strip()
     out = {}
     try:
-        period = '2y' if days > 365 else '1y'
+        period = _range_for_days(days)
         hist = yf.Ticker(ticker_upper).history(period=period, auto_adjust=False)
         if hist is not None and len(hist) > 0:
             for idx, row in hist.iterrows():
@@ -290,8 +310,7 @@ def get_multi_period_returns(ticker_symbol, since_date=None):
     Caches results for 5 minutes per (ticker, since_date) pair to avoid hammering
     yfinance during consecutive syncs.
     """
-    import yfinance as yf
-    from datetime import timedelta
+    from datetime import datetime, timedelta
 
     ticker_upper = (ticker_symbol or '').upper().strip()
     if not ticker_upper:
@@ -305,46 +324,62 @@ def get_multi_period_returns(ticker_symbol, since_date=None):
             return data
 
     try:
-        hist = yf.Ticker(ticker_upper).history(period='5y')
-        if len(hist) < 2:
-            logging.info(f"[period_returns] {ticker_upper}: yfinance returned {len(hist)} rows — skipping")
-            _period_returns_cache[cache_key] = (time.time(), {})
+        # Source closes from get_price_history — the keyless Yahoo chart API (browser
+        # UA, direct HTTP) which is NOT blocked from Cloud Functions' datacenter IPs.
+        # The yfinance library's crumb handshake IS blocked there and silently returns
+        # empty frames, which was the real cause of period returns showing N/A. Returns
+        # RAW (price-only) closes, so this is a price return — consistent with the
+        # snapshot-based portfolio period return (dividends are tracked separately).
+        hist = get_price_history(ticker_upper, days=1830)  # ~5y window
+        if not hist or len(hist) < 2:
+            logging.info(f"[period_returns] {ticker_upper}: {len(hist) if hist else 0} closes — skipping")
+            # Do NOT cache the empty result — a transient fetch failure would otherwise
+            # block this ticker for the full TTL. Let the next sync retry.
             return {}
-        last_close = float(hist['Close'].iloc[-1])
-        last_date = hist.index[-1]
+
+        items = sorted(hist.items())  # [(YYYY-MM-DD, close), ...] ascending
+        dates = [d for d, _ in items]
+        closes = [c for _, c in items]
+        last_close = closes[-1]
+        last_idx = len(dates) - 1
+        last_date = datetime.strptime(dates[-1], '%Y-%m-%d').date()
+
+        def _return_since(target_str):
+            """% return from the earliest close on/after target_str to the latest close.
+            Requires the start point to precede the last point (≥2 data points in window)."""
+            for i, d in enumerate(dates):
+                if d >= target_str:
+                    if i >= last_idx:
+                        return None  # only the final point falls in the window
+                    sc = closes[i]
+                    return round(((last_close / sc) - 1) * 100, 2) if sc > 0 else None
+            return None
+
         results = {}
         # 1w uses 10 calendar days instead of 7 so weekend syncs still find a trading
-        # day at the start of the window. With strict 7d, a Saturday/Sunday sync
-        # would land on a non-trading day and subset filters out the data points
-        # we actually need. 10d still gives a clean ~5 trading day window.
+        # day at the start of the window (a strict 7d window can land entirely on
+        # non-trading days). 10d still gives a clean ~5 trading-day window.
         for pkey, days in [('1w', 10), ('1m', 35), ('1y', 365), ('2y', 730), ('5y', 1825)]:
-            target = last_date - timedelta(days=days)
-            subset = hist[hist.index >= target]
-            if len(subset) >= 2:
-                sc = float(subset['Close'].iloc[0])
-                if sc > 0:
-                    results[pkey] = round(((last_close / sc) - 1) * 100, 2)
+            target = (last_date - timedelta(days=days)).strftime('%Y-%m-%d')
+            r = _return_since(target)
+            if r is not None:
+                results[pkey] = r
         # YTD
-        ytd_str = f"{last_date.year}-01-01"
-        ytd_sub = hist[hist.index >= ytd_str]
-        if len(ytd_sub) >= 2:
-            sc = float(ytd_sub['Close'].iloc[0])
-            if sc > 0:
-                results['ytd'] = round(((last_close / sc) - 1) * 100, 2)
-        # All — anchor to since_date if provided (matches user's actual portfolio start),
-        # otherwise fall back to the earliest available data point in the 5yr window.
+        r = _return_since(f"{last_date.year}-01-01")
+        if r is not None:
+            results['ytd'] = r
+        # All — anchor to since_date if provided (matches the user's actual portfolio
+        # start), otherwise use the earliest available close in the window.
         if since_date:
-            since_sub = hist[hist.index >= since_date]
-            if len(since_sub) >= 2:
-                sc = float(since_sub['Close'].iloc[0])
-                if sc > 0:
-                    results['all'] = round(((last_close / sc) - 1) * 100, 2)
-        else:
-            sc = float(hist['Close'].iloc[0])
-            if sc > 0:
-                results['all'] = round(((last_close / sc) - 1) * 100, 2)
+            r = _return_since(since_date)
+            if r is not None:
+                results['all'] = r
+        elif closes[0] > 0:
+            results['all'] = round(((last_close / closes[0]) - 1) * 100, 2)
+
         logging.info(f"[period_returns] {ticker_upper}: {len(results)} periods → {sorted(results.keys())}")
-        _period_returns_cache[cache_key] = (time.time(), results)
+        if results:
+            _period_returns_cache[cache_key] = (time.time(), results)
         return results
     except Exception as e:
         logging.warning(f"[period_returns] {ticker_upper} failed: {type(e).__name__}: {e}")
