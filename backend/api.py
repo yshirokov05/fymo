@@ -616,6 +616,10 @@ def get_portfolio_history():
         history.sort(key=lambda x: x['date'])
         return jsonify({'history': history})
     except Exception as e:
+        # Keep 200 so the frontend degrades gracefully (it treats empty history as
+        # "still building"), but log it — a silent failure here makes period returns
+        # look perpetually unavailable with no trace of why.
+        logging.error(f"portfolio_history failed for {request.uid}: {type(e).__name__}: {e}")
         return jsonify({'history': [], 'error': str(e)}), 200
 
 
