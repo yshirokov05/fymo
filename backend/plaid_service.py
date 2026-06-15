@@ -64,7 +64,7 @@ def create_link_token(user_id):
         args = {
             "products": [Products('transactions')],
             "optional_products": [Products('investments'), Products('liabilities'), Products('identity')],
-            "client_name": "Financial HQ",
+            "client_name": "Fymo",
             "country_codes": [CountryCode('US')],
             "language": 'en',
             "user": LinkTokenCreateRequestUser(client_user_id=str(user_id))
@@ -95,7 +95,7 @@ def create_update_token(user_id, access_token):
         args = {
             "products": [Products('transactions')],
             "optional_products": [Products('investments'), Products('liabilities'), Products('identity')],
-            "client_name": "Financial HQ",
+            "client_name": "Fymo",
             "country_codes": [CountryCode('US')],
             "language": 'en',
             "user": LinkTokenCreateRequestUser(client_user_id=str(user_id)),

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
     BarChart2, Link2, Sparkles, Calculator, ShieldCheck,
     ChevronRight, X, TrendingUp, TrendingDown, Eye,
-    ArrowRight, Check, Star
+    ArrowRight, Check, Star, Lock, KeyRound, Trash2
 } from 'lucide-react';
 
 // ─── Tiny reusable pieces ────────────────────────────────────────────────────
@@ -393,6 +393,68 @@ const LandingPage = () => {
                         </div>
                     </div>
                 </div>
+            </section>
+
+            {/* ── Security & privacy ── */}
+            {/* Fintech's #1 conversion objection is "is my bank data safe?" — answer it
+                head-on, before pricing, with concrete specifics (read-only, encrypted,
+                never sold). */}
+            <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+                <div className="text-center mb-12">
+                    <Pill color="green"><ShieldCheck size={11} />Security &amp; privacy</Pill>
+                    <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Your money data, locked down</h2>
+                    <p className="mt-3 text-gray-400 max-w-2xl mx-auto">
+                        Fymo is built read-only and privacy-first. We can see the numbers to do the math — we can never touch your money.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+                    {[
+                        {
+                            icon: <Eye size={18} className="text-emerald-400" />,
+                            title: 'Read-only access',
+                            desc: 'Accounts connect through Plaid in read-only mode. Fymo can view balances and transactions — it can never move, send, or withdraw money.',
+                        },
+                        {
+                            icon: <KeyRound size={18} className="text-blue-400" />,
+                            title: 'Credentials never touch us',
+                            desc: "Your bank login goes straight to Plaid — Fymo never sees or stores your username or password. Access tokens are encrypted at rest.",
+                        },
+                        {
+                            icon: <Lock size={18} className="text-violet-400" />,
+                            title: 'Encrypted, with optional 2FA',
+                            desc: 'Data is encrypted in transit and at rest. Turn on two-factor authentication (TOTP) from settings for an extra layer on your account.',
+                        },
+                        {
+                            icon: <ShieldCheck size={18} className="text-emerald-400" />,
+                            title: 'Never sold, never ads',
+                            desc: 'No VC pressure, no ad networks, no selling your data — ever. Fymo makes money one way: an optional $9.99/mo subscription.',
+                        },
+                        {
+                            icon: <Sparkles size={18} className="text-blue-400" />,
+                            title: 'AI sees only what it needs',
+                            desc: 'When the AI analyst runs, your data is sanitized first — account numbers and identifiers are stripped before anything is sent to the model.',
+                        },
+                        {
+                            icon: <Trash2 size={18} className="text-rose-400" />,
+                            title: 'Delete anytime',
+                            desc: 'Disconnect an institution or delete your entire account and all associated data whenever you want — processed within 30 days.',
+                        },
+                    ].map(({ icon, title, desc }) => (
+                        <div key={title} className="bg-slate-800/40 border border-white/5 rounded-2xl p-6">
+                            <div className="w-10 h-10 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-center mb-4">
+                                {icon}
+                            </div>
+                            <h3 className="text-base font-bold text-white mb-1.5">{title}</h3>
+                            <p className="text-sm text-gray-400 leading-relaxed">{desc}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <p className="text-center text-xs text-gray-500 mt-8">
+                    Bank connections are powered by <span className="text-gray-400">Plaid</span>, the same infrastructure used by Venmo, SoFi, and Robinhood.
+                    Read the full <button onClick={() => window.dispatchEvent(new CustomEvent('nav-privacy'))} className="text-blue-400 hover:text-blue-300 underline underline-offset-2">Privacy Policy</button>.
+                </p>
             </section>
 
             {/* ── Pricing ── */}
