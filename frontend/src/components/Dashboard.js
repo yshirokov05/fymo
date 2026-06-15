@@ -1180,7 +1180,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         into a tiny two-row wrap. */}
                     <Card title="Industry Allocation" icon={<PieChartIcon className="text-yellow-500" />}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                            <div className="h-[340px] relative" role="img" aria-label="Industry allocation donut chart. A full category breakdown with values is listed beside it.">
+                            <div className="h-[260px] sm:h-[320px] md:h-[340px] relative" role="img" aria-label="Industry allocation donut chart. A full category breakdown with values is listed beside it.">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <RechartsPieChart>
                                         <Pie
@@ -1189,11 +1189,11 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                                             cy="50%"
                                             labelLine={false}
                                             label={false}
-                                            outerRadius={140}
-                                            innerRadius={92}
-                                            paddingAngle={1.5}
+                                            outerRadius="94%"
+                                            innerRadius="62%"
+                                            paddingAngle={1}
                                             stroke={sliceStroke}
-                                            strokeWidth={3}
+                                            strokeWidth={2}
                                             dataKey="value"
                                             isAnimationActive={!isDemoMode}
                                         >
