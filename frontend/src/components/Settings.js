@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme, ACCENT_PRESETS } from '../context/ThemeContext';
-import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Shield, Check, Star, RefreshCw, Activity, Wrench, Trash2, Tag, X, Moon, Sun, Palette, AlertTriangle, ExternalLink, Info, Plus } from 'lucide-react';
 import PlaidLink from './PlaidLink';
 import CategoryRulesManager from './CategoryRulesManager';
 import TwoFactorSettings from './TwoFactorSettings';
@@ -170,8 +170,8 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                 </p>
                             </div>
 
-                            <div className="pt-4 border-t">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">Bank & Brokerage Sync</h3>
+                            <div className="pt-4 border-t dark:border-white/10">
+                                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Bank &amp; Brokerage Sync</h3>
                                 <div className="mb-4 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg px-4 py-3">
                                     <div className="flex items-start space-x-3">
                                         <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
@@ -225,34 +225,46 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                 </div>
                                 
                                 {plaidItems.length > 0 && (
-                                    <div className="mt-6 border rounded-xl overflow-hidden shadow-sm">
-                                        <div className="bg-gray-50 px-4 py-3 border-b text-sm font-bold text-gray-700 uppercase tracking-wider">Linked Institutions</div>
-                                        {plaidItems.map((pi, i) => (
-                                            <div key={i} className="px-4 py-4 flex justify-between items-center border-b last:border-0 bg-white hover:bg-gray-50 transition-colors">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-gray-900">{pi.institution_name}</span>
-                                                    <span className="text-xs text-green-600 font-medium">Connected</span>
+                                    <>
+                                        {/* New-account guidance — the #1 support question: a plain sync
+                                            never pulls in an account opened AFTER linking. */}
+                                        <div className="mt-6 mb-3 flex items-start gap-2 text-xs text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-lg px-3 py-2.5">
+                                            <Info size={15} className="mt-0.5 shrink-0 text-blue-500" />
+                                            <span>
+                                                Opened a <strong>new account</strong> at a bank you've already linked? A plain sync won&apos;t add it.
+                                                Tap <strong>Fix / add accounts</strong> below and re-select your accounts — including the new one.
+                                            </span>
+                                        </div>
+                                        <div className="border dark:border-white/10 rounded-xl overflow-hidden shadow-sm">
+                                            <div className="bg-gray-50 dark:bg-slate-700/50 px-4 py-3 border-b dark:border-white/10 text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Linked Institutions</div>
+                                            {plaidItems.map((pi, i) => (
+                                                <div key={i} className="px-4 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b dark:border-white/10 last:border-0 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700/40 transition-colors">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-gray-900 dark:text-gray-100">{pi.institution_name}</span>
+                                                        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                            Connected · last synced {pi.last_sync ? new Date(pi.last_sync).toLocaleDateString() : 'never'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => handleFixConnection(pi.institution_name)}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                                                            title="Re-authorize this connection and add newly opened accounts"
+                                                        >
+                                                            <Plus size={14} /> Fix / add accounts
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRemoveInstitution(pi.institution_name)}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-white/10 hover:text-red-600 hover:border-red-200 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                                            title="Disconnect this institution"
+                                                        >
+                                                            <Trash2 size={14} /> Remove
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-xs text-gray-400">Last synced: {pi.last_sync ? new Date(pi.last_sync).toLocaleString() : 'Never'}</span>
-                                                    <button 
-                                                        onClick={() => handleFixConnection(pi.institution_name)}
-                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                        title="Fix Connection"
-                                                    >
-                                                        <Wrench size={16} />
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleRemoveInstitution(pi.institution_name)}
-                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                        title="Remove Connection"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                            ))}
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         </div>

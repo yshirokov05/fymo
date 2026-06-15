@@ -328,7 +328,12 @@ def sync_plaid_data(access_token, user_id, custom_rules=None, institution_name=N
             atype = AssetType.CASH
             if subtype == 'checking': atype = AssetType.CHECKING
             elif subtype == 'savings': atype = AssetType.SAVINGS
-            elif subtype in ['hsa', 'cd', 'money market']: atype = AssetType.HIGH_YIELD_SAVINGS
+            # 'cash management' = high-yield cash-management accounts (e.g. Vanguard
+            # Cash Plus, Fidelity CMA, Wealthfront Cash). Treat as HYSA so they read
+            # as interest-bearing savings rather than a plain checking-style "cash".
+            elif subtype in ['hsa', 'cd', 'money market', 'cash management']: atype = AssetType.HIGH_YIELD_SAVINGS
+            # Fallback for institutions that don't tag the subtype but name it clearly.
+            elif 'cash plus' in name or 'cash plus' in official_name: atype = AssetType.HIGH_YIELD_SAVINGS
             
             if is_investment_linked:
                 atype = AssetType.STOCK
