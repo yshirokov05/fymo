@@ -404,7 +404,14 @@ def get_auth_status():
 
 @app.route('/api/admin/grant_premium', methods=['POST'])
 def grant_premium():
-    """Admin: directly grant premium to a user by email or UID, no Stripe required."""
+    """Admin: comp premium to a person by email (or UID), no Stripe required.
+
+    Writes an EMAIL-keyed whitelist doc so the comp follows the person across every
+    login provider and even works before they've signed up — is_user_authorized
+    matches a whitelist doc whose id is the email. (Granting only by UID was the bug:
+    a later Google login = different UID = comp lost.) Also stamps the user doc when
+    the Firebase account already exists, so it reads premium without a Stripe call.
+    """
     body = request.get_json(silent=True) or {}
     expected_key = os.getenv('ADMIN_MIGRATION_KEY', '')
     if not expected_key or body.get('admin_key') != expected_key:
@@ -412,24 +419,35 @@ def grant_premium():
 
     email = (body.get('email') or '').strip().lower()
     uid = (body.get('uid') or '').strip()
+    if not email and not uid:
+        return jsonify({'error': 'Provide email or uid'}), 400
 
     db = get_db()
     if not db:
         return jsonify({'error': 'DB unavailable'}), 500
 
     try:
+        # 1) Email-keyed whitelist entry — the durable, login-agnostic comp.
+        if email:
+            db.collection('whitelist').document(email).set(
+                {'granted': True, 'email': email, 'comp': True}, merge=True)
+
+        # 2) If the Firebase account already exists, also resolve + stamp its uid so
+        #    the dashboard reads premium immediately (and without a Stripe lookup).
         from firebase_admin import auth as fb_auth
         if not uid and email:
-            user_record = fb_auth.get_user_by_email(email)
-            uid = user_record.uid
+            try:
+                uid = fb_auth.get_user_by_email(email).uid
+            except Exception:
+                uid = ''  # not signed up yet — email whitelist still covers them
 
-        if not uid:
-            return jsonify({'error': 'Provide email or uid'}), 400
+        if uid:
+            db.collection('users').document(uid).set({'is_subscribed': True}, merge=True)
+            db.collection('whitelist').document(uid).set(
+                {'granted': True, 'email': email, 'comp': True}, merge=True)
 
-        db.collection('users').document(uid).set({'is_subscribed': True}, merge=True)
-        db.collection('whitelist').document(uid).set({'granted': True, 'email': email}, merge=True)
-        logging.info(f"Admin grant_premium: uid={uid} email={email}")
-        return jsonify({'success': True, 'uid': uid, 'email': email})
+        logging.info(f"Admin grant_premium (comp): email={email} uid={uid or '(pending signup)'}")
+        return jsonify({'success': True, 'email': email, 'uid': uid, 'pending_signup': not uid})
     except Exception as e:
         logging.error(f"grant_premium error: {e}")
         return jsonify({'error': str(e)}), 500
