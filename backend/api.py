@@ -453,6 +453,85 @@ def grant_premium():
         return jsonify({'error': str(e)}), 500
 
 
+def _owner_emails():
+    """App owners who can comp premium from the in-app panel. Configurable via the
+    OWNER_EMAILS secret (comma-separated); defaults to the founder so it works out
+    of the box. Server-side only — never trust the client for this."""
+    raw = os.getenv('OWNER_EMAILS', 'yshirokov05@gmail.com')
+    return {e.strip().lower() for e in raw.split(',') if e.strip()}
+
+
+def _require_owner():
+    email = (getattr(request, 'email', '') or '').lower()
+    return bool(email) and email in _owner_emails() and getattr(request, 'email_verified', False)
+
+
+@app.route('/api/admin/comps', methods=['GET'])
+@auth_required
+def list_comps():
+    """Owner-only: list the emails currently comped (email-keyed whitelist entries)."""
+    if not _require_owner():
+        return jsonify({'error': 'Forbidden'}), 403
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB unavailable'}), 500
+    emails = []
+    for doc in db.collection('whitelist').where('comp', '==', True).limit(500).get():
+        d = doc.to_dict() or {}
+        em = (d.get('email') or '').lower()
+        # Only surface the email-keyed entries (doc id == email) to avoid uid dupes.
+        if em and doc.id == em:
+            emails.append(em)
+    return jsonify({'comps': sorted(set(emails)), 'is_owner': True})
+
+
+@app.route('/api/admin/comp', methods=['POST'])
+@auth_required
+def manage_comp():
+    """Owner-only: grant or revoke a comp by email (login-agnostic, signup-optional)."""
+    if not _require_owner():
+        return jsonify({'error': 'Forbidden'}), 403
+    body = request.get_json(silent=True) or {}
+    email = (body.get('email') or '').strip().lower()
+    action = (body.get('action') or 'grant').lower()
+    if not email or '@' not in email:
+        return jsonify({'error': 'A valid email is required'}), 400
+
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB unavailable'}), 500
+
+    from firebase_admin import auth as fb_auth
+    uid = ''
+    try:
+        uid = fb_auth.get_user_by_email(email).uid
+    except Exception:
+        uid = ''  # not signed up yet — the email-keyed comp still covers them
+
+    try:
+        if action == 'revoke':
+            db.collection('whitelist').document(email).delete()
+            if uid:
+                db.collection('whitelist').document(uid).delete()
+                db.collection('users').document(uid).set({'is_subscribed': False}, merge=True)
+            logging.info(f"Owner comp REVOKED: email={email} uid={uid or '(none)'}")
+            return jsonify({'success': True, 'email': email, 'action': 'revoke'})
+
+        # grant
+        db.collection('whitelist').document(email).set(
+            {'granted': True, 'email': email, 'comp': True}, merge=True)
+        if uid:
+            db.collection('whitelist').document(uid).set(
+                {'granted': True, 'email': email, 'comp': True}, merge=True)
+            db.collection('users').document(uid).set({'is_subscribed': True}, merge=True)
+        logging.info(f"Owner comp GRANTED: email={email} uid={uid or '(pending signup)'}")
+        return jsonify({'success': True, 'email': email, 'uid': uid,
+                        'action': 'grant', 'pending_signup': not uid})
+    except Exception as e:
+        logging.error(f"manage_comp error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/admin/migrate_whitelist_to_subscribed', methods=['POST'])
 def migrate_whitelist_to_subscribed():
     """One-time migration: stamps is_subscribed=True on users docs for all whitelist entries."""

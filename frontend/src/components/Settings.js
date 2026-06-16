@@ -21,6 +21,10 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
     const [isResetLoading, setIsResetLoading] = useState(false);
     const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
     const [showUnsupportedList, setShowUnsupportedList] = useState(false);
+    const [isOwner, setIsOwner] = useState(false);
+    const [comps, setComps] = useState([]);
+    const [compEmail, setCompEmail] = useState('');
+    const [compBusy, setCompBusy] = useState(false);
 
     const handleFixConnection = async (institutionName) => {
         try {
@@ -65,6 +69,40 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
             showToast("Orphaned data cleared successfully!", "success");
         } catch (err) {
             showToast("Failed to clear orphaned data: " + (err.response?.data?.error || err.message), "error");
+        }
+    };
+
+    const loadComps = async () => {
+        try {
+            const token = await currentUser.getIdToken();
+            const res = await axios.get('/api/admin/comps', { headers: { Authorization: `Bearer ${token}` } });
+            setIsOwner(true);
+            setComps(res.data.comps || []);
+        } catch (_e) {
+            setIsOwner(false);  // 403 for non-owners — panel stays hidden
+        }
+    };
+
+    useEffect(() => {
+        if (currentUser) loadComps();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentUser]);
+
+    const handleComp = async (email, action) => {
+        const e = (email || '').trim().toLowerCase();
+        if (!e || !e.includes('@')) { showToast('Enter a valid email', 'error'); return; }
+        setCompBusy(true);
+        try {
+            const token = await currentUser.getIdToken();
+            await axios.post('/api/admin/comp', { email: e, action },
+                { headers: { Authorization: `Bearer ${token}` } });
+            showToast(action === 'revoke' ? `Revoked ${e}` : `Granted premium to ${e}`, 'success');
+            if (action !== 'revoke') setCompEmail('');
+            loadComps();
+        } catch (err) {
+            showToast('Failed: ' + (err.response?.data?.error || err.message), 'error');
+        } finally {
+            setCompBusy(false);
         }
     };
 
@@ -521,6 +559,55 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                     Sign Out
                 </button>
             </div>
+
+            {isOwner && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-8">
+                    <div className="p-6">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1 flex items-center">
+                            <Star className="mr-2 text-amber-500" size={20} />
+                            Comp Premium <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded">Owner</span>
+                        </h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                            Grant free premium by email. Works across any login provider, and even before the person signs up.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-2 mb-5">
+                            <input
+                                type="email"
+                                value={compEmail}
+                                onChange={e => setCompEmail(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleComp(compEmail, 'grant'); }}
+                                placeholder="name@example.com"
+                                className="flex-1 px-3 py-2 border border-gray-200 dark:border-white/10 rounded-lg text-sm bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                onClick={() => handleComp(compEmail, 'grant')}
+                                disabled={compBusy}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {compBusy ? '…' : 'Grant Premium'}
+                            </button>
+                        </div>
+                        {comps.length > 0 ? (
+                            <div className="border dark:border-white/10 rounded-xl overflow-hidden">
+                                {comps.map(em => (
+                                    <div key={em} className="flex items-center justify-between px-4 py-3 border-b dark:border-white/10 last:border-0">
+                                        <span className="text-sm text-gray-800 dark:text-slate-200 truncate">{em}</span>
+                                        <button
+                                            onClick={() => handleComp(em, 'revoke')}
+                                            disabled={compBusy}
+                                            className="ml-3 shrink-0 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-red-600 border border-gray-200 dark:border-white/10 hover:border-red-200 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+                                        >
+                                            Revoke
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-gray-400 dark:text-slate-500">No comped accounts yet.</p>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {['yshirokov05@gmail.com', 'yshirokov@gmail.com', 'ys05@gmail.com'].includes(currentUser?.email?.toLowerCase()) && (
                 <div className="mt-8 p-4 bg-gray-100 rounded-lg border border-gray-200 text-[10px] font-mono text-gray-500">
