@@ -3275,11 +3275,15 @@ def get_card_summary():
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
     official_name = (data.get('official_name') or '').strip()
-    if not name and not official_name:
+    # Optional user-typed exact card name. Plaid often returns only the rewards
+    # program (e.g. "Ultimate Rewards"), which can't identify the specific product
+    # (Sapphire vs Freedom vs Ink). When the user tells us the exact card, it wins.
+    user_label = (data.get('user_label') or '').strip()
+    if not name and not official_name and not user_label:
         return jsonify({'error': 'Card name required'}), 400
 
-    # Prefer official_name for lookup since it carries the product line
-    lookup_name = official_name or name
+    # Prefer the user's exact label, then official_name (carries the product line).
+    lookup_name = user_label or official_name or name
     cache_key = _normalize_card_key(lookup_name)
     if not cache_key:
         return jsonify({'error': 'Invalid card name'}), 400
@@ -3314,34 +3318,47 @@ def get_card_summary():
     sanitize = advisor_service._sanitize_for_ai
     safe_name = sanitize(name)[:120]
     safe_official = sanitize(official_name)[:120]
+    safe_user = sanitize(user_label)[:120]
+
+    _identity = (
+        f"The user says this card is exactly: {safe_user}. Treat that as authoritative.\n"
+        if safe_user else
+        "Plaid sometimes returns only the rewards program (e.g. \"Ultimate Rewards\"), "
+        "which does NOT identify the specific product. If the name doesn't pin down the "
+        "exact card, say which issuer/family it's from and ask the user to confirm the "
+        "exact card — don't guess perks for a specific product you can't identify.\n"
+    )
 
     prompt = f"""You are giving a No-BS analysis of a credit card a user holds.
 
 Card display name: {safe_name or 'unknown'}
 Official issuer name: {safe_official or safe_name or 'unknown'}
-
-If you don't recognize the specific card, say so honestly and give a brief
-general assessment based on the issuer + product line you can infer. Do not
-invent perks that you're not confident about.
+{_identity}
+Start by stating the card you're analyzing (e.g. "Chase Sapphire Preferred").
+Do not invent perks you're not confident about.
 
 Format your response with these labeled sections (no markdown headers, just
-bold-style labels with a colon — keep the structure scannable):
+bold-style labels with a colon — keep it scannable):
 
-ANNUAL FEE: One line — exact $ if known, "no annual fee" if free, or "unknown" if unsure.
+CARD: The specific card name you're analyzing (or the issuer/family if unsure).
 
-TOP PERKS: 2-4 bullets, each starting with "•". Quantify with $ where possible
-(e.g. "3% cash back on dining → ~$X/yr on $Y spending"). Skip generic perks
-like "Visa Zero Liability".
+ANNUAL FEE: One line — exact $ if known, "no annual fee" if free, or "unknown".
 
-BEST USES: 1-2 short lines — what spending categories or scenarios this card
-shines for.
+REWARDS: The earn structure in 1-2 lines (e.g. "3x dining & travel, 1x else").
 
-WATCH OUT: 1-2 short lines on weak points (high APR, foreign transaction fees,
-limited acceptance, churning rules, etc.).
+TOP PERKS: 2-4 bullets, each starting with "•". Quantify with $ where possible.
+Skip generic perks like "Visa Zero Liability".
+
+BEST USES: 1-2 short lines — what spending/scenarios this card shines for.
+
+WATCH OUT: 1-2 short lines on weak points (high APR, FX fees, etc.).
+
+HOW IT COMPARES: 1-2 lines naming 1-2 competitor cards and when each beats this
+one (e.g. "vs Amex Gold: Gold wins on dining/groceries but has a $325 fee").
 
 VERDICT: One sentence — is this worth holding? Be direct.
 
-Keep the whole response under 200 words. No disclaimers about consulting the
+Keep the whole response under 260 words. No disclaimers about consulting the
 issuer. No "always check current terms" boilerplate."""
 
     client, client_err = advisor_service._get_client()
@@ -3352,7 +3369,7 @@ issuer. No "always check current terms" boilerplate."""
     try:
         response = client.messages.create(
             model=advisor_service._CLAUDE_MODEL,
-            max_tokens=500,
+            max_tokens=700,
             messages=[{"role": "user", "content": prompt}],
             timeout=25.0,
         )
