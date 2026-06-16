@@ -347,6 +347,55 @@ def is_user_authorized(uid, email=None):
     logging.warning(f"Auth Failed - UID: {uid}, Email: {email}")
     return False
 
+
+# Per-instance negative cache so genuinely-free users don't trigger a Stripe lookup
+# on every dashboard load. {uid: expiry_epoch}. Short TTL; success self-heals the doc.
+_stripe_email_negcache = {}
+_STRIPE_EMAIL_NEG_TTL = 6 * 3600  # 6h
+
+
+def resolve_premium_via_stripe_email(uid, email):
+    """Last-resort premium resolution by EMAIL.
+
+    Premium is stored per Firebase UID, but a user who signs in with a different
+    provider (e.g. Google) gets a different UID than the account their Stripe
+    subscription is attached to — so they'd wrongly appear as Free. Stripe customers
+    are created with the user's email at checkout, so we can look up an active
+    subscription by email and restore premium on the *current* UID.
+
+    Guarded by email_verified at the call site to prevent spoofing. Returns True and
+    self-heals the user/whitelist docs when an active subscription is found.
+    """
+    if not email or not stripe.api_key:
+        return False
+    import time as _t
+    exp = _stripe_email_negcache.get(uid)
+    if exp and exp > _t.time():
+        return False
+    try:
+        customers = stripe.Customer.list(email=email.strip(), limit=10)
+        for cust in customers.data:
+            subs = stripe.Subscription.list(customer=cust.id, status='all', limit=10)
+            for sub in subs.data:
+                if sub.status in ('active', 'trialing'):
+                    db = get_db()
+                    if db:
+                        db.collection('users').document(uid).set({
+                            'is_subscribed': True,
+                            'stripe_customer_id': cust.id,
+                            'stripe_subscription_id': sub.id,
+                            'email': email,
+                        }, merge=True)
+                        db.collection('whitelist').document(uid).set(
+                            {'stripe': True, 'email': email.strip().lower()}, merge=True)
+                    logging.info(f"Premium restored via Stripe email match: uid={uid} email={email}")
+                    return True
+    except Exception as e:
+        logging.warning(f"Stripe email premium resolution failed for {uid}: {e}")
+    # Remember the miss so we don't re-hit Stripe on every load for a free user.
+    _stripe_email_negcache[uid] = _t.time() + _STRIPE_EMAIL_NEG_TTL
+    return False
+
 @app.route('/api/auth_status', methods=['GET'])
 @auth_required
 def get_auth_status():
@@ -478,13 +527,19 @@ def stripe_webhook():
                 return jsonify({'error': 'No client_reference_id'}), 400
             customer_id = session.get('customer')
             subscription_id = session.get('subscription')
+            # Capture the email so premium can be matched by email if the user later
+            # signs in with a different provider (different UID). Without this, a
+            # Google login after an email/password subscription appears as Free.
+            customer_email = (session.get('customer_details') or {}).get('email')
             user_ref = db.collection('users').document(uid)
             user_ref.set({
                 'is_subscribed': True,
                 'stripe_customer_id': customer_id,
-                'stripe_subscription_id': subscription_id
+                'stripe_subscription_id': subscription_id,
+                'email': customer_email,
             }, merge=True)
-            db.collection('whitelist').document(uid).set({'stripe': True}, merge=True)
+            db.collection('whitelist').document(uid).set(
+                {'stripe': True, 'email': (customer_email or '').lower()}, merge=True)
             logging.info(f"Subscription activated for uid={uid}")
 
         elif event_type == 'customer.subscription.deleted':
@@ -661,6 +716,11 @@ def get_net_worth():
         _is_subscribed = getattr(user, 'is_subscribed', False)
         _is_authorized = is_user_authorized(request.uid, _email)
         is_premium = _is_subscribed or _is_authorized
+        # Cross-login restore: if not premium on THIS uid but a verified email has an
+        # active Stripe subscription (under a different uid/login), restore it here.
+        if not is_premium and _email and getattr(request, 'email_verified', False):
+            if resolve_premium_via_stripe_email(request.uid, _email):
+                is_premium = True
         if _is_authorized and not _is_subscribed:
             # Self-heal: stamp the users doc so future reads are consistent
             try:
