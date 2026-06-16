@@ -846,6 +846,20 @@ def get_net_worth():
         if user.investment_history:
             net_worth_data['investment_history'] = user.investment_history
 
+        # User-entered realized-gains override (from their brokerage, e.g. E*TRADE).
+        # Plaid can't see wash sales / transferred lots, so for active traders the
+        # broker's figure is ground truth. Optional; null for most users.
+        net_worth_data['realized_override'] = None
+        try:
+            _rdb = get_db()
+            if _rdb and request.uid != 'guest':
+                _ro = _rdb.collection('users').document(request.uid) \
+                    .collection('overrides').document('realized_gains').get()
+                if _ro.exists:
+                    net_worth_data['realized_override'] = _ro.to_dict() or None
+        except Exception as _ro_e:
+            logging.warning(f"realized_override read failed: {_ro_e}")
+
         # Milestone check — if net worth has crossed a new threshold since the
         # last recorded one, surface it so the frontend can fire confetti once.
         # Skipped for guest sessions (no persistent state to mark against).
@@ -3499,6 +3513,36 @@ def save_hysa_apy():
         'updated_at': datetime.utcnow().isoformat(),
     })
     return jsonify({'success': True, 'apy': apy})
+
+
+@app.route('/api/realized_override', methods=['PUT'])
+@auth_required
+def save_realized_override():
+    """Persist (or clear) a user-entered realized-gains figure from their brokerage.
+    Plaid-derived realized P&L is only an estimate for active option traders (no wash
+    sales, incomplete/transferred lots), so let the user pin the broker's true number."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Login required'}), 401
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB unavailable'}), 500
+    ref = db.collection('users').document(request.uid).collection('overrides').document('realized_gains')
+    if data.get('total') in (None, ''):
+        ref.delete()
+        return jsonify({'success': True, 'deleted': True})
+    try:
+        total = round(float(data.get('total')), 2)
+    except Exception:
+        return jsonify({'error': 'invalid total'}), 400
+    note = str(data.get('note') or '')[:200]
+    ref.set({
+        'total': total,
+        'note': note,
+        'source': 'broker',
+        'updated_at': datetime.utcnow().isoformat(),
+    })
+    return jsonify({'success': True, 'total': total})
 
 
 # ── Category Rules CRUD ───────────────────────────────────────────────────────
