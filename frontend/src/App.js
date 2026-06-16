@@ -108,6 +108,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [investmentHistory, setInvestmentHistory] = useState(null);
   const [portfolioHistory, setPortfolioHistory] = useState([]);
   const [accountApy, setAccountApy] = useState({});  // {accountKey: {apy, source}}
+  const [realizedOverride, setRealizedOverride] = useState(null);  // {total, note} from broker
   const [taxLiability, setTaxLiability] = useState({
     total: 0,
     federal: 0,
@@ -203,6 +204,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setIsPremium(response.data.is_subscribed || response.data.is_authorized || false);
         if (response.data.investment_history) setInvestmentHistory(response.data.investment_history);
         setAccountApy(response.data.account_apy || {});
+        setRealizedOverride(response.data.realized_override || null);
         if (response.data.newly_crossed_milestone) {
             setNewlyCrossedMilestone(response.data.newly_crossed_milestone);
         }
@@ -407,6 +409,19 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
       await axios.put('/api/hysa/apy', { key, apy: (apy === '' ? null : apy), source }, headers);
     } catch (err) {
       showToast('Failed to save APY: ' + (err.response?.data?.error || err.message), 'error');
+    }
+  };
+
+  const handleSaveRealizedOverride = async (total, note = '') => {
+    // Optimistic update
+    setRealizedOverride(total === null || total === '' ? null : { total: Number(total), note, source: 'broker' });
+    try {
+      const headers = isGuest || !currentUser
+        ? {}
+        : { headers: { Authorization: `Bearer ${await currentUser.getIdToken()}` } };
+      await axios.put('/api/realized_override', { total: (total === '' ? null : total), note }, headers);
+    } catch (err) {
+      showToast('Failed to save: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -914,6 +929,8 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 onSaveOtherIncomes={(i) => handleSave({ incomes: i })}
                 transactions={transactions}
                 investmentHistory={investmentHistory}
+                realizedOverride={realizedOverride}
+                onSaveRealizedOverride={handleSaveRealizedOverride}
               />
           );
       case 'taxes':

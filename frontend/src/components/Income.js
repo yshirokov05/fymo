@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import Card from './Card';
 import TaxDocumentUpload from './TaxDocumentUpload';
-import { Plus, Trash2, Calendar, DollarSign, Receipt, TrendingUp, Briefcase, Landmark } from 'lucide-react';
+import { Plus, Trash2, Calendar, DollarSign, Receipt, TrendingUp, Briefcase, Landmark, Pencil, Check, X } from 'lucide-react';
 
-const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, transactions, investmentHistory = null }) => {
+const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, transactions, investmentHistory = null, realizedOverride = null, onSaveRealizedOverride = null }) => {
     const [activeTab, setActiveTab] = useState('paystubs'); // 'paystubs' or 'other'
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editData, setEditData] = useState(null);
     const [amountType, setAmountType] = useState('NET'); // 'GROSS' or 'NET' for paystubs
     const [selectedMatch, setSelectedMatch] = useState(null);
+    const [editingRealized, setEditingRealized] = useState(null); // string value while editing override
     
     const [newStub, setNewStub] = useState({
         date: new Date().toISOString().split('T')[0],
@@ -52,7 +53,13 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
 
     // Realized capital gains for current year (Phase D — pulled from FIFO matcher)
     const realizedGains = investmentHistory?.realized_gains || null;
+    const hasRealizedOverride = realizedOverride && typeof realizedOverride.total === 'number';
     const realizedYTD = (() => {
+        // A user-entered broker figure is ground truth — Plaid can't see wash sales
+        // or transferred lots, so for active traders its realized P&L is only an estimate.
+        if (hasRealizedOverride) {
+            return { total: realizedOverride.total, st: 0, lt: 0, count: 0, overridden: true };
+        }
         if (!realizedGains) return null;
         // Prefer calendar-year aggregation; fall back to YTD periods bucket for legacy data
         const byYear = realizedGains.by_year || {};
@@ -267,6 +274,40 @@ const Income = ({ paystubs, onSavePaystubs, otherIncomes, onSaveOtherIncomes, tr
                                         </span>
                                     )}
                                 </p>
+                            )}
+                            {/* Broker realized override — Plaid's realized P&L is only an
+                                estimate for active option traders, so let the user pin the
+                                true figure from their brokerage (e.g. E*TRADE). */}
+                            {onSaveRealizedOverride && (
+                                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700/40">
+                                    {editingRealized !== null ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[10px] text-gray-400">Broker realized $</span>
+                                            <input
+                                                type="number" step="0.01" autoFocus value={editingRealized}
+                                                onChange={e => setEditingRealized(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') { onSaveRealizedOverride(editingRealized === '' ? null : editingRealized); setEditingRealized(null); }
+                                                    if (e.key === 'Escape') setEditingRealized(null);
+                                                }}
+                                                placeholder="e.g. 1686.26"
+                                                className="w-28 text-xs border border-blue-400 rounded px-1.5 py-0.5 bg-white dark:bg-slate-700 dark:text-slate-100"
+                                            />
+                                            <button onClick={() => { onSaveRealizedOverride(editingRealized === '' ? null : editingRealized); setEditingRealized(null); }} className="text-green-600 dark:text-green-400 p-0.5" aria-label="Save"><Check size={12} /></button>
+                                            <button onClick={() => setEditingRealized(null)} className="text-gray-400 p-0.5" aria-label="Cancel"><X size={12} /></button>
+                                        </div>
+                                    ) : hasRealizedOverride ? (
+                                        <div className="flex items-center gap-1.5 text-[10px]">
+                                            <span className="text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-900/20 rounded px-1.5 py-0.5">Realized from your brokerage</span>
+                                            <button onClick={() => setEditingRealized(String(realizedOverride.total))} className="text-gray-400 hover:text-blue-600" aria-label="Edit"><Pencil size={10} /></button>
+                                            <button onClick={() => onSaveRealizedOverride(null)} className="text-gray-400 hover:text-red-600 underline">clear</button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setEditingRealized('')} className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                                            Realized look off? Enter your broker's figure →
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </Card>
                         <Card title="Taxes Paid" icon={<Receipt className="text-red-500"/>}>
