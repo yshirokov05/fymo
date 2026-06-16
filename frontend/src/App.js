@@ -107,6 +107,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   const [isPremium, setIsPremium] = useState(false);
   const [investmentHistory, setInvestmentHistory] = useState(null);
   const [portfolioHistory, setPortfolioHistory] = useState([]);
+  const [accountApy, setAccountApy] = useState({});  // {accountKey: {apy, source}}
   const [taxLiability, setTaxLiability] = useState({
     total: 0,
     federal: 0,
@@ -201,6 +202,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         
         setIsPremium(response.data.is_subscribed || response.data.is_authorized || false);
         if (response.data.investment_history) setInvestmentHistory(response.data.investment_history);
+        setAccountApy(response.data.account_apy || {});
         if (response.data.newly_crossed_milestone) {
             setNewlyCrossedMilestone(response.data.newly_crossed_milestone);
         }
@@ -378,6 +380,33 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
         setAssets(prevAssets);
         const msg = err.response?.data?.error || 'Failed to update cost basis';
         showToast(msg, 'error');
+    }
+  };
+
+  // ── HYSA APY: AI estimate + persist (Plaid can't provide deposit APY) ──
+  const handleEstimateApy = async ({ name, institution }) => {
+    const headers = isGuest || !currentUser
+      ? {}
+      : { headers: { Authorization: `Bearer ${await currentUser.getIdToken()}` } };
+    const res = await axios.post('/api/hysa/apy_estimate', { name, institution }, headers);
+    return res.data;  // { apy, note, estimated }
+  };
+
+  const handleSaveApy = async (key, apy, source = 'manual') => {
+    // Optimistic local update so the chip reflects instantly
+    setAccountApy(prev => {
+      const next = { ...prev };
+      if (apy === null || apy === '') delete next[key];
+      else next[key] = { apy: Number(apy), source };
+      return next;
+    });
+    try {
+      const headers = isGuest || !currentUser
+        ? {}
+        : { headers: { Authorization: `Bearer ${await currentUser.getIdToken()}` } };
+      await axios.put('/api/hysa/apy', { key, apy: (apy === '' ? null : apy), source }, headers);
+    } catch (err) {
+      showToast('Failed to save APY: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -735,6 +764,9 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     isGuest={isGuest}
                     hasCompletedOnboarding={hasCompletedOnboarding}
                     onUpdateCostBasis={handleUpdateCostBasis}
+                    accountApy={accountApy}
+                    onEstimateApy={handleEstimateApy}
+                    onSaveApy={handleSaveApy}
                     investmentHistory={investmentHistory}
                     portfolioHistory={portfolioHistory}
                     capabilities={capabilities}

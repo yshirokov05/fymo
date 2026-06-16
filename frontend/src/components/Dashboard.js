@@ -95,7 +95,7 @@ const fmtCompact = (n) => {
     return `$${n.toFixed(0)}`;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, portfolioHistory = [], capabilities = null, onOpenEdit = null, onOpenLink = null }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, portfolioHistory = [], capabilities = null, onOpenEdit = null, onOpenLink = null, accountApy = {}, onEstimateApy = null, onSaveApy = null }) => {
     // Capabilities fallback: if not passed (legacy usage), infer from data we have.
     // Lets us use Dashboard in embedded contexts (Investments tab, Debts tab) without piping.
     const caps = capabilities || {
@@ -1261,7 +1261,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                         a horizontal scrollbar at typical desktop widths. */}
                     <Card title="Asset Breakdown" icon={<Briefcase className="text-blue-500" />}>
                         <div className="overflow-x-auto">
-                            <AssetTable assets={positiveAssets} onUpdateCostBasis={onUpdateCostBasis} />
+                            <AssetTable assets={positiveAssets} onUpdateCostBasis={onUpdateCostBasis} accountApy={accountApy} onEstimateApy={onEstimateApy} onSaveApy={onSaveApy} />
                         </div>
                     </Card>
                 </>

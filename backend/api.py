@@ -831,6 +831,17 @@ def get_net_worth():
         net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
         net_worth_data['manual_subscription_merchants'] = getattr(user, 'manual_subscription_merchants', [])
         net_worth_data['ignored_flexible'] = ignored_flexible
+        # Per-account APY (manual or AI-estimated), keyed by account. Small bounded
+        # subcollection — empty for most users.
+        _apy_map = {}
+        try:
+            _adb = get_db()
+            if _adb and request.uid != 'guest':
+                for _d in _adb.collection('users').document(request.uid).collection('account_apy').limit(100).get():
+                    _apy_map[_d.id] = (_d.to_dict() or {})
+        except Exception as _apy_e:
+            logging.warning(f"account_apy read failed: {_apy_e}")
+        net_worth_data['account_apy'] = _apy_map
         # Return persisted investment_history from last Plaid sync
         if user.investment_history:
             net_worth_data['investment_history'] = user.investment_history
@@ -3400,6 +3411,94 @@ issuer. No "always check current terms" boilerplate."""
         'cached': False,
         'generated_at': datetime.utcnow().isoformat(),
     })
+
+
+# ── HYSA / cash-account APY ───────────────────────────────────────────────────
+# Plaid has no deposit-APY field, so the yield can't be auto-pulled. We let the
+# user store an APY per account (manual), and offer a Claude-powered ESTIMATE as a
+# starting point (clearly labeled — rates change and the model's knowledge is dated).
+
+@app.route('/api/hysa/apy_estimate', methods=['POST'])
+@auth_required
+def hysa_apy_estimate():
+    """Claude-estimated APY for a named cash/savings product. An estimate to confirm,
+    not a live rate."""
+    _ok, _resp = _require_verified_email()
+    if not _ok:
+        return _resp
+    if not check_rate_limit(request.uid, 'apy_estimate', limit_per_hour=15, fail_closed=True):
+        return jsonify({'error': 'Rate limit reached. Try again later.'}), 429
+    if not check_ip_rate_limit('apy_estimate', limit_per_hour=40):
+        return jsonify({'error': 'Too many requests from your network.'}), 429
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    institution = (data.get('institution') or '').strip()
+    if not name and not institution:
+        return jsonify({'error': 'Account name required'}), 400
+
+    safe = advisor_service._sanitize_for_ai(f"{institution} {name}".strip())[:160]
+    prompt = f"""Estimate the current APY (annual percentage yield) for this cash or savings account: "{safe}".
+
+Reply with ONLY a JSON object, no prose:
+{{"apy": <number as a percent, e.g. 4.6>, "note": "<one short sentence; name the product if you recognize it>"}}
+
+If you recognize the product (e.g. Vanguard Cash Plus, Marcus by Goldman Sachs, Apple Savings, Wealthfront/Betterment Cash, Fidelity SPAXX/money market, Ally/SoFi/Amex HYSA), use its typical recent APY. If you don't, give a reasonable current HYSA estimate. APYs change frequently and your knowledge may be out of date — this is an ESTIMATE for the user to verify."""
+
+    client, client_err = advisor_service._get_client()
+    if client_err:
+        return jsonify({'error': 'AI service not configured'}), 503
+    try:
+        response = client.messages.create(
+            model=advisor_service._CLAUDE_MODEL,
+            max_tokens=150,
+            messages=[{"role": "user", "content": prompt}],
+            timeout=20.0,
+        )
+        text = "".join(getattr(b, 'text', '') for b in response.content if getattr(b, 'type', '') == 'text').strip()
+        import json as _json
+        m = re.search(r'\{.*\}', text, re.DOTALL)
+        parsed = _json.loads(m.group(0)) if m else {}
+        apy = round(float(parsed.get('apy')), 2)
+        if apy < 0 or apy > 100:
+            raise ValueError("apy out of range")
+        note = str(parsed.get('note') or '')[:200]
+    except Exception as e:
+        logging.error(f"apy_estimate error: {e}")
+        return jsonify({'error': 'Could not estimate APY'}), 503
+    return jsonify({'apy': apy, 'note': note, 'estimated': True})
+
+
+@app.route('/api/hysa/apy', methods=['PUT'])
+@auth_required
+def save_hysa_apy():
+    """Persist (or clear) the APY for one account, keyed by plaid_account_id or a
+    manual key. Stored in /users/{uid}/account_apy/{key}."""
+    if request.uid == 'guest':
+        return jsonify({'error': 'Login required'}), 401
+    data = request.get_json(silent=True) or {}
+    key = (data.get('key') or '').strip()
+    if not key:
+        return jsonify({'error': 'key required'}), 400
+    db = get_db()
+    if not db:
+        return jsonify({'error': 'DB unavailable'}), 500
+    ref = db.collection('users').document(request.uid).collection('account_apy').document(key[:200])
+    if data.get('apy') in (None, ''):
+        ref.delete()
+        return jsonify({'success': True, 'deleted': True})
+    try:
+        apy = round(float(data.get('apy')), 2)
+    except Exception:
+        return jsonify({'error': 'invalid apy'}), 400
+    if apy < 0 or apy > 100:
+        return jsonify({'error': 'apy out of range (0–100)'}), 400
+    ref.set({
+        'apy': apy,
+        'source': data.get('source', 'manual'),
+        'updated_at': datetime.utcnow().isoformat(),
+    })
+    return jsonify({'success': True, 'apy': apy})
 
 
 # ── Category Rules CRUD ───────────────────────────────────────────────────────
