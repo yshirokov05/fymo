@@ -53,6 +53,37 @@ def parse_option_underlying(ticker):
     return ticker[:-15]
 
 
+def _classify_action(txn):
+    """Classify a Plaid investment txn into an open/close + long/short action.
+
+    Returns one of: 'open_long', 'close_long', 'open_short', 'close_short', or None.
+
+    Plain stock 'buy'/'sell' (no open/close subtype) map to open_long / close_long,
+    preserving the original long-only behavior. Option subtypes carry direction:
+    'buy to open', 'sell to open', 'buy to close', 'sell to close', 'sell short',
+    'buy to cover'. Without this, writing options (sell-to-open → buy-to-close) was
+    mishandled: premiums fell into 'unmatched proceeds' and closes became phantom
+    lots, so an options seller's realized P&L was badly wrong.
+    """
+    ttype = (txn.get('type') or '').lower()
+    stype = (txn.get('subtype') or '').lower()
+    if 'buy' in stype or ttype == 'buy':
+        direction = 'buy'
+    elif 'sell' in stype or ttype == 'sell':
+        direction = 'sell'
+    else:
+        return None
+    if 'open' in stype or 'short' in stype:
+        is_open = True
+    elif 'close' in stype or 'cover' in stype:
+        is_open = False
+    else:
+        is_open = None  # plain buy/sell — no explicit open/close
+    if direction == 'buy':
+        return 'close_short' if is_open is False else 'open_long'
+    return 'open_short' if is_open is True else 'close_long'
+
+
 def _to_date(val):
     """Coerce assorted Plaid date shapes into a date object."""
     if val is None:
@@ -113,8 +144,14 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
 
     period_starts = _period_starts(today)
 
-    # Lot queues: {(account_id, ticker): deque[(buy_date, shares_remaining, cost_per_share)]}
-    lot_queues: dict = {}
+    # FIFO lot queues, split by side. Long positions open on a buy and close on a
+    # sell; short positions (writing options: sell-to-open) open on a sell and
+    # close on a buy. Keeping them separate is what lets option premiums be matched
+    # as realized P&L instead of dumped into "unmatched proceeds".
+    # {(account_id, ticker): deque[[open_date, qty_remaining, price_per_unit]]}
+    long_queues: dict = {}
+    short_queues: dict = {}
+    subtype_tally: dict = {}  # diagnostic: which open/close subtypes the institution sends
 
     # Aggregations
     periods = {pk: _empty_period() for pk in PERIOD_KEYS}
@@ -125,15 +162,13 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
     sell_count = 0
     earliest = None
 
-    # Sort transactions chronologically. Buys MUST be processed before sells of the
-    # same date so the lot queue exists when a same-day sell tries to match.
+    # Sort transactions chronologically. Opens MUST be processed before closes on
+    # the same date so the lot queue exists when a same-day close tries to match.
     def _txn_sort_key(t):
         d = _to_date(t.get('date'))
-        # Within same day: buys (priority 0) before sells (priority 1).
-        ttype = (t.get('type') or '').lower()
-        stype = (t.get('subtype') or '').lower()
-        is_buy = ttype == 'buy' or stype == 'buy'
-        return (d or date.min, 0 if is_buy else 1)
+        action = _classify_action(t)
+        is_open = action in ('open_long', 'open_short')
+        return (d or date.min, 0 if is_open else 1)
 
     sorted_txns = sorted(inv_txns, key=_txn_sort_key)
 
@@ -146,12 +181,12 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
         if not ticker or ticker in CASH_LIKE_TICKERS:
             continue
 
-        ttype = (txn.get('type') or '').lower()
         stype = (txn.get('subtype') or '').lower()
-        is_buy = ttype == 'buy' or stype == 'buy'
-        is_sell = ttype == 'sell' or stype == 'sell'
-        if not (is_buy or is_sell):
+        action = _classify_action(txn)
+        if action is None:
             continue
+        if stype:
+            subtype_tally[stype] = subtype_tally.get(stype, 0) + 1
 
         qty = abs(float(txn.get('quantity') or 0))
         if qty < 0.0001:
@@ -169,49 +204,49 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
         acc_id = txn.get('account_id', '')
         key = (acc_id, ticker)
 
-        # Plaid sometimes provides a per-share price; fall back to amount/qty.
+        # Plaid sometimes provides a per-unit price; fall back to amount/qty.
         per_share_price = float(txn.get('price') or 0) or (amount / qty)
 
-        if is_buy:
-            if key not in lot_queues:
-                lot_queues[key] = deque()
-            lot_queues[key].append([txn_date, qty, per_share_price])
+        # OPEN a position (buy-to-open long, or sell-to-open short).
+        if action == 'open_long':
+            long_queues.setdefault(key, deque()).append([txn_date, qty, per_share_price])
+            continue
+        if action == 'open_short':
+            short_queues.setdefault(key, deque()).append([txn_date, qty, per_share_price])
             continue
 
-        # SELL: match against FIFO lots.
+        # CLOSE a position — a realizing event (sell-to-close long, or buy-to-close short).
         sell_count += 1
-        sell_proceeds = amount
-        sell_cost_basis = 0.0
+        is_short_close = (action == 'close_short')
+        queue = short_queues.get(key) if is_short_close else long_queues.get(key)
+
+        sell_cost_basis = 0.0     # basis side
+        sell_proceeds = 0.0       # proceeds side  (gain = proceeds - cost)
         sell_st_gain = 0.0
         sell_lt_gain = 0.0
-        unmatched_qty = qty
-        sell_lots_consumed = []
-
-        queue = lot_queues.get(key)
         remaining_to_match = qty
 
         while remaining_to_match > 0.0001 and queue and len(queue) > 0:
-            lot = queue[0]  # [buy_date, shares_remaining, cost_per_share]
+            lot = queue[0]  # [open_date, qty_remaining, open_price]
             consume = min(remaining_to_match, lot[1])
-            lot_cost = consume * lot[2]
-            lot_proceeds = consume * per_share_price
+            if is_short_close:
+                # Short: opened by selling (received lot price), closed by buying (paid now).
+                lot_proceeds = consume * lot[2]
+                lot_cost = consume * per_share_price
+            else:
+                # Long: opened by buying (paid lot price), closed by selling (received now).
+                lot_proceeds = consume * per_share_price
+                lot_cost = consume * lot[2]
             lot_gain = lot_proceeds - lot_cost
             holding_days = (txn_date - lot[0]).days
             is_long_term = holding_days >= 365
 
             sell_cost_basis += lot_cost
+            sell_proceeds += lot_proceeds
             if is_long_term:
                 sell_lt_gain += lot_gain
             else:
                 sell_st_gain += lot_gain
-            sell_lots_consumed.append({
-                'buy_date': lot[0].isoformat(),
-                'shares': round(consume, 4),
-                'cost_per_share': round(lot[2], 4),
-                'gain': round(lot_gain, 2),
-                'holding_days': holding_days,
-                'long_term': is_long_term,
-            })
 
             lot[1] -= consume
             remaining_to_match -= consume
@@ -219,12 +254,11 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
                 queue.popleft()
 
         if remaining_to_match > 0.0001:
-            # Couldn't match all shares — likely a transfer-in or pre-5y purchase.
-            unmatched_qty_for_sell = remaining_to_match
-            unmatched_proceeds_for_sell = unmatched_qty_for_sell * per_share_price
-            unmatched_proceeds += unmatched_proceeds_for_sell
+            # No open lot to match — transfer-in, pre-5y purchase, or a missing open
+            # leg (e.g. the matching sell-to-open is outside Plaid's window).
+            unmatched_proceeds += remaining_to_match * per_share_price
             unmatched_count += 1
-            unmatched_qty = unmatched_qty_for_sell
+            unmatched_qty = remaining_to_match
         else:
             unmatched_qty = 0
 
@@ -250,6 +284,7 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
             'st_gain': round(sell_st_gain, 2),
             'lt_gain': round(sell_lt_gain, 2),
             'unmatched_shares': round(unmatched_qty, 4) if unmatched_qty else 0,
+            'short': is_short_close,
         })
 
         # Record on each applicable period
@@ -300,8 +335,9 @@ def compute_realized_gains(inv_txns, inv_sec_map, today=None):
 
     logging.info(
         f"Realized gains: total=${total_realized:.2f} (ST=${total_st:.2f}, LT=${total_lt:.2f}) "
-        f"across {sell_count} sells, {unmatched_count} unmatched · "
-        f"stocks=${stock_total:.2f} ({stock_count} sells), options=${options_total:.2f} ({options_count} sells)"
+        f"across {sell_count} closes, {unmatched_count} unmatched · "
+        f"stocks=${stock_total:.2f} ({stock_count}), options=${options_total:.2f} ({options_count}) · "
+        f"subtypes={subtype_tally}"
     )
 
     return {
