@@ -128,12 +128,18 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const trailing30Start = new Date(now);
     trailing30Start.setDate(trailing30Start.getDate() - 30);
 
+    // Categories that are NOT real spending: 'Ignore', plus account-to-account
+    // transfers (e.g. Chase → Vanguard Cash Plus). A transfer out of one of your
+    // accounts is just cash moving — counting it as spending double-counts money
+    // you still have, and inflates YTD spend / wrecks cash flow & savings rate.
+    const NON_SPENDING_CATEGORIES = new Set(['Ignore', 'Transfer', 'Transfers']);
+
     const ytdSpend = transactions
-        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart && t.category !== 'Ignore')
+        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart && !NON_SPENDING_CATEGORIES.has(t.category))
         .reduce((sum, t) => sum + t.amount, 0);
 
     const monthlySpend = transactions
-        .filter(t => t.amount > 0 && new Date(t.date) >= trailing30Start && t.category !== 'Ignore')
+        .filter(t => t.amount > 0 && new Date(t.date) >= trailing30Start && !NON_SPENDING_CATEGORIES.has(t.category))
         .reduce((sum, t) => sum + t.amount, 0);
 
     // Income from manually-entered sources (already a stated monthly figure)
@@ -154,10 +160,10 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
     const monthlyCashFlow = monthlyIncome - monthlySpend;
     const savingsRate = monthlyIncome > 0 ? (monthlyCashFlow / monthlyIncome) * 100 : null;
 
-    // Top 3 YTD categories (exclude Ignore — same filter as ytdSpend)
+    // Top 3 YTD categories (same non-spending filter as ytdSpend)
     const ytdByCategory = {};
     transactions
-        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart && t.category !== 'Ignore')
+        .filter(t => t.amount > 0 && new Date(t.date) >= yearStart && !NON_SPENDING_CATEGORIES.has(t.category))
         .forEach(t => {
             const cat = t.category || 'Other';
             ytdByCategory[cat] = (ytdByCategory[cat] || 0) + t.amount;

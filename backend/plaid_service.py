@@ -164,7 +164,14 @@ def categorize_transaction(name, plaid_categories, custom_rules=None):
             
     # Fallback to Plaid categories
     pcats = [c.lower() for c in plaid_categories] if plaid_categories else []
-    
+
+    # Account-to-account transfers (e.g. checking → Cash Plus, brokerage funding,
+    # internal moves) are NOT spending. Tag them "Transfer" so the dashboard and
+    # budgeting can exclude them — otherwise a $4k Chase→Vanguard move shows up as
+    # $4k of "spending". Frontend treats "Transfer" as non-spending.
+    if 'transfer' in pcats:
+        return "Transfer"
+
     if 'food' in pcats or 'dining' in pcats:
         return "Eating Out"
     if 'transport' in pcats or 'travel' in pcats:

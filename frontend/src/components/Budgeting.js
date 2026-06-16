@@ -276,7 +276,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         transactions.forEach(t => {
             if (t.amount <= 0) return;
             const cat = getTransactionCategory(t);
-            if (cat === 'Ignore') return;
+            if (cat === 'Ignore' || cat === 'Transfer' || cat === 'Transfers') return;  // transfers between your own accounts aren't spending
 
             if (hardBudgetedCategories.has(cat.toLowerCase())) return;
             if (ignoredSet.has(cat.toLowerCase()) && !explicitFlexibleCategoryNames.has(cat.toLowerCase())) return;
@@ -342,7 +342,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
             if (t.amount <= 0) return;
             
             const cat = getTransactionCategory(t);
-            if (cat === 'Ignore') return;
+            if (cat === 'Ignore' || cat === 'Transfer' || cat === 'Transfers') return;  // transfers between your own accounts aren't spending
 
             const matchesSearch = !analysisSearch || t.name.toLowerCase().includes(analysisSearch.toLowerCase());
             if (!matchesSearch) return;
