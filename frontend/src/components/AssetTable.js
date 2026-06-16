@@ -1,9 +1,28 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Check, X, Sparkles, Loader2 } from 'lucide-react';
 
-const AssetTable = ({ assets, onUpdateCostBasis }) => {
+const AssetTable = ({ assets, onUpdateCostBasis, accountApy = {}, onEstimateApy = null, onSaveApy = null }) => {
     const [expandedRows, setExpandedRows] = useState({});
     const [editingCostBasis, setEditingCostBasis] = useState(null); // { id, value }
+    const [editingApy, setEditingApy] = useState(null); // { key, value }
+    const [apyBusyKey, setApyBusyKey] = useState(null);
+
+    // Stable per-account key for storing APY (synced → plaid id; manual → ticker+inst).
+    const apyKeyFor = (asset) => asset.plaid_account_id || `manual_${(asset.ticker || '').toUpperCase()}_${(asset.institution_name || '')}`;
+
+    const estimateApy = async (asset) => {
+        if (!onEstimateApy) return;
+        const key = apyKeyFor(asset);
+        setApyBusyKey(key);
+        try {
+            const r = await onEstimateApy({ name: asset.ticker, institution: asset.institution_name || asset.official_name || asset.ticker });
+            if (r && r.apy != null) setEditingApy({ key, value: String(r.apy) });
+        } catch (_e) {
+            setEditingApy({ key, value: '' });
+        } finally {
+            setApyBusyKey(null);
+        }
+    };
 
     const startEdit = (e, assetId, currentCostBasis) => {
         e.stopPropagation();
@@ -130,6 +149,14 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
             ? asset.ticker
             : null;
 
+        // APY chip for high-yield savings / cash-management accounts (Plaid can't
+        // provide deposit APY — user-entered or AI-estimated, stored per account).
+        const isHysa = asset.asset_type === 'HIGH_YIELD_SAVINGS' && !isSubRow;
+        const apyKey = apyKeyFor(asset);
+        const apyVal = accountApy[apyKey]?.apy;
+        const isEditingApy = editingApy?.key === apyKey;
+        const apyBusy = apyBusyKey === apyKey;
+
         const isRetirement = asset.tax_treatment === 'RETIREMENT';
         const treatmentChipClass = isRetirement
             ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20'
@@ -166,6 +193,48 @@ const AssetTable = ({ assets, onUpdateCostBasis }) => {
                                 <span>{nameLabel}</span>
                                 {nameSub && (
                                     <span className="text-[10px] font-medium text-gray-400 dark:text-slate-500 uppercase tracking-wide">{nameSub}</span>
+                                )}
+                                {isHysa && onSaveApy && (
+                                    <span className="mt-1" onClick={e => e.stopPropagation()}>
+                                        {isEditingApy ? (
+                                            <span className="inline-flex items-center gap-1">
+                                                <input
+                                                    type="number" step="0.01" min="0" autoFocus
+                                                    value={editingApy.value}
+                                                    onChange={e => setEditingApy({ key: apyKey, value: e.target.value })}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') { onSaveApy(apyKey, editingApy.value, 'manual'); setEditingApy(null); }
+                                                        if (e.key === 'Escape') setEditingApy(null);
+                                                    }}
+                                                    className="w-16 text-xs border border-blue-400 rounded px-1 py-0.5 bg-white dark:bg-slate-700 dark:text-slate-100"
+                                                />
+                                                <span className="text-[10px] text-gray-400">% APY</span>
+                                                <button onClick={() => { onSaveApy(apyKey, editingApy.value, 'manual'); setEditingApy(null); }} className="text-green-600 dark:text-green-400 p-0.5" aria-label="Save APY"><Check size={12} /></button>
+                                                <button onClick={() => setEditingApy(null)} className="text-gray-400 p-0.5" aria-label="Cancel"><X size={12} /></button>
+                                                {onEstimateApy && (
+                                                    <button onClick={() => estimateApy(asset)} title="AI estimate" className="text-blue-500 p-0.5" aria-label="AI estimate APY">
+                                                        {apyBusy ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                                                    </button>
+                                                )}
+                                            </span>
+                                        ) : apyVal != null ? (
+                                            <button
+                                                onClick={() => setEditingApy({ key: apyKey, value: String(apyVal) })}
+                                                className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded px-1.5 py-0.5 hover:bg-emerald-100"
+                                                title="Edit APY"
+                                            >
+                                                {apyVal}% APY <Pencil size={9} />
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => { setEditingApy({ key: apyKey, value: '' }); if (onEstimateApy) estimateApy(asset); }}
+                                                disabled={apyBusy}
+                                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                                            >
+                                                {apyBusy ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} Add APY
+                                            </button>
+                                        )}
+                                    </span>
                                 )}
                             </span>
                         </div>
