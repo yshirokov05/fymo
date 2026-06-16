@@ -46,6 +46,8 @@ const DebtCard = ({ debt }) => {
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [cardLabel, setCardLabel] = useState('');   // user-typed exact card name
+    const [showLabelInput, setShowLabelInput] = useState(false);
 
     const isRevolving = debt.debt_type === 'REVOLVING';
 
@@ -94,6 +96,7 @@ const DebtCard = ({ debt }) => {
             const res = await axios.post('/api/debts/card_summary', {
                 name: debt.name,
                 official_name: debt.official_name || debt.name,
+                user_label: cardLabel.trim() || undefined,
             }, { headers, timeout: 30000 });
             setSummary(res.data.summary || 'No summary available.');
         } catch (e) {
@@ -237,6 +240,36 @@ const DebtCard = ({ debt }) => {
                             <div className="text-xs text-gray-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                                 {summary}
                             </div>
+                            {/* Override: Plaid sometimes only gives the rewards program
+                                ("Ultimate Rewards"), so let the user name the exact card. */}
+                            {!showLabelInput ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowLabelInput(true)}
+                                    className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                                >
+                                    Not the right card? Tell us the exact one →
+                                </button>
+                            ) : (
+                                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                                    <input
+                                        type="text"
+                                        value={cardLabel}
+                                        onChange={e => setCardLabel(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') fetchSummary(); }}
+                                        placeholder="e.g. Chase Sapphire Preferred"
+                                        className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={fetchSummary}
+                                        disabled={loading || !cardLabel.trim()}
+                                        className="px-3 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                        Re-analyze
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
