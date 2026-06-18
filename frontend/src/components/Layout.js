@@ -63,7 +63,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
             {/* Desktop Sidebar */}
             <div className="hidden md:flex md:w-56 bg-slate-950 text-white flex-shrink-0 flex-col border-r border-slate-800/60">
                 <div className="px-5 py-5 flex items-center justify-between">
-                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Fymo</span>
+                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>PerfinLab</span>
                     {isPremium ? (
                         <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md text-[9px] font-black uppercase tracking-widest">Premium</span>
                     ) : (
@@ -112,7 +112,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                     <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setIsMobileMenuOpen(false)}></div>
                     <div className="relative w-full max-w-xs bg-gray-900 text-white flex flex-col h-full shadow-xl">
                         <div className="p-6 flex items-center justify-between border-b border-gray-800">
-                            <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>Fymo</span>
+                            <span className="text-2xl font-black tracking-tighter" style={{ color: 'var(--accent-sidebar)' }}>PerfinLab</span>
                             <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Close navigation menu" className="text-gray-400 hover:text-white">
                                 <X size={24} aria-hidden="true" />
                             </button>
@@ -164,7 +164,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                         <Menu size={24} aria-hidden="true" />
                         <span className="text-xs font-bold uppercase tracking-tight">Menu</span>
                     </button>
-                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>Fymo</span>
+                    <span className="text-xl font-black tracking-tighter" style={{ color: 'var(--accent)' }}>PerfinLab</span>
                     <div className="w-16"></div>
                 </header>
 

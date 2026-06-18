@@ -61,7 +61,7 @@ const Login = () => {
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">
             <div className="bg-blue-600 text-white px-4 py-3 text-center text-sm font-semibold tracking-wide shadow-md">
-                Fymo — Personal Finance Dashboard
+                PerfinLab — Personal Finance Dashboard
             </div>
             
             <div className="flex-grow flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

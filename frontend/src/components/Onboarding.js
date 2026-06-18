@@ -75,7 +75,7 @@ const Onboarding = ({ onComplete, onInitializeSample, onSavePortfolio, onSavePay
                         <UserPlus size={40} className="text-white" />
                     </div>
                     <div>
-                        <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-3">Welcome to Fymo</h1>
+                        <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-3">Welcome to PerfinLab</h1>
                         <p className="text-lg text-gray-500 max-w-md mx-auto">
                             Let's get your dashboard populated so you can see your financial health clearly.
                         </p>

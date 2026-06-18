@@ -459,7 +459,7 @@ const Budgeting = ({ budgets, transactions, onSaveBudgets, currentUser, customCa
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `fymo-transactions-${selectedMonth}.csv`;
+        a.download = `perfinlab-transactions-${selectedMonth}.csv`;
         a.click();
         URL.revokeObjectURL(url);
         showToast(`Exported ${filteredTransactions.length} transactions`, 'success');

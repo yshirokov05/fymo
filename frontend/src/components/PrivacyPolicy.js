@@ -23,7 +23,7 @@ const PrivacyPolicy = () => {
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-slate-700 pb-4">Privacy Policy</h2>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Effective Date: June 2, 2026 · Last Updated: June 2, 2026</p>
                 <p className="text-gray-600 dark:text-gray-300 mt-4 leading-relaxed">
-                    Fymo ("Fymo", "we", "our", or "us") is operated by Yury Shirokov as a sole proprietorship. This Privacy Policy describes what data we collect, why we collect it, how it is stored and protected, and your rights regarding that data. By using Fymo, you agree to the practices described in this policy.
+                    PerfinLab ("PerfinLab", "we", "our", or "us") is operated by Yury Shirokov as a sole proprietorship. This Privacy Policy describes what data we collect, why we collect it, how it is stored and protected, and your rights regarding that data. By using PerfinLab, you agree to the practices described in this policy.
                 </p>
             </div>
 
@@ -43,7 +43,7 @@ const PrivacyPolicy = () => {
                 </Section>
 
                 <Section icon={<Eye size={22} />} title="How We Use Your Data">
-                    <p>We use your data to provide and improve the Fymo service:</p>
+                    <p>We use your data to provide and improve the PerfinLab service:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
                         <li>Displaying your net worth, budgets, tax estimates, and financial summaries</li>
                         <li>Syncing transactions and balances from your linked bank accounts via Plaid</li>
@@ -55,12 +55,12 @@ const PrivacyPolicy = () => {
                 </Section>
 
                 <Section icon={<BarChart2 size={22} />} title="Cookies &amp; Tracking">
-                    <p>Fymo uses essential cookies/local storage required for authentication and app function. We use Google Analytics, which sets analytics cookies to measure aggregate usage. We do not use third-party advertising or retargeting cookies.</p>
+                    <p>PerfinLab uses essential cookies/local storage required for authentication and app function. We use Google Analytics, which sets analytics cookies to measure aggregate usage. We do not use third-party advertising or retargeting cookies.</p>
                     <p>You can opt out of analytics at any time using the control in the California section below, or by enabling your browser's "Global Privacy Control" (GPC) signal, which we honor.</p>
                 </Section>
 
                 <Section icon={<Shield size={22} />} title="Third-Party Services">
-                    <p>Fymo uses the following third-party services, each subject to their own privacy policies:</p>
+                    <p>PerfinLab uses the following third-party services, each subject to their own privacy policies:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
                         <li><strong className="text-gray-800 dark:text-gray-100">Google Firebase &amp; Firestore</strong> — Authentication and database hosting</li>
                         <li><strong className="text-gray-800 dark:text-gray-100">Plaid</strong> — Bank account connectivity. Plaid is subject to its own data practices with your financial institution.</li>
@@ -73,7 +73,7 @@ const PrivacyPolicy = () => {
                 </Section>
 
                 <Section icon={<CreditCard size={22} />} title="Subscriptions, Cancellation &amp; Refunds" id="cancellation">
-                    <p>Fymo Premium is billed at $9.99/month through Stripe. Your subscription renews automatically each month until you cancel.</p>
+                    <p>PerfinLab Premium is billed at $9.99/month through Stripe. Your subscription renews automatically each month until you cancel.</p>
                     <p><strong className="text-gray-800 dark:text-gray-100">How to cancel:</strong> Go to <em>Settings → Manage Subscription</em> to open the Stripe customer portal, then cancel in one click. You may cancel at any time, for any reason.</p>
                     <p><strong className="text-gray-800 dark:text-gray-100">What happens when you cancel:</strong> You keep Premium access through the end of your current paid billing period, after which the subscription ends and you are not charged again. We do not provide prorated refunds for partial months, except where required by law.</p>
                     <p>If you believe you were charged in error, contact us at the email below and we will work with you in good faith.</p>
@@ -117,7 +117,7 @@ const PrivacyPolicy = () => {
                 <Section icon={<Mail size={22} />} title="Contact">
                     <p>For any privacy-related questions, data requests, or concerns, contact:</p>
                     <p className="mt-2">
-                        <strong className="text-gray-800 dark:text-gray-100">Yury Shirokov — Fymo</strong><br />
+                        <strong className="text-gray-800 dark:text-gray-100">Yury Shirokov — PerfinLab</strong><br />
                         <a href="mailto:yshirokov05@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">yshirokov05@gmail.com</a><br />
                         <span className="text-gray-500 dark:text-gray-400">[MAILING ADDRESS — add a PO box or business address before launch]</span>
                     </p>
@@ -126,7 +126,7 @@ const PrivacyPolicy = () => {
             </div>
 
             <p className="text-xs text-gray-400 text-center pt-4">
-                This policy may be updated periodically. Continued use of Fymo after changes constitutes acceptance of the revised policy.
+                This policy may be updated periodically. Continued use of PerfinLab after changes constitutes acceptance of the revised policy.
             </p>
         </div>
     );

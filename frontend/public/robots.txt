@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 
-Sitemap: https://projectfymo.com/sitemap.xml
+Sitemap: https://perfinlab.com/sitemap.xml

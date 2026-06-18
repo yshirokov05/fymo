@@ -216,7 +216,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                         <div className="flex-1">
                                             <p className="text-sm font-bold text-amber-900 mb-1">Not every institution works with Plaid</p>
                                             <p className="text-xs text-amber-800 leading-relaxed">
-                                                Fymo uses Plaid to sync balances, transactions, and holdings. Plaid covers 12,000+ banks and brokerages — but not all. For unsupported institutions, use <span className="font-bold">Edit Portfolio</span> on the Investments page or manual entry elsewhere. Your totals will still combine correctly.
+                                                PerfinLab uses Plaid to sync balances, transactions, and holdings. Plaid covers 12,000+ banks and brokerages — but not all. For unsupported institutions, use <span className="font-bold">Edit Portfolio</span> on the Investments page or manual entry elsewhere. Your totals will still combine correctly.
                                             </p>
                                             <button
                                                 type="button"
@@ -341,7 +341,7 @@ const Settings = ({ isGuest, onResetGuest, isPremium, plaidItems, fetchData, han
                                         disabled={isCheckoutLoading}
                                         onClick={async () => {
                                             setIsCheckoutLoading(true);
-                                            track('begin_checkout', { value: 9.99, currency: 'USD', items: [{ item_name: 'Fymo Premium' }] });
+                                            track('begin_checkout', { value: 9.99, currency: 'USD', items: [{ item_name: 'PerfinLab Premium' }] });
                                             try {
                                                 const token = await currentUser.getIdToken();
                                                 const res = await axios.post('/api/create_checkout_session', {}, {

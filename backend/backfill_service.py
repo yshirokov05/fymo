@@ -4,7 +4,7 @@ backfill_service — one-time reconstruction of historical daily portfolio value
 WHY
 ────
 Period returns (1W / 1M / YTD / 1Y) need the portfolio's market value at the START
-of each period. Fymo only began recording accurate daily snapshots recently, so
+of each period. PerfinLab only began recording accurate daily snapshots recently, so
 without a backfill the user waits ~30 days for a 1M number and until January for YTD.
 
 METHOD

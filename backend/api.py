@@ -30,8 +30,8 @@ CORS(app, supports_credentials=True, resources={r"/api/*": {
     "origins": [
         "https://personal-finance-app-18cbc.web.app",
         "https://personal-finance-app-18cbc.firebaseapp.com",
-        "https://projectfymo.com",
-        "https://www.projectfymo.com",
+        "https://perfinlab.com",
+        "https://www.perfinlab.com",
         "http://localhost:3000"
     ],
     "allow_headers": ["Authorization", "Content-Type"],
@@ -1230,7 +1230,7 @@ def morning_brief_unsubscribe():
     if not uid:
         return ("<html><body style='font-family:sans-serif;text-align:center;padding:60px'>"
                 "<h2>Invalid or expired unsubscribe link.</h2>"
-                "<p>You can manage email preferences in your Fymo settings.</p></body></html>",
+                "<p>You can manage email preferences in your PerfinLab settings.</p></body></html>",
                 400, {'Content-Type': 'text/html'})
     try:
         db = get_db()
@@ -1243,9 +1243,9 @@ def morning_brief_unsubscribe():
         return ('', 200)  # one-click; mail client doesn't render a body
     return ("<html><body style='font-family:-apple-system,sans-serif;text-align:center;padding:60px;color:#111827'>"
             "<h2>You're unsubscribed.</h2>"
-            "<p style='color:#6b7280'>You will no longer receive Fymo morning brief emails. "
+            "<p style='color:#6b7280'>You will no longer receive PerfinLab morning brief emails. "
             "You can re-enable them anytime in Settings.</p>"
-            "<a href='https://projectfymo.com' style='color:#2563eb'>Return to Fymo</a></body></html>",
+            "<a href='https://perfinlab.com' style='color:#2563eb'>Return to PerfinLab</a></body></html>",
             200, {'Content-Type': 'text/html'})
 
 

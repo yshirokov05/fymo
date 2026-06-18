@@ -85,7 +85,7 @@ const AIAnalyst = ({ isPremium, isGuest = false, onUpgrade }) => {
         setBriefType(type);
         setMessages([{
             role: 'assistant',
-            content: `${greet}! I'm your Fymo AI Analyst, powered by Claude Sonnet. I've reviewed your portfolio, recent transactions, and today's market conditions. What would you like to explore?`
+            content: `${greet}! I'm your PerfinLab AI Analyst, powered by Claude Sonnet. I've reviewed your portfolio, recent transactions, and today's market conditions. What would you like to explore?`
         }]);
     }, []);
 
@@ -255,7 +255,7 @@ const AIAnalyst = ({ isPremium, isGuest = false, onUpgrade }) => {
                             <Sparkles className="text-blue-400" size={26} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-white tracking-tight">Fymo AI Analyst</h2>
+                            <h2 className="text-2xl font-black text-white tracking-tight">PerfinLab AI Analyst</h2>
                             <p className="text-blue-300/70 text-sm mt-0.5">Powered by Claude Sonnet · Real-time financial intelligence</p>
                         </div>
                     </div>
@@ -409,7 +409,7 @@ const AIAnalyst = ({ isPremium, isGuest = false, onUpgrade }) => {
                                 </div>
                                 <h3 className="text-lg font-black text-gray-900 mb-1">Sign in to use AI features</h3>
                                 <p className="text-gray-500 text-xs mb-4 leading-relaxed">
-                                    Create a free account to chat with the Fymo AI Analyst powered by Claude Sonnet.
+                                    Create a free account to chat with the PerfinLab AI Analyst powered by Claude Sonnet.
                                 </p>
                                 <button
                                     onClick={() => promptSignIn()}
