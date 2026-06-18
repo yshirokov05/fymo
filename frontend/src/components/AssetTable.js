@@ -331,6 +331,51 @@ const AssetTable = ({ assets, onUpdateCostBasis, accountApy = {}, onEstimateApy 
         );
     };
 
+    // Mobile: a stacked card per holding. The desktop <table> overflows a phone and
+    // clips account names — this shows full names with no horizontal scroll.
+    const _LIQUID_TICKERS = ['CUR:USD','CASH','USD','VMFXX','SPAXX','FDRXX','SWVXX','TMSXX','VBTIX','VUSXX','SNSXX','FZFXX'];
+    const renderMobileAssetCard = (asset, isLiquidGroup) => {
+        const isLiquid = isLiquidGroup || ['CASH','SAVINGS','CHECKING','HIGH_YIELD_SAVINGS'].includes(asset.asset_type) || _LIQUID_TICKERS.includes(asset.ticker);
+        const isHousing = asset.asset_type === 'HOUSING';
+        const marketPrice = asset.marketPrice || asset.current_price || (asset.shares > 0 ? asset.cost_basis / asset.shares : 0) || 1.0;
+        const marketValue = asset.marketValue || (isLiquid || isHousing ? asset.shares : asset.shares * marketPrice);
+        const totalCost = asset.total_cost || (asset.shares * asset.cost_basis);
+        const costKnown = (isLiquid || isHousing) ? true : (totalCost > 0);
+        const gainLoss = marketValue - totalCost;
+        const gainLossPct = totalCost !== 0 ? (gainLoss / Math.abs(totalCost)) * 100 : 0;
+
+        const GENERIC = ['CASH','USD','CUR:USD'];
+        const nameLabel = (isLiquid && asset.institution_name) ? asset.institution_name : asset.ticker;
+        const sub = (isLiquid && asset.institution_name && asset.ticker && asset.ticker !== asset.institution_name && !GENERIC.includes(asset.ticker)) ? asset.ticker : null;
+        const apyVal = accountApy[apyKeyFor(asset)]?.apy;
+        const isHysa = asset.asset_type === 'HIGH_YIELD_SAVINGS';
+        const nAcc = (asset.accounts && asset.accounts.length > 1) ? asset.accounts.length : null;
+
+        return (
+            <div key={asset.plaid_account_id || asset.ticker} className="flex items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 break-words leading-snug">{nameLabel}</div>
+                    <div className="text-[11px] text-gray-400 dark:text-slate-500 mt-0.5 flex flex-wrap gap-x-1.5">
+                        {sub && <span className="uppercase tracking-wide font-medium">{sub}</span>}
+                        {!isLiquid && <span>{asset.shares.toLocaleString(undefined, { maximumFractionDigits: 3 })} sh @ ${marketPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>}
+                        {nAcc && <span>· {nAcc} accounts</span>}
+                        {isHysa && apyVal != null && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">· {apyVal}% APY</span>}
+                    </div>
+                </div>
+                <div className="text-right shrink-0">
+                    <div className="text-sm font-bold text-gray-900 dark:text-slate-100 tabular-nums">${marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    {!isLiquid && (costKnown ? (
+                        <div className={`text-[11px] font-semibold tabular-nums ${gainLoss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {gainLoss >= 0 ? '+' : '-'}${Math.abs(gainLoss).toLocaleString(undefined, { maximumFractionDigits: 0 })} ({gainLossPct.toFixed(1)}%)
+                        </div>
+                    ) : (
+                        <div className="text-[11px] text-gray-400 dark:text-slate-500 italic">no basis</div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
     const renderAssetGroup = (groupName, assetsInGroup) => {
         if (assetsInGroup.length === 0) {
             return null;
@@ -393,7 +438,16 @@ const AssetTable = ({ assets, onUpdateCostBasis, accountApy = {}, onEstimateApy 
                         ${groupTotals.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </span>
                 </div>
-                <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-slate-700/60 bg-white dark:bg-slate-800/60">
+                {/* Mobile (<sm): stacked cards — full names, no horizontal scroll */}
+                <div className="sm:hidden rounded-xl border border-gray-100 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 divide-y divide-gray-100 dark:divide-slate-700/40">
+                    {assetsInGroup.map(a => renderMobileAssetCard(a, isLiquidGroup))}
+                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50/80 dark:bg-slate-800/80">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-400">Subtotal</span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-slate-100 tabular-nums">${groupTotals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                </div>
+                {/* Desktop (≥sm): full table */}
+                <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-100 dark:border-slate-700/60 bg-white dark:bg-slate-800/60">
                     <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-700/60">
                         <thead className="bg-gray-50/80 dark:bg-slate-800/80">
                             <tr>
