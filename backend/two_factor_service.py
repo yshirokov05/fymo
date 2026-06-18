@@ -33,7 +33,7 @@ from typing import Optional
 import pyotp
 
 
-_TOTP_ISSUER = 'Fymo'
+_TOTP_ISSUER = 'PerfinLab'
 
 # Fernet for the TOTP secret — reuses the Plaid encryption key
 from cryptography.fernet import Fernet
@@ -107,7 +107,7 @@ def begin_enrollment(user_email: str) -> dict:
     """
     secret_b32 = pyotp.random_base32()
     totp = pyotp.TOTP(secret_b32)
-    uri = totp.provisioning_uri(name=user_email or 'Fymo user', issuer_name=_TOTP_ISSUER)
+    uri = totp.provisioning_uri(name=user_email or 'PerfinLab user', issuer_name=_TOTP_ISSUER)
     recovery_plain = _generate_recovery_codes(8)
     return {
         'secret_b32': secret_b32,                  # raw, for storage (after encryption)

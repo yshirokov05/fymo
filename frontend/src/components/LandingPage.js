@@ -34,7 +34,7 @@ const MockDashboard = () => (
                     <div className="w-2 h-2 rounded-full bg-yellow-400/70" />
                     <div className="w-2 h-2 rounded-full bg-green-400/70" />
                 </div>
-                <span className="text-xs text-gray-500 font-mono">projectfymo.com</span>
+                <span className="text-xs text-gray-500 font-mono">perfinlab.com</span>
                 <div className="w-12" />
             </div>
 
@@ -141,7 +141,7 @@ const AuthModal = ({ onClose, defaultSignup = false }) => {
                 </button>
 
                 <div className="mb-6 text-center">
-                    <span className="text-2xl font-black tracking-tight text-white">Fy<span className="text-blue-400">mo</span></span>
+                    <span className="text-2xl font-black tracking-tight text-white">Perfin<span className="text-blue-400">Lab</span></span>
                     <p className="text-sm text-gray-400 mt-1">{isSignup ? 'Create your free account' : 'Welcome back'}</p>
                 </div>
 
@@ -246,7 +246,7 @@ const LandingPage = () => {
             <nav className="sticky top-0 z-40 border-b border-white/5 bg-slate-900/80 backdrop-blur-md">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
                     <span className="text-xl font-black tracking-tight">
-                        Fy<span className="text-blue-400">mo</span>
+                        Perfin<span className="text-blue-400">Lab</span>
                     </span>
                     <div className="flex items-center gap-2 sm:gap-3">
                         <button onClick={() => setAuthModal('signin')}
@@ -279,7 +279,7 @@ const LandingPage = () => {
                             See exactly where you stand, and exactly how the numbers got there.
                         </p>
                         <p className="mt-4 text-lg text-gray-400 leading-relaxed max-w-lg">
-                            Fymo links all your accounts and tracks every dollar. And for any number it shows you, you can open up the exact calculation behind it.
+                            PerfinLab links all your accounts and tracks every dollar. And for any number it shows you, you can open up the exact calculation behind it.
                         </p>
                         <div className="mt-8 flex flex-col sm:flex-row gap-3">
                             <button onClick={() => setAuthModal('signup')}
@@ -320,12 +320,12 @@ const LandingPage = () => {
             {/* ── Features ── */}
             <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
                 <div className="text-center mb-12">
-                    <Pill color="purple"><Star size={11} />Why Fymo</Pill>
+                    <Pill color="purple"><Star size={11} />Why PerfinLab</Pill>
                     <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">
                         Built differently than<br />every other finance app
                     </h2>
                     <p className="mt-4 text-gray-400 max-w-lg mx-auto">
-                        Most apps just show you numbers. Fymo shows you <em>how</em> each one was calculated, and what it means for your money.
+                        Most apps just show you numbers. PerfinLab shows you <em>how</em> each one was calculated, and what it means for your money.
                     </p>
                 </div>
 
@@ -404,7 +404,7 @@ const LandingPage = () => {
                     <Pill color="green"><ShieldCheck size={11} />Security &amp; privacy</Pill>
                     <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Your money data, locked down</h2>
                     <p className="mt-3 text-gray-400 max-w-2xl mx-auto">
-                        Fymo is built read-only and privacy-first. We can see the numbers to do the math — we can never touch your money.
+                        PerfinLab is built read-only and privacy-first. We can see the numbers to do the math — we can never touch your money.
                     </p>
                 </div>
 
@@ -413,12 +413,12 @@ const LandingPage = () => {
                         {
                             icon: <Eye size={18} className="text-emerald-400" />,
                             title: 'Read-only access',
-                            desc: 'Accounts connect through Plaid in read-only mode. Fymo can view balances and transactions — it can never move, send, or withdraw money.',
+                            desc: 'Accounts connect through Plaid in read-only mode. PerfinLab can view balances and transactions — it can never move, send, or withdraw money.',
                         },
                         {
                             icon: <KeyRound size={18} className="text-blue-400" />,
                             title: 'Credentials never touch us',
-                            desc: "Your bank login goes straight to Plaid — Fymo never sees or stores your username or password. Access tokens are encrypted at rest.",
+                            desc: "Your bank login goes straight to Plaid — PerfinLab never sees or stores your username or password. Access tokens are encrypted at rest.",
                         },
                         {
                             icon: <Lock size={18} className="text-violet-400" />,
@@ -428,7 +428,7 @@ const LandingPage = () => {
                         {
                             icon: <ShieldCheck size={18} className="text-emerald-400" />,
                             title: 'Never sold, never ads',
-                            desc: 'No VC pressure, no ad networks, no selling your data — ever. Fymo makes money one way: an optional $9.99/mo subscription.',
+                            desc: 'No VC pressure, no ad networks, no selling your data — ever. PerfinLab makes money one way: an optional $9.99/mo subscription.',
                         },
                         {
                             icon: <Sparkles size={18} className="text-blue-400" />,
@@ -544,12 +544,12 @@ const LandingPage = () => {
             {/* ── Footer ── */}
             <footer className="border-t border-white/5 py-8">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-600">
-                    <span className="font-bold text-gray-400">Fy<span className="text-blue-400">mo</span></span>
+                    <span className="font-bold text-gray-400">Perfin<span className="text-blue-400">Lab</span></span>
                     <div className="flex gap-6">
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-privacy'))} className="hover:text-gray-400 transition-colors">Privacy Policy</button>
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-terms'))} className="hover:text-gray-400 transition-colors">Terms of Service</button>
                     </div>
-                    <span>© {new Date().getFullYear()} Fymo. All rights reserved.</span>
+                    <span>© {new Date().getFullYear()} PerfinLab. All rights reserved.</span>
                 </div>
             </footer>
         </div>

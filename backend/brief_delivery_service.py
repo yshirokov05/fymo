@@ -14,7 +14,7 @@ How it works:
 
 Requires:
   • RESEND_API_KEY in Cloud Function secrets (user must add this).
-  • A verified sender domain in Resend (e.g. briefs@projectfymo.com).
+  • A verified sender domain in Resend (e.g. briefs@perfinlab.com).
 
 If RESEND_API_KEY is not set, send_brief() is a no-op — safe to deploy without
 configuring the email provider; the user can flip the switch later.
@@ -131,11 +131,11 @@ def unsubscribe_url_for(user_id: str) -> str:
     """Non-expiring, signed, no-login unsubscribe link for CAN-SPAM compliance."""
     tok = make_unsubscribe_token(user_id)
     if not tok:
-        return "https://projectfymo.com"
-    return f"https://projectfymo.com/api/morning_brief/unsubscribe?token={tok}"
+        return "https://perfinlab.com"
+    return f"https://perfinlab.com/api/morning_brief/unsubscribe?token={tok}"
 
 
-def _wrap_email_html(brief_html: str, user_first_name: str = '', unsubscribe_url: str = 'https://projectfymo.com') -> str:
+def _wrap_email_html(brief_html: str, user_first_name: str = '', unsubscribe_url: str = 'https://perfinlab.com') -> str:
     """Wrap the brief in a minimal email shell. Inline styles only for client compatibility."""
     greeting = f"Good morning{(' ' + user_first_name) if user_first_name else ''},"
     return f"""<!DOCTYPE html>
@@ -145,7 +145,7 @@ def _wrap_email_html(brief_html: str, user_first_name: str = '', unsubscribe_url
   <tr><td align="center">
     <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.06)">
       <tr><td style="padding:32px 40px 8px 40px">
-        <div style="font-family:-apple-system,sans-serif;font-size:28px;font-weight:900;color:#2563eb;letter-spacing:-0.5px">Fymo</div>
+        <div style="font-family:-apple-system,sans-serif;font-size:28px;font-weight:900;color:#2563eb;letter-spacing:-0.5px">PerfinLab</div>
         <div style="font-family:-apple-system,sans-serif;font-size:12px;color:#9ca3af;letter-spacing:1px;text-transform:uppercase;margin-top:4px;font-weight:700">Morning brief · {date.today().strftime('%A, %B %-d')}</div>
       </td></tr>
       <tr><td style="padding:16px 40px 32px 40px">
@@ -153,13 +153,13 @@ def _wrap_email_html(brief_html: str, user_first_name: str = '', unsubscribe_url
         {brief_html}
       </td></tr>
       <tr><td style="padding:24px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center">
-        <a href="https://projectfymo.com" style="font-family:-apple-system,sans-serif;color:#2563eb;text-decoration:none;font-size:13px;font-weight:600">Open Fymo →</a>
+        <a href="https://perfinlab.com" style="font-family:-apple-system,sans-serif;color:#2563eb;text-decoration:none;font-size:13px;font-weight:600">Open PerfinLab →</a>
         <div style="font-family:-apple-system,sans-serif;color:#9ca3af;font-size:11px;margin-top:12px;line-height:1.6">
           You're receiving this because you enabled daily morning briefs in Settings.<br/>
           <a href="{unsubscribe_url}" style="color:#6b7280;text-decoration:underline">Unsubscribe</a>
           &nbsp;·&nbsp;
-          <a href="https://projectfymo.com" style="color:#6b7280;text-decoration:underline">Manage email preferences</a>
-          <div style="margin-top:8px;color:#b0b6c0">Fymo · {PHYSICAL_MAILING_ADDRESS}</div>
+          <a href="https://perfinlab.com" style="color:#6b7280;text-decoration:underline">Manage email preferences</a>
+          <div style="margin-top:8px;color:#b0b6c0">PerfinLab · {PHYSICAL_MAILING_ADDRESS}</div>
         </div>
       </td></tr>
     </table>
@@ -205,7 +205,7 @@ def generate_brief_markdown_for_user(user_id: str) -> str:
     return ''
 
 
-def send_brief(to_email: str, brief_markdown: str, user_first_name: str = '', unsubscribe_url: str = 'https://projectfymo.com') -> bool:
+def send_brief(to_email: str, brief_markdown: str, user_first_name: str = '', unsubscribe_url: str = 'https://perfinlab.com') -> bool:
     """
     Send one user's brief. Returns True on success, False on (logged) failure.
     No-op + returns False when Resend isn't configured.
@@ -221,8 +221,8 @@ def send_brief(to_email: str, brief_markdown: str, user_first_name: str = '', un
     if not to_email or not brief_markdown:
         return False
 
-    from_addr = os.environ.get('BRIEF_FROM_EMAIL', 'Fymo <briefs@projectfymo.com>')
-    subject = f"Your Fymo morning brief · {date.today().strftime('%b %-d')}"
+    from_addr = os.environ.get('BRIEF_FROM_EMAIL', 'PerfinLab <briefs@perfinlab.com>')
+    subject = f"Your PerfinLab morning brief · {date.today().strftime('%b %-d')}"
     body_html = _wrap_email_html(_markdown_to_html(brief_markdown), user_first_name, unsubscribe_url)
 
     try:

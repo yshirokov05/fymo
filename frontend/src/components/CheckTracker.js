@@ -170,7 +170,7 @@ const CheckTracker = ({
                     </button>
                 </div>
                 <p className="mb-4 text-[10px] text-gray-400 italic">
-                    Privacy Notice: Check images are processed securely via Anthropic's Claude API. Original images are not stored on Fymo servers.
+                    Privacy Notice: Check images are processed securely via Anthropic's Claude API. Original images are not stored on PerfinLab servers.
                 </p>
 
                 {ocrStatus === 'error' && (

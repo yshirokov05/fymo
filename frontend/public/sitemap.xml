@@ -2,23 +2,23 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemaps-image/1.1">
   <url>
-    <loc>https://projectfymo.com/</loc>
+    <loc>https://perfinlab.com/</loc>
     <lastmod>2026-05-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
-      <image:loc>https://projectfymo.com/og-image.png</image:loc>
-      <image:title>Fymo — AI Personal Finance That Shows Its Math</image:title>
+      <image:loc>https://perfinlab.com/og-image.png</image:loc>
+      <image:title>PerfinLab — AI Personal Finance That Shows Its Math</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://projectfymo.com/privacy</loc>
+    <loc>https://perfinlab.com/privacy</loc>
     <lastmod>2026-05-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://projectfymo.com/terms</loc>
+    <loc>https://perfinlab.com/terms</loc>
     <lastmod>2026-05-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>

@@ -38,14 +38,14 @@ const DataPrivacyFAQ = () => {
             <div className="mb-6">
                 <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 border-b border-gray-200 dark:border-slate-700 pb-4">Security & Privacy FAQ</h2>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-3">
-                    Complete transparency about how Fymo handles your data. Click any question to expand.
+                    Complete transparency about how PerfinLab handles your data. Click any question to expand.
                 </p>
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-4 flex items-start space-x-3">
                 <Info className="text-blue-500 shrink-0 mt-0.5" size={18} />
                 <p className="text-blue-700 dark:text-blue-300 text-sm">
-                    Fymo is a solo-built app by Yury Shirokov. There is no VC backing, no ad model, and no data brokering. The only revenue source is Premium subscriptions.
+                    PerfinLab is a solo-built app by Yury Shirokov. There is no VC backing, no ad model, and no data brokering. The only revenue source is Premium subscriptions.
                 </p>
             </div>
 
@@ -55,10 +55,10 @@ const DataPrivacyFAQ = () => {
                 icon={<Shield size={20} />}
                 iconBg="bg-blue-100 dark:bg-blue-900/40"
                 iconColor="text-blue-600 dark:text-blue-400"
-                question="Will Fymo ever see my bank username or password?"
+                question="Will PerfinLab ever see my bank username or password?"
             >
-                <p><strong className="text-gray-800 dark:text-gray-100">No — never.</strong> Bank connections are handled exclusively through <strong>Plaid</strong>, a third-party service used by thousands of apps (Venmo, Robinhood, Betterment, etc.). When you link an account, you log in directly through Plaid's secure portal. Fymo never sees, intercepts, or stores your banking credentials.</p>
-                <p>Plaid issues Fymo a limited-scope <strong>access token</strong> — a long random string — that can only read balances and transactions. That's it.</p>
+                <p><strong className="text-gray-800 dark:text-gray-100">No — never.</strong> Bank connections are handled exclusively through <strong>Plaid</strong>, a third-party service used by thousands of apps (Venmo, Robinhood, Betterment, etc.). When you link an account, you log in directly through Plaid's secure portal. PerfinLab never sees, intercepts, or stores your banking credentials.</p>
+                <p>Plaid issues PerfinLab a limited-scope <strong>access token</strong> — a long random string — that can only read balances and transactions. That's it.</p>
             </FAQItem>
 
             <FAQItem
@@ -67,14 +67,14 @@ const DataPrivacyFAQ = () => {
                 iconColor="text-purple-600 dark:text-purple-400"
                 question="Can this app transfer or move my money?"
             >
-                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> The Plaid tokens granted to Fymo use <strong>read-only product scopes</strong> (transactions, balances, investments, liabilities). These scopes do not include payment initiation or transfer capabilities. The app is architecturally incapable of moving money — not just by policy, but by what the API token is permitted to do.</p>
+                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> The Plaid tokens granted to PerfinLab use <strong>read-only product scopes</strong> (transactions, balances, investments, liabilities). These scopes do not include payment initiation or transfer capabilities. The app is architecturally incapable of moving money — not just by policy, but by what the API token is permitted to do.</p>
             </FAQItem>
 
             <FAQItem
                 icon={<Globe size={20} />}
                 iconBg="bg-teal-100 dark:bg-teal-900/40"
                 iconColor="text-teal-600 dark:text-teal-400"
-                question="What exactly does Plaid send to Fymo?"
+                question="What exactly does Plaid send to PerfinLab?"
             >
                 <p>After linking, Plaid sends:</p>
                 <ul className="list-disc list-inside space-y-1 mt-1">
@@ -83,7 +83,7 @@ const DataPrivacyFAQ = () => {
                     <li>Investment holdings (ticker, shares, market value, cost basis if available)</li>
                     <li>Liability balances (credit cards, mortgages, student loans)</li>
                 </ul>
-                <p className="mt-2">Fymo stores this data in your Firestore document, associated with your user ID. Plaid's own data practices are governed by <a href="https://plaid.com/legal" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Plaid's End User Privacy Policy</a>.</p>
+                <p className="mt-2">PerfinLab stores this data in your Firestore document, associated with your user ID. Plaid's own data practices are governed by <a href="https://plaid.com/legal" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Plaid's End User Privacy Policy</a>.</p>
             </FAQItem>
 
             <SectionHeader title="Data Storage & Encryption" />
@@ -120,7 +120,7 @@ const DataPrivacyFAQ = () => {
             >
                 <p>Technically, as the Firebase project owner, I have admin-level access to the Firestore database. I want to be upfront about that.</p>
                 <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">In practice:</strong> I do not browse user data. There are no internal dashboards that surface individual user finances. The only scenario where I would ever look at a specific user document is if they contacted me about a bug and explicitly granted permission.</p>
-                <p className="mt-2">If this level of admin access is a concern, you can use Fymo in <strong>manual-entry mode only</strong> (no Plaid connection) — in which case you control exactly what data enters the system.</p>
+                <p className="mt-2">If this level of admin access is a concern, you can use PerfinLab in <strong>manual-entry mode only</strong> (no Plaid connection) — in which case you control exactly what data enters the system.</p>
             </FAQItem>
 
             <SectionHeader title="AI Features" />
@@ -140,7 +140,7 @@ const DataPrivacyFAQ = () => {
                     <li>Investment allocation summary</li>
                 </ul>
                 <p className="mt-2"><strong className="text-gray-800 dark:text-gray-100">What is NOT sent:</strong> Your name, email, account numbers, transaction merchant details, or any directly identifying information. The data is sanitized before being passed to the model.</p>
-                <p className="mt-2">Anthropic's data handling for Claude API calls is governed by <a href="https://www.anthropic.com/legal/commercial-terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Anthropic's Commercial Terms</a>. Fymo uses the API tier, which means data is not used to train Claude.</p>
+                <p className="mt-2">Anthropic's data handling for Claude API calls is governed by <a href="https://www.anthropic.com/legal/commercial-terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">Anthropic's Commercial Terms</a>. PerfinLab uses the API tier, which means data is not used to train Claude.</p>
             </FAQItem>
 
             <FAQItem
@@ -159,10 +159,10 @@ const DataPrivacyFAQ = () => {
                 icon={<CreditCard size={20} />}
                 iconBg="bg-green-100 dark:bg-green-900/40"
                 iconColor="text-green-600 dark:text-green-400"
-                question="Does Fymo store my credit card information?"
+                question="Does PerfinLab store my credit card information?"
             >
-                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> All payment processing is handled by <strong>Stripe</strong>, one of the most trusted payment processors in the world. When you enter card details, they go directly to Stripe's servers — Fymo never sees or stores your card number, CVV, or billing address.</p>
-                <p className="mt-2">Fymo only stores a Stripe Customer ID and subscription status (active/inactive) in your Firestore document.</p>
+                <p><strong className="text-gray-800 dark:text-gray-100">No.</strong> All payment processing is handled by <strong>Stripe</strong>, one of the most trusted payment processors in the world. When you enter card details, they go directly to Stripe's servers — PerfinLab never sees or stores your card number, CVV, or billing address.</p>
+                <p className="mt-2">PerfinLab only stores a Stripe Customer ID and subscription status (active/inactive) in your Firestore document.</p>
             </FAQItem>
 
             <SectionHeader title="Your Rights & Data Deletion" />
@@ -176,7 +176,7 @@ const DataPrivacyFAQ = () => {
                 <p>You have two options:</p>
                 <ul className="list-disc list-inside space-y-2 mt-1">
                     <li><strong className="text-gray-800 dark:text-gray-100">Factory Reset</strong> — Settings → Factory Reset Account. This wipes all your financial data (assets, debts, transactions, income, etc.) while keeping your account active.</li>
-                    <li><strong className="text-gray-800 dark:text-gray-100">Full Account Deletion</strong> — Email <a href="mailto:support@projectfymo.com" className="text-blue-600 dark:text-blue-400 hover:underline">support@projectfymo.com</a> to request complete deletion of your account and all associated data. Requests are fulfilled within 30 days.</li>
+                    <li><strong className="text-gray-800 dark:text-gray-100">Full Account Deletion</strong> — Email <a href="mailto:support@perfinlab.com" className="text-blue-600 dark:text-blue-400 hover:underline">support@perfinlab.com</a> to request complete deletion of your account and all associated data. Requests are fulfilled within 30 days.</li>
                 </ul>
                 <p className="mt-2">To disconnect bank accounts without deleting your account: Settings → Data Management → Clear Orphaned Plaid Data, or use the disconnect option per account in Settings.</p>
             </FAQItem>
@@ -187,7 +187,7 @@ const DataPrivacyFAQ = () => {
                 iconColor="text-blue-600 dark:text-blue-400"
                 question="What are my rights under CCPA / GDPR?"
             >
-                <p>Fymo is primarily intended for US residents, but we respect global privacy principles:</p>
+                <p>PerfinLab is primarily intended for US residents, but we respect global privacy principles:</p>
                 <ul className="list-disc list-inside space-y-1 mt-1">
                     <li><strong className="text-gray-800 dark:text-gray-100">Right to access</strong> — You can view all data stored about you (it's all visible in-app).</li>
                     <li><strong className="text-gray-800 dark:text-gray-100">Right to deletion</strong> — See above. We honor deletion requests promptly.</li>
@@ -201,7 +201,7 @@ const DataPrivacyFAQ = () => {
                 <p className="text-gray-700 dark:text-gray-200 font-semibold">Still have questions?</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Reach out directly at{' '}
-                    <a href="mailto:support@projectfymo.com" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">support@projectfymo.com</a>
+                    <a href="mailto:support@perfinlab.com" className="text-blue-600 dark:text-blue-400 font-bold hover:underline">support@perfinlab.com</a>
                 </p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
                     You can also review the full{' '}
