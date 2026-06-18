@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <rect width="32" height="32" rx="7" fill="#2563eb"/>
-  <!-- "P" monogram, geometric so it stays crisp at 16px -->
-  <rect x="10" y="8"  width="4.5" height="16" rx="2.2" fill="#ffffff"/>
-  <rect x="10" y="8"  width="12.5" height="10" rx="5" fill="#ffffff"/>
-  <rect x="14" y="11" width="5" height="4" rx="2" fill="#2563eb"/>
-</svg>
