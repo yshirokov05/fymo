@@ -3236,8 +3236,8 @@ Please provide:
 Keep the response concise and practical. Use dollar amounts where helpful. Do not give investment advice or tax advice. Frame everything as general financial information.
 """
 
-    # Goal AI Guidance — migrated from Gemini to Claude Sonnet 4.6 so all
-    # user-facing AI uses the same model. Keeps prompt + rate limit unchanged.
+    # Goal AI Guidance — Claude Sonnet 4.6, the single model behind all
+    # user-facing AI. Prompt + rate limit shared with the rest of the advisor.
     client, client_err = advisor_service._get_client()
     if client_err:
         logging.error(f"Goal AI guidance: {client_err}")

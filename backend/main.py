@@ -19,7 +19,7 @@ from firebase_functions import https_fn, scheduler_fn
 #   3) redeploy
 _SECRETS = [
     "PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ENV", "PLAID_REDIRECT_URI",
-    "GEMINI_API_KEY", "ANTHROPIC_API_KEY",
+    "ANTHROPIC_API_KEY",
     "FERNET_KEY",
     "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID",
     "RESEND_API_KEY", "BRIEF_FROM_EMAIL",

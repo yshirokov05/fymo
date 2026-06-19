@@ -1,4 +1,4 @@
-# Security Review — Fymo
+# Security Review — PerfinLab
 
 **Last updated:** 2026-04-28
 **Version:** v1.5.0
@@ -35,7 +35,7 @@ Plaid access tokens are now **Fernet-encrypted (AES-128-CBC)** before writing to
 ---
 
 ### SEC-4 — CORS Wildcard With `supports_credentials=True` ⚠️ PARTIAL
-Status unknown — not audited in this pass. Backend runs on Firebase Functions behind Firebase Hosting rewrites; browser-level CORS is largely irrelevant since all traffic proxies through the same origin. Worth locking down `origins` to `["https://projectfymo.com", "https://personal-finance-app-18cbc.web.app"]` to be explicit.
+Status unknown — not audited in this pass. Backend runs on Firebase Functions behind Firebase Hosting rewrites; browser-level CORS is largely irrelevant since all traffic proxies through the same origin. Worth locking down `origins` to `["https://perfinlab.com", "https://personal-finance-app-18cbc.web.app"]` to be explicit.
 
 ---
 

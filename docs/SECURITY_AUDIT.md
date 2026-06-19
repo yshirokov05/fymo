@@ -56,7 +56,7 @@ Even with per-`uid` limits, an attacker who scripts unlimited Firebase signups g
 ### 🟢 Verified SOUND (no action needed)
 
 - **`firestore.rules`** — correct per-user isolation (`request.auth.uid == userId`), owner-only whitelist write, global-deny default. No direct-DB IDOR. Subcollections fall through to global-deny, so the backend Admin SDK is the only path to them (correct).
-- **CORS** — restricted to known origins. (Caveat: CORS is browser-enforced only; it does not stop `curl`/script attackers. It is not, and was never, the cost-control — the auth gating is. Also note `projectfymo.com` is not currently in the allowlist; add it if the frontend ever calls the API cross-origin instead of via the Hosting rewrite.)
+- **CORS** — restricted to known origins. (Caveat: CORS is browser-enforced only; it does not stop `curl`/script attackers. It is not, and was never, the cost-control — the auth gating is. Also note `perfinlab.com` is not currently in the allowlist; add it if the frontend ever calls the API cross-origin instead of via the Hosting rewrite.)
 - **Plaid tokens** — Fernet-encrypted at rest.
 - **`ask_advisor`** — the correct template: `@auth_required` + premium gate + rate limit. The other endpoints were brought in line with it.
 

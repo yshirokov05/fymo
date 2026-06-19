@@ -1,4 +1,4 @@
-# Fymo QA Checklist — post-hardening regression pass
+# PerfinLab QA Checklist — post-hardening regression pass
 
 This session made changes that touch auth, rate limiting, data writes, and email.
 Those are the **high-regression-risk** areas — test these specifically, not "everything."
@@ -41,7 +41,7 @@ unsubscribe-bad-token, sitemap all green in production as of this commit.
 - [ ] Dark mode: dashboard donuts, asset breakdown, cards look right.
 - [ ] Mobile (375px): Investments tables collapse columns cleanly; nav works.
 - [ ] Keyboard-only: Tab to skip-link → main; modals close on Escape; toggles operable with Space/Enter.
-- [ ] Run **Lighthouse → Accessibility** on https://projectfymo.com and capture the contrast failures (the one criterion not yet measured).
+- [ ] Run **Lighthouse → Accessibility** on https://perfinlab.com and capture the contrast failures (the one criterion not yet measured).
 
 ## Billing (Stripe test mode recommended)
 - [ ] Subscribe flow → Stripe checkout → returns with `?session=success` → Premium unlocks.

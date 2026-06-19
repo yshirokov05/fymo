@@ -1,7 +1,7 @@
-# Fymo
+# PerfinLab
 ### Personal Finance Command Center
 
-**Live:** [projectfymo.com](https://projectfymo.com)
+**Live:** [perfinlab.com](https://perfinlab.com)
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![Flask](https://img.shields.io/badge/Flask-Python%203.12-000000?style=flat-square&logo=flask)](https://flask.palletsprojects.com/)
@@ -10,9 +10,9 @@
 [![Claude](https://img.shields.io/badge/Claude-Sonnet%204.6-D97757?style=flat-square&logo=anthropic)](https://www.anthropic.com/api)
 [![Stripe](https://img.shields.io/badge/Stripe-Billing-635BFF?style=flat-square&logo=stripe)](https://stripe.com/)
 
-![deploy](https://github.com/yshirokov05/fymo/actions/workflows/deploy.yml/badge.svg)
+![deploy](https://github.com/yshirokov05/PerfinLab/actions/workflows/deploy.yml/badge.svg)
 
-Fymo is an all-in-one personal finance platform. Link your bank, track real-time net worth, get AI-powered insights, project taxes across all 50 states, harvest tax losses, monitor a 0-100 financial health score, and stay on top of debt, subscriptions, and investments — all in one place.
+PerfinLab is an all-in-one personal finance platform. Link your bank, track real-time net worth, get AI-powered insights, project taxes across all 50 states, harvest tax losses, monitor a 0-100 financial health score, and stay on top of debt, subscriptions, and investments — all in one place.
 
 **Current version:** v1.7.0 (Production)
 
@@ -26,12 +26,13 @@ Fymo is an all-in-one personal finance platform. Link your bank, track real-time
 - **Allocation Donut** — Sector breakdown of holdings
 - **Cash Flow + YTD Spending** — Monthly + YTD with top categories
 - **Emergency Fund** — Liquid-assets / trailing-3-month spending
-- **Portfolio Return** — Time-weighted via Plaid investment transactions when available; cost-basis fallback with sparse-data guard
+- **Portfolio Return** — Period returns (1W–All) from daily portfolio snapshots, per-ticker price returns, and benchmark comparison (S&P 500 / Nasdaq / Dow); all-time unrealized vs cost basis with a sparse-data guard
 - **Est. Annual Tax** — Federal + State + FICA with a "show math" panel that splits income subject to tax from estimated tax owed and shows each tax line's base
 
 ### Bank Integration
 - **Plaid Sync** — 12,000+ US institutions; parallel fetch of accounts, transactions (YTD), investment holdings, investment transactions (5yr), and liabilities
-- **Auto-Categorization** — JSON keyword mapping + per-user custom rules
+- **Auto-Categorization** — JSON keyword mapping + per-user custom rules; account-to-account transfers excluded from spending
+- **HYSA / Cash-Management** — Vanguard Cash Plus, Marcus, Apple Savings, etc. labeled as high-yield savings, with an optional AI-estimated or manual APY per account
 - **Smart Dedup** — Pending → cleared transaction matching prevents double-counting
 - **Universal Statement Upload** — Any bank statement (PDF, CSV, image) → AI-extracted transactions, no Plaid required
 
@@ -46,6 +47,7 @@ Fymo is an all-in-one personal finance platform. Link your bank, track real-time
 - **50-State Calculator** — Federal, all-state, and FICA estimates with 2025/2026 brackets
 - **All Filing Statuses** — Single, MFJ, MFS, Head of Household, Qualifying Widow
 - **Capital Gains** — ST taxed as ordinary income; LT stacked at 0/15/20% preferential rates with FIFO lot matching
+- **Realized Gains** — FIFO lot matcher incl. short option positions (sell-to-open / buy-to-close); optional broker override to pin your brokerage's exact figure when Plaid's history is incomplete
 - **Net Paystub Handling** — Plaid-detected net paychecks excluded from gross calc so you're not taxed twice; per-paystub `subject_to_fica` flag for scholarships/fellowships/1099s
 - **Tax Loss Harvesting** — Surfaces underwater positions with realized-loss preview
 
@@ -56,6 +58,9 @@ Fymo is an all-in-one personal finance platform. Link your bank, track real-time
 - **Portfolio Calendar** — Earnings + dividend + ex-div dates for held positions
 - **Milestone Celebrations** — Modal when you cross a new net-worth milestone
 - **Visualizations** — Charts and allocation views
+
+### Learn (Education)
+- **Public articles hub** — SEO-friendly plain-English guides (FIRE, emergency funds, tax-loss harvesting, Roth vs Traditional) at `/learn`, reachable signed-in or out
 
 ### Security + Account
 - **Plaid tokens** encrypted at rest (Fernet AES-128-CBC)
@@ -69,7 +74,7 @@ Fymo is an all-in-one personal finance platform. Link your bank, track real-time
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                  React 19 Frontend (Fymo)                    │
+│                  React 19 Frontend (PerfinLab)                    │
 │        Tailwind CSS · Recharts · Lucide · Capacitor          │
 └────────────────────────┬─────────────────────────────────────┘
                          │ REST + Firebase JWT
@@ -139,8 +144,8 @@ Fymo is an all-in-one personal finance platform. Link your bank, track real-time
 ### Setup
 
 ```bash
-git clone https://github.com/yshirokov05/fymo.git
-cd fymo
+git clone https://github.com/yshirokov05/PerfinLab.git
+cd PerfinLab
 
 # Frontend
 cd frontend

@@ -1,6 +1,6 @@
-# Fymo Changelog
+# PerfinLab Changelog
 
-Public-facing release notes for [Fymo](https://projectfymo.com) — the personal finance app that shows its math.
+Public-facing release notes for [PerfinLab](https://perfinlab.com) — the personal finance app that shows its math.
 
 Format inspired by [Keep a Changelog](https://keepachangelog.com/). Versions follow semver: `MAJOR.MINOR.PATCH`.
 
@@ -54,7 +54,7 @@ Major roadmap drop. Eight feature areas, ~4,000 LOC across backend + frontend.
 
 ### Changed
 
-- **All AI features now use Claude Sonnet 4.6.** Goal AI Guidance migrated off Gemini 1.5 Flash; the AI stack is now fully consolidated on Claude (chat, briefs, goal guidance, PDF/statement extraction).
+- **All AI features now use Claude Sonnet 4.6.** The AI stack is fully consolidated on Claude (chat, briefs, goal guidance, PDF/statement extraction).
 - **Dashboard donut charts refined.** Industry & Debt Allocation donuts use a curated Tailwind palette, theme-aware slice strokes for clean separation, larger inner radius hosting a "Total $X.XK" center label.
 - **Industry Allocation is full-width** with a sorted **most-to-least** category breakdown panel (color dot · name · % · $ · proportional bar) replacing the old recharts legend that kept re-sorting alphabetically.
 - **Asset Breakdown moves below allocation** at full width, so the 10-column Investments table fits without a clunky horizontal scrollbar at typical desktop widths.
@@ -91,7 +91,7 @@ Pre-changelog release. Highlights from the existing feature set:
 
 ---
 
-[Unreleased]: https://github.com/yshirokov05/fymo/compare/v1.7.0...HEAD
-[1.7.0]: https://github.com/yshirokov05/fymo/compare/v1.6.0...v1.7.0
-[1.6.0]: https://github.com/yshirokov05/fymo/compare/v1.5.0...v1.6.0
-[1.5.0]: https://github.com/yshirokov05/fymo/releases/tag/v1.5.0
+[Unreleased]: https://github.com/yshirokov05/PerfinLab/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/yshirokov05/PerfinLab/compare/v1.6.0...v1.7.0
+[1.6.0]: https://github.com/yshirokov05/PerfinLab/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/yshirokov05/PerfinLab/releases/tag/v1.5.0

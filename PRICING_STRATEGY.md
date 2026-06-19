@@ -1,6 +1,6 @@
-# Fymo Pricing Strategy
+# PerfinLab Pricing Strategy
 
-This document outlines the monetization and promotional strategy for Fymo.
+This document outlines the monetization and promotional strategy for PerfinLab.
 
 ## 1. Core SaaS Pricing
 - **Standard Subscription**: **$9.99 / Month**
