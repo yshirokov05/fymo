@@ -35,6 +35,7 @@ const AIAnalyst     = lazy(() => import('./components/AIAnalyst'));
 const Settings      = lazy(() => import('./components/Settings'));
 const CheckTracker  = lazy(() => import('./components/CheckTracker'));
 const EditPortfolio = lazy(() => import('./components/EditPortfolio'));
+const Learn         = lazy(() => import('./components/Learn'));
 const TaxCalculator = lazy(() => import('./components/TaxCalculator'));
 const Visualizations = lazy(() => import('./components/Visualizations'));
 const Subscriptions = lazy(() => import('./components/Subscriptions'));
@@ -1091,21 +1092,62 @@ function App() {
     // Landing page can deep-link to Privacy / Terms before auth
     const [landingView, setLandingView] = useState(null); // null | 'privacy' | 'terms'
 
+    // Derive the public-view state from a URL path (so /learn and /learn/<slug>
+    // are real, crawlable URLs and the back button works).
+    const viewFromPath = (path) => {
+        if (path === '/learn' || path === '/learn/') return 'learn';
+        if (path.startsWith('/learn/')) return 'article:' + path.slice('/learn/'.length).replace(/\/$/, '');
+        if (path === '/privacy') return 'privacy';
+        if (path === '/terms') return 'terms';
+        return null;
+    };
+
     useEffect(() => {
         const handleStartOnboarding = () => setShowOnboarding(true);
         window.addEventListener('start-onboarding', handleStartOnboarding);
 
-        // Events fired by LandingPage footer links
-        const handlePrivacy = () => setLandingView('privacy');
-        const handleTerms = () => setLandingView('terms');
+        // Navigate to a public view + push a real URL so it's shareable/crawlable.
+        const navTo = (view, url) => {
+            setLandingView(view);
+            if (window.location.pathname !== url) window.history.pushState({}, '', url);
+            window.scrollTo(0, 0);
+        };
+        const handlePrivacy = () => navTo('privacy', '/privacy');
+        const handleTerms = () => navTo('terms', '/terms');
+        const handleLearn = () => navTo('learn', '/learn');
+        const handleHome = () => navTo('home', '/');
+        const handleArticle = (e) => { const s = e.detail?.slug; if (s) navTo('article:' + s, '/learn/' + s); };
+        // "Open the app" from a public page: drop the public view and reset the URL.
+        // The normal render then routes by live auth state (app if signed in, else the
+        // landing page with its sign-up CTAs) — no stale auth closure to worry about.
+        const handleApp = () => { setLandingView(null); window.history.pushState({}, '', '/'); window.scrollTo(0, 0); };
+
         window.addEventListener('nav-privacy', handlePrivacy);
         window.addEventListener('nav-terms', handleTerms);
+        window.addEventListener('nav-learn', handleLearn);
+        window.addEventListener('nav-home', handleHome);
+        window.addEventListener('nav-article', handleArticle);
+        window.addEventListener('nav-app', handleApp);
+
+        // Honor the initial URL (e.g. someone lands directly on /learn/<slug>).
+        const initial = viewFromPath(window.location.pathname);
+        if (initial) setLandingView(initial);
+
+        // Keep state in sync with browser back/forward.
+        const handlePop = () => setLandingView(viewFromPath(window.location.pathname));
+        window.addEventListener('popstate', handlePop);
 
         return () => {
             window.removeEventListener('start-onboarding', handleStartOnboarding);
             window.removeEventListener('nav-privacy', handlePrivacy);
             window.removeEventListener('nav-terms', handleTerms);
+            window.removeEventListener('nav-learn', handleLearn);
+            window.removeEventListener('nav-home', handleHome);
+            window.removeEventListener('nav-article', handleArticle);
+            window.removeEventListener('nav-app', handleApp);
+            window.removeEventListener('popstate', handlePop);
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     if (landingView === 'privacy') {
@@ -1135,6 +1177,33 @@ function App() {
                     </div>
                     <TermsOfService />
                 </div>
+            </ErrorBoundary>
+        );
+    }
+
+    // Public "Learn" hub + articles — reachable whether or not you're signed in.
+    if (landingView === 'learn' || (typeof landingView === 'string' && landingView.startsWith('article:'))) {
+        const slug = landingView.startsWith('article:') ? landingView.slice('article:'.length) : null;
+        return (
+            <ErrorBoundary>
+                <Suspense fallback={<RouteFallback />}>
+                    <Learn slug={slug} />
+                </Suspense>
+            </ErrorBoundary>
+        );
+    }
+
+    // The marketing landing page, reachable even when signed in (via "Home").
+    if (landingView === 'home') {
+        return (
+            <ErrorBoundary>
+                {(currentUser || isGuest) && (
+                    <div className="bg-slate-900 text-white text-sm px-4 py-2 flex items-center justify-between">
+                        <span className="text-slate-300">You're viewing the public site.</span>
+                        <button onClick={() => { setLandingView(null); window.history.pushState({}, '', '/'); }} className="font-bold text-blue-400 hover:text-blue-300">← Back to your dashboard</button>
+                    </div>
+                )}
+                <LandingPage />
             </ErrorBoundary>
         );
     }

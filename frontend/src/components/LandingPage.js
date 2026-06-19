@@ -249,6 +249,10 @@ const LandingPage = () => {
                         Perfin<span className="text-blue-400">Lab</span>
                     </span>
                     <div className="flex items-center gap-2 sm:gap-3">
+                        <button onClick={() => window.dispatchEvent(new CustomEvent('nav-learn'))}
+                            className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5">
+                            Learn
+                        </button>
                         <button onClick={() => setAuthModal('signin')}
                             className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5">
                             Sign in
@@ -546,6 +550,7 @@ const LandingPage = () => {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-600">
                     <span className="font-bold text-gray-400">Perfin<span className="text-blue-400">Lab</span></span>
                     <div className="flex gap-6">
+                        <button onClick={() => window.dispatchEvent(new CustomEvent('nav-learn'))} className="hover:text-gray-400 transition-colors">Learn</button>
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-privacy'))} className="hover:text-gray-400 transition-colors">Privacy Policy</button>
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-terms'))} className="hover:text-gray-400 transition-colors">Terms of Service</button>
                     </div>
