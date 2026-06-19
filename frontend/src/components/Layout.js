@@ -98,7 +98,11 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                 </nav>
                 <div className="px-4 py-3 text-[10px] text-slate-600 border-t border-slate-800/60 leading-tight">
                     <p className="mb-1.5">Built by Yury Shirokov</p>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-x-2 gap-y-1">
+                        <button onClick={() => window.dispatchEvent(new CustomEvent('nav-learn'))} className="hover:text-slate-400 underline">Learn</button>
+                        <span>·</span>
+                        <button onClick={() => window.dispatchEvent(new CustomEvent('nav-home'))} className="hover:text-slate-400 underline">Home page</button>
+                        <span>·</span>
                         <button onClick={() => setActiveView('privacy')} className="hover:text-slate-400 underline">Privacy</button>
                         <span>·</span>
                         <button onClick={() => setActiveView('terms')} className="hover:text-slate-400 underline">Terms</button>
