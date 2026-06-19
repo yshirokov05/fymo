@@ -97,7 +97,7 @@ const Layout = ({ children, activeView, setActiveView, isPremium, onOpenFeedback
                     </div>
                 </nav>
                 <div className="px-4 py-3 text-[10px] text-slate-600 border-t border-slate-800/60 leading-tight">
-                    <p className="mb-1.5">Built by Yury Shirokov</p>
+                    <p className="mb-1">Built by Yury Shirokov · solo project, in active development</p>
                     <div className="flex flex-wrap gap-x-2 gap-y-1">
                         <button onClick={() => window.dispatchEvent(new CustomEvent('nav-learn'))} className="hover:text-slate-400 underline">Learn</button>
                         <span>·</span>

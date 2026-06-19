@@ -461,6 +461,16 @@ const LandingPage = () => {
                 </p>
             </section>
 
+            {/* ── Mission / Why ── */}
+            <section className="max-w-3xl mx-auto px-4 sm:px-6 py-20 text-center">
+                <Pill color="green"><Sparkles size={11} />Why PerfinLab exists</Pill>
+                <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Financial literacy should belong to everyone</h2>
+                <div className="mt-6 space-y-4 text-gray-300 text-[15px] leading-relaxed">
+                    <p>I built PerfinLab because I believe knowing how to make your money work for you shouldn't be a privilege. Too many people — especially younger generations — were never taught it, and as the cost of living climbs, that gap hurts more every year.</p>
+                    <p>My way of helping is simple: put that knowledge in everyone's hands, and make it clear. The financial world is full of confusing, misleading noise. I want to do the opposite — full disclosure, full transparency, and an app that <span className="text-white font-semibold">always shows its math</span> instead of asking you to trust a black box.</p>
+                </div>
+            </section>
+
             {/* ── Pricing ── */}
             <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
                 <div className="text-center mb-12">
@@ -572,6 +582,15 @@ const LandingPage = () => {
                             <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-blue-400">Read <ArrowRight size={12} /></span>
                         </button>
                     ))}
+                </div>
+            </section>
+
+            {/* ── Honest disclaimer ── */}
+            <section className="max-w-3xl mx-auto px-4 sm:px-6 pb-16">
+                <div className="rounded-2xl border border-white/10 bg-slate-800/40 p-6 text-center">
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                        <span className="font-bold text-gray-200">Built in the open.</span> PerfinLab is a solo project by a developer just starting out, and it's in active development. There may be rough edges — if you hit one, I'll do my best to fix it as soon as I find it. Thanks for being early. 🙏
+                    </p>
                 </div>
             </section>
 
