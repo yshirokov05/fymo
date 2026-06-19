@@ -318,34 +318,41 @@ def is_user_authorized(uid, email=None):
     """
     Checks if a user is authorized based on Firestore 'whitelist' collection.
     Real emails are no longer hardcoded for security and professionalism.
+
+    Never raises — a transient Firestore error returns False rather than
+    bubbling up and 500-ing whatever endpoint called this (e.g. /api/net_worth).
     """
     if uid == "guest": return False
-    
-    db = get_db()
-    if not db: return False
-    
-    # Check if UID is explicitly whitelisted
-    whitelist_ref = db.collection('whitelist').document(uid)
-    if whitelist_ref.get().exists:
-        logging.info(f"Auth Success - UID {uid} in whitelist collection")
-        return True
-        
-    # Check if Email is whitelisted (via separate document or query)
-    if email:
-        email_for_check = email.lower().strip()
-        email_whitelist_query = db.collection('whitelist').where('email', '==', email_for_check).limit(1).get()
-        if len(email_whitelist_query) > 0:
-            logging.info(f"Auth Success - Email {email_for_check} found in whitelist collection")
-            return True
-            
-        # Also check if the document ID itself is the email
-        email_doc_ref = db.collection('whitelist').document(email_for_check)
-        if email_doc_ref.get().exists:
-            logging.info(f"Auth Success - Email document {email_for_check} found")
+
+    try:
+        db = get_db()
+        if not db: return False
+
+        # Check if UID is explicitly whitelisted
+        whitelist_ref = db.collection('whitelist').document(uid)
+        if whitelist_ref.get().exists:
+            logging.info(f"Auth Success - UID {uid} in whitelist collection")
             return True
 
-    logging.warning(f"Auth Failed - UID: {uid}, Email: {email}")
-    return False
+        # Check if Email is whitelisted (via separate document or query)
+        if email:
+            email_for_check = email.lower().strip()
+            email_whitelist_query = db.collection('whitelist').where('email', '==', email_for_check).limit(1).get()
+            if len(email_whitelist_query) > 0:
+                logging.info(f"Auth Success - Email {email_for_check} found in whitelist collection")
+                return True
+
+            # Also check if the document ID itself is the email
+            email_doc_ref = db.collection('whitelist').document(email_for_check)
+            if email_doc_ref.get().exists:
+                logging.info(f"Auth Success - Email document {email_for_check} found")
+                return True
+
+        logging.warning(f"Auth Failed - UID: {uid}, Email: {email}")
+        return False
+    except Exception as e:
+        logging.error(f"is_user_authorized error for uid={uid}: {e}")
+        return False
 
 
 # Per-instance negative cache so genuinely-free users don't trigger a Stripe lookup
@@ -808,24 +815,28 @@ def get_net_worth():
         net_worth_data['business_deductions'] = getattr(user, 'business_deductions', 0.0)
         net_worth_data['dependents'] = getattr(user, 'dependents', 0)
         net_worth_data['outstanding_checks'] = [{'id': c.id, 'amount': c.amount, 'payee': c.payee, 'date_written': c.date_written, 'status': c.status.name, 'plaid_transaction_id': c.plaid_transaction_id} for c in (outstanding_checks or [])]
-        # Premium check: combine both signals, self-heal if whitelist says yes but doc says no
+        # Premium check — MUST NOT break the dashboard. If authorization/Stripe
+        # resolution hiccups, fall back to the stored is_subscribed flag and still
+        # return the user's data: a transient premium misread is far better than a
+        # 500 that blanks net worth to $0.
         _email = getattr(request, 'email', None)
         _is_subscribed = getattr(user, 'is_subscribed', False)
-        _is_authorized = is_user_authorized(request.uid, _email)
-        is_premium = _is_subscribed or _is_authorized
-        # Cross-login restore: if not premium on THIS uid but a verified email has an
-        # active Stripe subscription (under a different uid/login), restore it here.
-        if not is_premium and _email and getattr(request, 'email_verified', False):
-            if resolve_premium_via_stripe_email(request.uid, _email):
-                is_premium = True
-        if _is_authorized and not _is_subscribed:
-            # Self-heal: stamp the users doc so future reads are consistent
-            try:
+        is_premium = _is_subscribed
+        try:
+            _is_authorized = is_user_authorized(request.uid, _email)
+            is_premium = _is_subscribed or _is_authorized
+            # Cross-login restore: verified email with an active Stripe sub under a
+            # different uid/login.
+            if not is_premium and _email and getattr(request, 'email_verified', False):
+                if resolve_premium_via_stripe_email(request.uid, _email):
+                    is_premium = True
+            # Self-heal: stamp the users doc so future reads are consistent.
+            if _is_authorized and not _is_subscribed:
                 _db = get_db()
                 if _db:
                     _db.collection('users').document(request.uid).set({'is_subscribed': True}, merge=True)
-            except Exception as _e:
-                logging.warning(f"Self-heal is_subscribed write failed: {_e}")
+        except Exception as _pe:
+            logging.error(f"Premium check failed for {request.uid} (defaulting to is_subscribed={_is_subscribed}): {_pe}")
         net_worth_data['is_authorized'] = is_premium
         net_worth_data['is_subscribed'] = is_premium
         net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
