@@ -545,6 +545,36 @@ const LandingPage = () => {
                 </div>
             </section>
 
+            {/* ── Learn teaser ── */}
+            <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+                <div className="flex items-end justify-between mb-8 flex-wrap gap-3">
+                    <div>
+                        <Pill color="purple"><Sparkles size={11} />Learn</Pill>
+                        <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">Money, explained — with the math</h2>
+                        <p className="mt-3 text-gray-400">Plain-English guides to the decisions that actually move the needle.</p>
+                    </div>
+                    <button onClick={() => window.dispatchEvent(new CustomEvent('nav-learn'))}
+                        className="text-sm font-bold text-blue-400 hover:text-blue-300 inline-flex items-center gap-1">
+                        Browse all guides <ArrowRight size={15} />
+                    </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                        { slug: 'financial-independence-retire-early', t: 'FIRE, explained', d: 'The one number that defines financial independence — and how to find your own timeline.' },
+                        { slug: 'tax-loss-harvesting-explained', t: 'Tax-loss harvesting', d: 'Turn a paper loss into a real tax saving while staying invested.' },
+                        { slug: 'how-much-house-can-i-afford', t: 'How much house can you afford?', d: 'The 28/36 rule and the true cost beyond the mortgage.' },
+                    ].map(a => (
+                        <button key={a.slug}
+                            onClick={() => window.dispatchEvent(new CustomEvent('nav-article', { detail: { slug: a.slug } }))}
+                            className="text-left bg-slate-800/40 border border-white/5 rounded-2xl p-5 hover:border-blue-500/30 transition-all group">
+                            <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors">{a.t}</h3>
+                            <p className="mt-1.5 text-sm text-gray-400 leading-relaxed">{a.d}</p>
+                            <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-blue-400">Read <ArrowRight size={12} /></span>
+                        </button>
+                    ))}
+                </div>
+            </section>
+
             {/* ── Footer ── */}
             <footer className="border-t border-white/5 py-8">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-600">

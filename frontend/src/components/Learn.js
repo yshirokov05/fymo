@@ -98,6 +98,93 @@ const ARTICLES = [
             </>
         ),
     },
+    {
+        slug: 'tax-loss-harvesting-explained',
+        title: 'Tax-Loss Harvesting Explained (Without the Jargon)',
+        description: 'How selling a loser can cut your tax bill while you stay invested, the wash-sale trap to avoid, and who actually benefits — with the math.',
+        read: '6 min read',
+        date: '2026-06-19',
+        body: (
+            <>
+                <P>Tax-loss harvesting sounds like something only hedge funds do. It's actually simple: <strong>sell an investment that's down, use the loss to lower your tax bill, and immediately reinvest in something similar so you stay in the market.</strong> Done right, it turns a paper loss into a real tax saving.</P>
+                <H2>How it works</H2>
+                <P>When you sell an investment for less than you paid, you realize a <strong>capital loss</strong>. The IRS lets you use those losses to offset capital <em>gains</em> dollar-for-dollar. If your losses exceed your gains, you can deduct up to <strong>$3,000</strong> against ordinary income each year, and carry the rest forward to future years — indefinitely.</P>
+                <Callout>Example: you have a $5,000 realized gain from selling a winner, and you harvest a $5,000 loss elsewhere. They cancel out — you owe $0 tax on that gain. At a 15% rate, that's <strong>$750 saved</strong>, and you're still invested.</Callout>
+                <H2>The wash-sale rule (the one trap)</H2>
+                <P>You can't sell for a loss and rebuy the <strong>same or "substantially identical" security within 30 days</strong> (before or after) — the IRS disallows the loss. The fix: buy something <em>similar but not identical</em>. Sell an S&amp;P 500 fund at a loss, buy a total-market or large-cap fund — you keep nearly identical exposure without triggering a wash sale.</P>
+                <H2>Who actually benefits</H2>
+                <ul className="list-disc pl-6 space-y-1.5 mb-4">
+                    <Li><strong>Taxable brokerage accounts only.</strong> Harvesting does nothing in an IRA or 401(k) — those are already tax-sheltered.</Li>
+                    <Li><strong>Higher tax brackets benefit more</strong> — the deduction is worth your marginal rate.</Li>
+                    <Li>It shines in <strong>down markets</strong>, when losses are plentiful.</Li>
+                </ul>
+                <H2>The honest catch</H2>
+                <P>Harvesting is tax <em>deferral</em>, not free money: selling low resets your cost basis lower, so you'll have a bigger gain when you eventually sell the replacement. The win is still real — you invest the tax savings now, and you may be in a lower bracket later — but don't let the tax tail wag the investment dog.</P>
+                <Callout>PerfinLab scans your holdings and flags <strong>harvest candidates</strong> — positions with meaningful unrealized losses — so you don't have to hunt for them.</Callout>
+            </>
+        ),
+    },
+    {
+        slug: 'how-much-house-can-i-afford',
+        title: 'How Much House Can You Actually Afford?',
+        description: 'The 28/36 rule, the true cost beyond the mortgage (PITI + maintenance), and how to back into a real price from your income — with the math.',
+        read: '6 min read',
+        date: '2026-06-19',
+        body: (
+            <>
+                <P>Lenders will often approve you for more house than you should buy. "Affordable" isn't the biggest loan you can get — it's the payment that still leaves room for everything else in your life. Here's how to find your real number.</P>
+                <H2>The 28/36 rule</H2>
+                <Callout><strong>28%:</strong> your total monthly housing cost should stay under 28% of gross (pre-tax) income. <strong>36%:</strong> all your debt payments combined (housing + car + student loans + credit cards) should stay under 36%.</Callout>
+                <P>On a $100,000 salary (~$8,333/month gross), that's about <strong>$2,333/month</strong> for housing and <strong>$3,000/month</strong> for all debt.</P>
+                <H2>"Housing cost" is more than the mortgage</H2>
+                <P>That 28% has to cover <strong>PITI</strong>, not just the loan:</P>
+                <ul className="list-disc pl-6 space-y-1.5 mb-4">
+                    <Li><strong>P</strong>rincipal + <strong>I</strong>nterest — the mortgage payment</Li>
+                    <Li><strong>T</strong>axes — property tax (varies wildly by state/county)</Li>
+                    <Li><strong>I</strong>nsurance — homeowners, plus <strong>PMI</strong> if you put down less than 20%</Li>
+                </ul>
+                <P>Then add the costs no one quotes you: <strong>maintenance</strong> (budget ~1% of the home's value per year), HOA dues, and higher utility bills than an apartment.</P>
+                <H2>Backing into a price</H2>
+                <P>Work it backwards: if $2,333/month is your housing ceiling, carve out ~25–30% for taxes, insurance, and maintenance, leaving roughly $1,650 for principal + interest. At today's rates that supports a loan in the low-to-mid <strong>$200,000s</strong> — so with 20% down, a home around <strong>$300,000</strong>. A common shorthand lands in the same place: <strong>~3–4× your gross income</strong>.</P>
+                <H2>Before you buy</H2>
+                <P>Keep your <strong>emergency fund intact</strong> after the down payment and closing costs (2–5% of the price). And stress-test the payment: if it only works with zero margin, it doesn't work.</P>
+                <Callout>PerfinLab shows your real monthly cash flow and debt load from your actual transactions — so you can see what a mortgage payment would do to your budget before you commit.</Callout>
+            </>
+        ),
+    },
+    {
+        slug: 'roth-vs-traditional',
+        title: 'Roth vs Traditional: Which Retirement Account Wins?',
+        description: 'The single question that decides it, when each one wins, and why "tax diversification" might be the smartest answer — with the math.',
+        read: '6 min read',
+        date: '2026-06-19',
+        body: (
+            <>
+                <P>Roth or Traditional? It's one of the most-asked money questions, and the answer comes down to a single comparison: <strong>your tax rate now vs your tax rate in retirement.</strong></P>
+                <H2>The core difference</H2>
+                <ul className="list-disc pl-6 space-y-1.5 mb-4">
+                    <Li><strong>Traditional</strong> — you get a tax deduction <em>now</em>; the money grows untaxed; you pay income tax when you withdraw in retirement.</Li>
+                    <Li><strong>Roth</strong> — <em>no</em> deduction now (you contribute after-tax dollars); it grows tax-free; you pay <strong>$0 tax</strong> on qualified withdrawals in retirement.</Li>
+                </ul>
+                <H2>The deciding question</H2>
+                <Callout>If your tax rate will be <strong>higher in retirement</strong> than today → <strong>Roth</strong> (pay the lower tax now). If it'll be <strong>lower in retirement</strong> → <strong>Traditional</strong> (take the deduction at your high rate now).</Callout>
+                <P>Rules of thumb that follow from that:</P>
+                <ul className="list-disc pl-6 space-y-1.5 mb-4">
+                    <Li><strong>Early career / lower bracket → Roth.</strong> Your rate is unlikely to be lower later.</Li>
+                    <Li><strong>Peak earning years / high bracket → Traditional.</strong> Grab the deduction while it's worth the most.</Li>
+                </ul>
+                <H2>Beyond the tax bracket</H2>
+                <ul className="list-disc pl-6 space-y-1.5 mb-4">
+                    <Li>Roth IRAs have <strong>no required minimum distributions</strong> and pass to heirs tax-free.</Li>
+                    <Li>Roth <em>contributions</em> (not earnings) can be withdrawn anytime, penalty-free.</Li>
+                    <Li>Roth IRAs have <strong>income limits</strong> (high earners use the "backdoor Roth").</Li>
+                    <Li>Your <strong>employer 401(k) match is always pre-tax (Traditional)</strong>, regardless of which you choose.</Li>
+                </ul>
+                <P>Can't decide? <strong>Do some of both.</strong> Holding Roth <em>and</em> Traditional ("tax diversification") gives you levers to manage your taxable income in retirement — valuable precisely because no one knows future tax rates.</P>
+                <Callout>This isn't tax advice — your situation (state taxes, pension, future plans) matters. PerfinLab's 50-state tax projection helps you see your bracket today, which is half the equation.</Callout>
+            </>
+        ),
+    },
 ];
 
 export const LEARN_ARTICLES = ARTICLES;
