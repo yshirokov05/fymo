@@ -1,4 +1,4 @@
-# Fymo Marketing Kit
+# PerfinLab Marketing Kit
 
 Paste-ready launch copy for the channels that matter most for an indie personal finance app. All copy is written to (a) sound human, (b) lead with the "shows its math" differentiator, and (c) avoid sounding promotional in a way that gets you banned from communities.
 
@@ -11,13 +11,13 @@ The Google SERP currently shows "Including results for project fimo. Search only
 ### Reddit post — r/personalfinance, r/SideProject, r/IndieHackers
 
 **Title:**
-> I built Fymo — a personal finance app that shows its math
+> I built PerfinLab — a personal finance app that shows its math
 
 **Body:**
 ```
 Like many of you I've been jumping between Mint (RIP), Monarch, Copilot, and YNAB for years. They're all fine but they share one frustration: when they show me a "net worth", a "tax estimate", or a "portfolio return", I can't see how they got there. It's all black-box.
 
-So I built Fymo (https://projectfymo.com). Same category — bank sync via Plaid, investment tracking, budgeting, tax projection — but every number has a "Show Math" toggle that exposes the inputs, formulas, and any guards that kicked in to reject corrupt data.
+So I built PerfinLab (https://perfinlab.com). Same category — bank sync via Plaid, investment tracking, budgeting, tax projection — but every number has a "Show Math" toggle that exposes the inputs, formulas, and any guards that kicked in to reject corrupt data.
 
 A few things it does that I haven't seen elsewhere:
 
@@ -50,17 +50,17 @@ I'm the only one working on it, so feedback hits my inbox directly. If you try i
 ## Priority 2 — Twitter / X build-in-public
 
 ### Suggested handle
-`@projectfymo` or `@fymohq` (check availability — `@fymo` may be taken).
+`@perfinlab` or `@perfinlab` (check availability — `@perfinlab` may be taken).
 
 ### Bio (160 char limit)
-> Personal finance that shows its math. Net worth, 50-state taxes, tax-loss harvesting, AI insights — all transparent. Free demo at projectfymo.com
+> Personal finance that shows its math. Net worth, 50-state taxes, tax-loss harvesting, AI insights — all transparent. Free demo at perfinlab.com
 
 ### Pinned tweet
 > I built a personal finance app where every number has a "Show Math" button.
 >
 > Net worth, tax projection, portfolio return — click the toggle and see exactly how it got there. No black box.
 >
-> Free demo, no signup: https://projectfymo.com
+> Free demo, no signup: https://perfinlab.com
 >
 > [attach og-image.png]
 
@@ -88,15 +88,15 @@ Hashtags to rotate: #buildinpublic #indiehackers #personalfinance #fintech #SaaS
 
 ## Priority 2b — Instagram collab post (high leverage for an indie)
 
-Use **Instagram's Collab Posts** feature: post from your personal account, invite `@projectfymo` as a collaborator. The post appears permanently in BOTH grids, both audiences see it, engagement is shared. This is one of the highest-leverage free marketing moves for an indie founder because it gives the brand account real social proof from day one.
+Use **Instagram's Collab Posts** feature: post from your personal account, invite `@perfinlab` as a collaborator. The post appears permanently in BOTH grids, both audiences see it, engagement is shared. This is one of the highest-leverage free marketing moves for an indie founder because it gives the brand account real social proof from day one.
 
 ### Account setup (one-time, 5 min)
-1. Create `@projectfymo` (or `@fymohq`).
+1. Create `@perfinlab` (or `@perfinlab`).
 2. Settings → Account → **Switch to Professional → Business** (free; unlocks Insights, contact button, link).
 3. Profile pic: same blue square favicon from the app — instant brand recognition.
 4. Bio (150 char limit):
    > Personal finance that shows its math. Net worth, taxes, investments — all transparent, no black box. Free demo ↓
-5. Link in bio: `projectfymo.com`
+5. Link in bio: `perfinlab.com`
 
 ### The launch post — carousel format
 
@@ -137,8 +137,8 @@ Build a 6–8 slide carousel. Instagram weights carousels higher than single ima
 
 **Slide 8 (CTA):**
 > "Free demo. No signup. No credit card."
-> "projectfymo.com"
-> Small "@projectfymo" handle bottom right.
+> "perfinlab.com"
+> Small "@perfinlab" handle bottom right.
 
 ### Caption template
 ```
@@ -148,11 +148,11 @@ Mint died last year. Tried Monarch ($14.99/mo), Copilot ($13/mo), YNAB
 ($14.99/mo) — they all show me numbers. None of them show me HOW. Net
 worth? Tax estimate? Portfolio return? Black boxes.
 
-So I built Fymo. Same category — Plaid bank sync, investments, budgets,
+So I built PerfinLab. Same category — Plaid bank sync, investments, budgets,
 tax projection. But every figure has a toggle that exposes inputs,
 formulas, and any sanity guards that kicked in.
 
-Free demo at projectfymo.com — no signup needed, full app with sample
+Free demo at perfinlab.com — no signup needed, full app with sample
 data. Built solo, $9.99/mo for real-account features.
 
 If you've ever wondered how Mint came up with that net worth, this is for you.
@@ -162,12 +162,12 @@ If you've ever wondered how Mint came up with that net worth, this is for you.
 ```
 
 ### Pre-post checklist
-- [ ] @projectfymo Business account created
+- [ ] @perfinlab Business account created
 - [ ] Profile pic + bio + link set
 - [ ] 8 carousel slides exported as 1080×1350 PNG
 - [ ] Caption pasted, hashtags at the bottom (or first comment — either works)
-- [ ] Collaborator invite sent to @projectfymo BEFORE publishing
-- [ ] @projectfymo accepts the invite (do this from the brand account)
+- [ ] Collaborator invite sent to @perfinlab BEFORE publishing
+- [ ] @perfinlab accepts the invite (do this from the brand account)
 - [ ] Post is now in both grids ✓
 
 ### Reel as a follow-up
@@ -177,7 +177,7 @@ After the carousel lands, post a 15–30 second screen-record reel showing the "
 1. "Just shipped this →" + carousel re-share with sticker
 2. Behind-the-scenes screenshot of you coding
 3. Poll: "Have you ever wondered how Mint calculates your net worth?" Yes/No
-4. Link sticker → projectfymo.com
+4. Link sticker → perfinlab.com
 
 ### What NOT to do on Instagram
 - Don't post long screenshots of code — nobody reads them on mobile
@@ -197,7 +197,7 @@ Save this for a major version drop (v2.0, or whenever you have one big feature y
 
 ### Description
 ```
-Fymo is the personal finance app for people who want to understand the numbers, not just see them.
+PerfinLab is the personal finance app for people who want to understand the numbers, not just see them.
 
 Every figure has a "Show Math" toggle that exposes the inputs, formulas, and guards. Net worth? Tax projection? Portfolio return? Tax-loss harvest opportunities? Click and see exactly how it was calculated.
 
@@ -221,7 +221,7 @@ Built solo. Feedback goes straight to me.
 ```
 
 ### Launch-day tweet
-> Fymo is live on @ProductHunt today 🚀
+> PerfinLab is live on @ProductHunt today 🚀
 >
 > A personal finance app where every number has a "Show Math" button. Net worth, taxes, portfolio returns — all transparent, no black box.
 >
@@ -235,7 +235,7 @@ Built solo. Feedback goes straight to me.
 
 Indie Hackers community is full of fellow founders. Lead with the story, not the product.
 
-**Title:** Lessons from building Fymo: when "transparent UX" was harder than the AI
+**Title:** Lessons from building PerfinLab: when "transparent UX" was harder than the AI
 
 **Outline:**
 1. Brief origin story — what frustrated me about Mint/Monarch/Copilot
@@ -244,13 +244,13 @@ Indie Hackers community is full of fellow founders. Lead with the story, not the
 4. What's working: demo mode (no signup) means people actually try it
 5. Stuck on: marketing (the "fymo" → "fimo" autocorrect — explain it, ask for advice)
 6. Tech stack tldr: React 19 + Flask on Cloud Functions + Plaid + Claude Sonnet
-7. Live at projectfymo.com — feedback welcome
+7. Live at perfinlab.com — feedback welcome
 
 ---
 
 ## Priority 5 — Hacker News (use sparingly)
 
-HN post if and only if you have something they care about (technical, opinionated, or controversial in a smart way). For Fymo, the right post would be a write-up of the **realized gains FIFO matching** logic — that's the kind of "I built this and learned something" that HN upvotes.
+HN post if and only if you have something they care about (technical, opinionated, or controversial in a smart way). For PerfinLab, the right post would be a write-up of the **realized gains FIFO matching** logic — that's the kind of "I built this and learned something" that HN upvotes.
 
 **Title options:**
 - "I built a personal finance app that shows its math (and what that took)"
@@ -269,9 +269,9 @@ Personal finance is the highest-CPC niche in advertising → highest-traffic sea
 
 1. **"How to track your net worth (the right way, with examples)"**
    - Math: Assets − Liabilities, including what to count as which
-   - Tools comparison: spreadsheet vs Mint-style vs Fymo
+   - Tools comparison: spreadsheet vs Mint-style vs PerfinLab
    - Templates / downloadable
-   - Mentions Fymo as one option
+   - Mentions PerfinLab as one option
 
 2. **"50 states, 50 tax bills: a guide to state income tax in 2026"**
    - Table comparing top marginal rate per state
@@ -282,19 +282,19 @@ Personal finance is the highest-CPC niche in advertising → highest-traffic sea
    - The math
    - Wash sale rule (§1091)
    - Whose problem this is (high-bracket, taxable accounts only)
-   - Mention Fymo's TLH feature in the context of "tools that surface candidate lots"
+   - Mention PerfinLab's TLH feature in the context of "tools that surface candidate lots"
 
 4. **"What Plaid actually gives you (and what it doesn't)"**
    - 12k+ institutions, 5-year transaction history, holdings without basis
    - The cost-basis problem
-   - How Fymo reconstructs it
+   - How PerfinLab reconstructs it
    - Trust signal for security-conscious users
 
 5. **"Portfolio return: why the number Mint shows you is wrong"**
    - Time-weighted vs money-weighted return
    - Why cost-basis return is a lie when you've been DCA'ing
    - The right calculation
-   - How Fymo does it
+   - How PerfinLab does it
 
 **Where to publish:** Your own /blog route (best for SEO), or a Substack/Beehiiv with cross-posts to Medium/dev.to. Owning the domain is better long-term.
 
@@ -304,9 +304,9 @@ Personal finance is the highest-CPC niche in advertising → highest-traffic sea
 
 ## Priority 7 — Get listed in directories
 
-Each of these is one form submission, 5–10 min each, all give you a backlink with "Fymo" anchor text:
+Each of these is one form submission, 5–10 min each, all give you a backlink with "PerfinLab" anchor text:
 
-- [ ] **AlternativeTo.com** — list Fymo as alternative to Mint, Monarch, Copilot, YNAB
+- [ ] **AlternativeTo.com** — list PerfinLab as alternative to Mint, Monarch, Copilot, YNAB
 - [ ] **SaaSHub** — free SaaS directory
 - [ ] **GetApp / Capterra** — bigger business but free listing helps
 - [ ] **G2** — review platform, helps with trust signals

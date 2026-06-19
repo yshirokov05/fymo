@@ -1,4 +1,4 @@
-# Fymo — To-Do
+# PerfinLab — To-Do
 
 Working to-do list, kept in the repo so it survives across sessions. Ask Claude
 "what's our to-do?" anytime, or just open this file. Newest priorities on top.

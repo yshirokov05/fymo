@@ -1,4 +1,4 @@
-# User-Facing Issues & Bug Tracker — Fymo
+# User-Facing Issues & Bug Tracker — PerfinLab
 
 **Last updated:** 2026-04-28
 **Version:** v1.5.0
@@ -25,7 +25,7 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ### UX-2 — "Wealthstack" brand name showing on landing page after rename ✅ FIXED
 **Reported:** User (post-deploy inspection)
-**Problem:** LandingPage.js used a split-span pattern `Wealth<span className="text-blue-400">stack</span>` in 3 places (navbar logo, hero, footer). Simple `replace_all` on "Wealthstack" missed these. Brand appeared as "Wealthstack" even after other files were updated to "Fymo".
+**Problem:** LandingPage.js used a split-span pattern `Wealth<span className="text-blue-400">stack</span>` in 3 places (navbar logo, hero, footer). Simple `replace_all` on "Wealthstack" missed these. Brand appeared as "Wealthstack" even after other files were updated to "PerfinLab".
 **Fix:** Targeted replace of the full JSX split-span string to `Fy<span className="text-blue-400">mo</span>`.
 
 ---
@@ -44,12 +44,12 @@ Track of bugs reported or discovered that affect real users. See SECURITY_REVIEW
 
 ### UX-5 — Subscription portal 404 in Stripe ✅ FIXED
 **Problem:** Stripe Customer Portal not activated, causing 404 when users tried to manage subscriptions.
-**Fix:** Customer Portal activated at `dashboard.stripe.com/settings/billing/portal`. Business name set to "Fymo".
+**Fix:** Customer Portal activated at `dashboard.stripe.com/settings/billing/portal`. Business name set to "PerfinLab".
 
 ---
 
-### UX-6 — Login broken after projectfymo.com domain added ✅ FIXED
-**Problem:** Firebase Auth's authorized domains list didn't include `projectfymo.com` or `www.projectfymo.com`. Login flow redirected to Firebase-hosted auth page, which then failed.
+### UX-6 — Login broken after perfinlab.com domain added ✅ FIXED
+**Problem:** Firebase Auth's authorized domains list didn't include `perfinlab.com` or `www.perfinlab.com`. Login flow redirected to Firebase-hosted auth page, which then failed.
 **Fix:** Both domains added to Firebase Auth → Settings → Authorized domains.
 
 ---
@@ -227,4 +227,4 @@ Transactions and paystubs moved to subcollections. Core financial arrays still i
 **Plan:** Convert to Python dataclasses in Phase 7 refactor.
 
 ### KNOWN-5 — Display Names Stale in Firebase/Analytics Console 🟡 COSMETIC
-Firebase project display name, GA4 property name, and GA4 stream name still show old names from before the Fymo rebrand. Cosmetic only — no user impact.
+Firebase project display name, GA4 property name, and GA4 stream name still show old names from before the PerfinLab rebrand. Cosmetic only — no user impact.

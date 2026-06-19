@@ -5,7 +5,7 @@ The `scheduled_morning_briefs` Cloud Function emails each opted-in user their da
 ## Current state (as of 2026-05-15)
 
 - `RESEND_API_KEY` secret exists with **placeholder value** (`PLACEHOLDER_set_real_re_key_when_ready`).
-- `BRIEF_FROM_EMAIL` secret exists with value `briefs@projectfymo.com`.
+- `BRIEF_FROM_EMAIL` secret exists with value `briefs@perfinlab.com`.
 - Backend code (`brief_delivery_service.py`) detects placeholder values (anything not starting with `re_`) and no-ops — so the function deploys cleanly but doesn't send.
 
 ## To activate real delivery
@@ -13,7 +13,7 @@ The `scheduled_morning_briefs` Cloud Function emails each opted-in user their da
 ### Step 1 — Sign up for Resend (free, 2 min)
 
 1. Go to <https://resend.com> and sign up.
-2. Dashboard → **API Keys** → **Create API Key**. Name it "Fymo Production". Copy the key (starts with `re_`).
+2. Dashboard → **API Keys** → **Create API Key**. Name it "PerfinLab Production". Copy the key (starts with `re_`).
 3. Free tier: 3,000 emails/month, 100/day. More than enough for daily briefs.
 
 ### Step 2 — Pick a sender address
@@ -28,12 +28,12 @@ Two options:
 
 Limitation: `onboarding@resend.dev` can only deliver to **your own verified email** (the one you signed up with). Fine for personal use + testing, not for sending to other users.
 
-**Option B — Verify `projectfymo.com` as a sending domain (~10 min, lets you send to any user):**
+**Option B — Verify `perfinlab.com` as a sending domain (~10 min, lets you send to any user):**
 
-1. In Resend dashboard → **Domains** → **Add Domain** → enter `projectfymo.com`.
-2. Resend shows you 3 DNS records (MX, TXT for SPF, TXT for DKIM). Add them to your DNS provider (Cloudflare / GoDaddy / wherever `projectfymo.com` is registered).
+1. In Resend dashboard → **Domains** → **Add Domain** → enter `perfinlab.com`.
+2. Resend shows you 3 DNS records (MX, TXT for SPF, TXT for DKIM). Add them to your DNS provider (Cloudflare / GoDaddy / wherever `perfinlab.com` is registered).
 3. Wait 5–30 min for DNS propagation, then click "Verify" in Resend.
-4. The current `BRIEF_FROM_EMAIL` (`briefs@projectfymo.com`) will work once the domain is verified.
+4. The current `BRIEF_FROM_EMAIL` (`briefs@perfinlab.com`) will work once the domain is verified.
 
 ### Step 3 — Set the real API key
 
@@ -64,7 +64,7 @@ GitHub Actions deploys both `api_func` and `scheduled_morning_briefs` from a cle
 
 ### Step 5 — Test from the app
 
-1. Open <https://projectfymo.com> → **Settings** → **Daily Morning Brief Email** card.
+1. Open <https://perfinlab.com> → **Settings** → **Daily Morning Brief Email** card.
 2. Toggle "Daily delivery" **on**.
 3. Click "Send me today's brief now (test)".
 4. Check your inbox.

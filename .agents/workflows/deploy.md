@@ -1,5 +1,5 @@
 ---
-description: Deploy the Fymo application to Firebase
+description: Deploy the PerfinLab application to Firebase
 ---
 
 # Deployment

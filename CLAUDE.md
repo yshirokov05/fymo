@@ -1,13 +1,13 @@
-# Fymo — Agent Context
+# PerfinLab — Agent Context
 
 This file is read automatically by Claude Code. It provides project context, conventions, and guardrails for AI-assisted development.
 
 ## Project Overview
 
-Fymo is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, **Claude Sonnet 4.6 for all AI features** — chat (AI Analyst), morning/health briefs, per-goal guidance, and PDF/image statement extraction (paystubs, insurance, bank statements) via Claude's native document + vision blocks. No other LLMs are used.
+PerfinLab is a full-stack personal finance web app. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, **Claude Sonnet 4.6 for all AI features** — chat (AI Analyst), morning/health briefs, per-goal guidance, and PDF/image statement extraction (paystubs, insurance, bank statements) via Claude's native document + vision blocks. No other LLMs are used.
 
-- **Brand:** Fymo (`projectfymo.com`)
-- **Live URL:** https://personal-finance-app-18cbc.web.app (point `projectfymo.com` → Firebase Hosting)
+- **Brand:** PerfinLab (`perfinlab.com`)
+- **Live URL:** https://personal-finance-app-18cbc.web.app (point `perfinlab.com` → Firebase Hosting)
 - **Firebase project:** `personal-finance-app-18cbc`
 - **Current version:** v1.7.0 (Production)
 - **Current phase:** Market Launch & User Engagement

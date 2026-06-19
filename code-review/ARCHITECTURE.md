@@ -1,4 +1,4 @@
-# System Architecture — Fymo
+# System Architecture — PerfinLab
 
 **Last updated:** 2026-04-28
 **Version:** v1.5.0
@@ -7,7 +7,7 @@
 
 ## Overview
 
-Fymo is a full-stack personal finance dashboard. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, and **Claude Sonnet 4.6 (Anthropic API) for all AI features** — chat, briefs, goal guidance, and PDF/image document extraction. No other LLMs are used.
+PerfinLab is a full-stack personal finance dashboard. React 19 frontend, Python/Flask backend running on Firebase Cloud Functions, Firestore database, Plaid for bank sync, and **Claude Sonnet 4.6 (Anthropic API) for all AI features** — chat, briefs, goal guidance, and PDF/image document extraction. No other LLMs are used.
 
 ---
 
@@ -36,7 +36,7 @@ Browser (React 19)
     │
     │  HTTPS + Firebase JWT in Authorization header
     ▼
-Firebase Hosting  (projectfymo.com → Firebase CDN)
+Firebase Hosting  (perfinlab.com → Firebase CDN)
     │
     │  Rewrite /api/* →
     ▼

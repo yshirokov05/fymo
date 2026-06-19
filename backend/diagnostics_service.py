@@ -12,11 +12,6 @@ def get_secret_diagnostics():
         # Anthropic Claude — sole LLM provider. Required for chat, briefs, goal
         # guidance, card summary, and document extraction.
         "ANTHROPIC_API_KEY",
-        # Legacy: GEMINI_API_KEY is no longer used by any code path but is
-        # still listed here so the diagnostic endpoint reports its presence
-        # if it's still configured in Firebase Secret Manager. Safe to remove
-        # both this entry and the secret itself.
-        "GEMINI_API_KEY",
         "FERNET_KEY",
         "PLAID_CLIENT_ID",
         "PLAID_SECRET",
