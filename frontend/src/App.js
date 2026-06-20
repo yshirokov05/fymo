@@ -169,6 +169,58 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     setIsUploadOpen(true);
   };
 
+  // Per-user key for the instant-render dashboard cache (sessionStorage, cleared
+  // on tab close). Bump the version suffix if the response shape changes.
+  const dashCacheKey = () => {
+    const uid = currentUser?.uid || (isGuest ? 'guest' : null);
+    return uid ? `pl_dash_v1_${uid}` : null;
+  };
+
+  // Apply a /api/net_worth payload (live OR cached) to all dashboard state.
+  // Pure state-from-data — no network, no one-time side effects (milestones,
+  // onboarding) so it's safe to run from the cache on mount.
+  const applyDashboardData = (data) => {
+    setAssets(data.assets || []);
+    setIncomes(data.incomes || []);
+    setDebts(data.debts || []);
+    setRetirementAccounts(data.retirement_accounts || []);
+    setInsurances(data.insurances || []);
+    setTransactions(data.transactions || []);
+    setBudgets(data.budgets || []);
+    setPaystubs(data.paystubs || []);
+    setOutstandingChecks(data.outstanding_checks || []);
+    setPlaidItems(data.plaid_items || []);
+    setNetWorth(data.real_time_net_worth);
+    setTaxDetails(data.tax_details || {});
+
+    setIsPremium(data.is_subscribed || data.is_authorized || false);
+    if (data.investment_history) setInvestmentHistory(data.investment_history);
+    setAccountApy(data.account_apy || {});
+    setRealizedOverride(data.realized_override || null);
+
+    setHasCompletedOnboarding(data.has_completed_onboarding || false);
+    setCustomCategories(data.custom_categories || []);
+    setIgnoredSubscriptionMerchants(data.ignored_subscription_merchants || []);
+    setManualSubscriptionMerchants(data.manual_subscription_merchants || []);
+    setIgnoredFlexibleCategories(data.ignored_flexible || []);
+
+    const yearData = data.tax_details?.[selectedTaxYear] || {
+        federal_tax: 0,
+        state_tax: 0,
+        fica_tax: 0,
+        total_tax: 0
+    };
+    setTaxLiability(buildTaxLiability(yearData));
+    setUserTaxInfo({
+        filing_status: data.filing_status,
+        state: data.state,
+        employment_type: data.employment_type || 'W2',
+        business_deductions: data.business_deductions || 0,
+        dependents: data.dependents || 0
+    });
+    setLoading(false);
+  };
+
   const fetchData = async () => {
     // Guard: Don't fetch until auth is resolved
     if (!isGuest && !currentUser) {
@@ -189,29 +241,21 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
             ...headers,
             timeout: 45000 
         });
-        setAssets(response.data.assets || []);
-        setIncomes(response.data.incomes || []);
-        setDebts(response.data.debts || []);
-        setRetirementAccounts(response.data.retirement_accounts || []);
-        setInsurances(response.data.insurances || []);
-        setTransactions(response.data.transactions || []);
-        setBudgets(response.data.budgets || []);
-        setPaystubs(response.data.paystubs || []);
-        setOutstandingChecks(response.data.outstanding_checks || []);
-        setPlaidItems(response.data.plaid_items || []);
-        setNetWorth(response.data.real_time_net_worth);
-        setTaxDetails(response.data.tax_details || {});
-        
-        setIsPremium(response.data.is_subscribed || response.data.is_authorized || false);
-        if (response.data.investment_history) setInvestmentHistory(response.data.investment_history);
-        setAccountApy(response.data.account_apy || {});
-        setRealizedOverride(response.data.realized_override || null);
+        applyDashboardData(response.data);
+
+        // Milestone celebration is a one-time, server-detected event — only fire it
+        // from a live response, never from the instant-render cache (which would
+        // re-trigger the modal on every page load).
         if (response.data.newly_crossed_milestone) {
             setNewlyCrossedMilestone(response.data.newly_crossed_milestone);
         }
 
-        setHasCompletedOnboarding(response.data.has_completed_onboarding || false);
-        setCustomCategories(response.data.custom_categories || []);
+        // Persist the fresh response so the next load can render instantly from
+        // cache while this network call is still in flight (see hydrate effect).
+        try {
+            const key = dashCacheKey();
+            if (key) sessionStorage.setItem(key, JSON.stringify(response.data));
+        } catch (_) { /* sessionStorage full/blocked — non-critical */ }
 
         // Lightweight goals count fetch (non-blocking) so Dashboard checklist
         // reflects reality on initial load without needing to mount Goals tab.
@@ -225,31 +269,11 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                 .then(r => setPortfolioHistory(r.data.history || []))
                 .catch(() => {}); // silent — not critical
         }
-        setIgnoredSubscriptionMerchants(response.data.ignored_subscription_merchants || []);
-        setManualSubscriptionMerchants(response.data.manual_subscription_merchants || []);
-        setIgnoredFlexibleCategories(response.data.ignored_flexible || []);
-        
-        const yearData = response.data.tax_details?.[selectedTaxYear] || {
-            federal_tax: 0,
-            state_tax: 0,
-            fica_tax: 0,
-            total_tax: 0
-        };
 
-        setTaxLiability(buildTaxLiability(yearData));
-        setUserTaxInfo({
-            filing_status: response.data.filing_status,
-            state: response.data.state,
-            employment_type: response.data.employment_type || 'W2',
-            business_deductions: response.data.business_deductions || 0,
-            dependents: response.data.dependents || 0
-        });
-        setLoading(false);
-        
         // Detect fresh user
-        const isFresh = (response.data.assets?.length === 0 && 
-                         response.data.incomes?.length === 0 && 
-                         response.data.debts?.length === 0 && 
+        const isFresh = (response.data.assets?.length === 0 &&
+                         response.data.incomes?.length === 0 &&
+                         response.data.debts?.length === 0 &&
                          response.data.paystubs?.length === 0 &&
                          (response.data.has_completed_onboarding === false));
         if (isFresh) {
@@ -279,6 +303,14 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
   useEffect(() => {
     // Only fetch when auth is resolved (currentUser is set) or in guest mode
     if (currentUser || isGuest) {
+      // Instant render: paint last-known dashboard from cache while the live
+      // /api/net_worth call (which re-prices holdings) is still in flight. The
+      // network response overwrites this the moment it lands.
+      try {
+        const key = dashCacheKey();
+        const cached = key && sessionStorage.getItem(key);
+        if (cached) applyDashboardData(JSON.parse(cached));
+      } catch (_) { /* corrupt/blocked cache — ignore, network will fill in */ }
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
