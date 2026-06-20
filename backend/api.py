@@ -823,15 +823,33 @@ def get_net_worth():
         _is_subscribed = getattr(user, 'is_subscribed', False)
         is_premium = _is_subscribed
         try:
+            # App owners (OWNER_EMAILS, verified email) are ALWAYS premium —
+            # independent of the whitelist collection, so a missing or miskeyed
+            # comp doc can never lock the founder out of their own app.
+            if _require_owner():
+                is_premium = True
             _is_authorized = is_user_authorized(request.uid, _email)
-            is_premium = _is_subscribed or _is_authorized
+            is_premium = is_premium or _is_subscribed or _is_authorized
             # Cross-login restore: verified email with an active Stripe sub under a
             # different uid/login.
             if not is_premium and _email and getattr(request, 'email_verified', False):
                 if resolve_premium_via_stripe_email(request.uid, _email):
                     is_premium = True
+            # Owner self-heal: write the durable email-keyed comp doc (the same
+            # shape /api/admin/comp writes) so EVERY whitelist-gated feature —
+            # AI Analyst, etc., which call is_user_authorized directly without
+            # the owner short-circuit above — also recognizes the owner. Runs
+            # once; idempotent thereafter.
+            if _require_owner() and _email and not _is_authorized:
+                _db = get_db()
+                if _db:
+                    _ekey = _email.lower().strip()
+                    _db.collection('whitelist').document(_ekey).set(
+                        {'granted': True, 'email': _ekey, 'comp': True}, merge=True)
+                    _db.collection('whitelist').document(request.uid).set(
+                        {'granted': True, 'email': _ekey, 'comp': True}, merge=True)
             # Self-heal: stamp the users doc so future reads are consistent.
-            if _is_authorized and not _is_subscribed:
+            if is_premium and not _is_subscribed:
                 _db = get_db()
                 if _db:
                     _db.collection('users').document(request.uid).set({'is_subscribed': True}, merge=True)
