@@ -36,21 +36,32 @@ def _realized_gains_for_year(realized_gains, year):
     return {'st': 0.0, 'lt': 0.0, 'count': 0}
 
 
-def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], debts: list[Debt], retirement_accounts: list[RetirementAccount] = [], insurances: list[Insurance] = [], paystubs: list[Paystub] = []):
+def calculate_net_worth(user: User, incomes: list[Income], assets: list[Asset], debts: list[Debt], retirement_accounts: list[RetirementAccount] = [], insurances: list[Insurance] = [], paystubs: list[Paystub] = [], price_map: dict = None):
     """
     Calculates the real-time net worth for a user with safety for None values.
+
+    price_map: optional {ticker: {'current_price': ...}} already fetched by the
+    caller (the dashboard fetches all tickers ONCE with a hard time cap). When
+    provided we reuse it and never re-hit the per-ticker price API — critical for
+    accounts with many option/exotic tickers, where each uncacheable miss otherwise
+    re-tried yfinance+Stooq sequentially with NO cap, blowing past the request
+    timeout (the cause of the dashboard timing out to $0).
     """
     total_assets_market_value = 0
     for asset in assets:
         shares = float(asset.shares or 0)
         cost_basis = float(asset.cost_basis or 0)
-        
+
         is_cash_ticker = asset.ticker in ['CUR:USD', 'CASH', 'USD', 'VMFXX', 'SPAXX', 'FDRXX', 'SWVXX', 'TMSXX', 'VBTIX', 'VUSXX', 'SNSXX', 'FZFXX']
         if asset.asset_type in [AssetType.CASH, AssetType.HOUSING, AssetType.SAVINGS, AssetType.CHECKING, AssetType.HIGH_YIELD_SAVINGS] or is_cash_ticker:
             total_assets_market_value += shares
         else:
-            price_data = get_current_price(asset.ticker)
-            current_price = price_data.get('current_price') if isinstance(price_data, dict) else None
+            if price_map is not None:
+                pm = price_map.get(asset.ticker)
+                current_price = pm.get('current_price') if isinstance(pm, dict) else None
+            else:
+                price_data = get_current_price(asset.ticker)
+                current_price = price_data.get('current_price') if isinstance(price_data, dict) else None
             if current_price is not None and isinstance(current_price, (int, float)) and current_price > 0:
                 total_assets_market_value += (current_price * shares)
             elif shares > 0:

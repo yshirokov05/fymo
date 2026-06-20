@@ -798,8 +798,8 @@ def get_net_worth():
         
         tickers = [a.ticker for a in assets]
         price_map = get_multiple_prices(tickers)
-        
-        net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
+
+        net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs, price_map=price_map)
         net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
         net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]
         net_worth_data['debts'] = [debt_to_dict(d) for d in debts]
@@ -1490,7 +1490,7 @@ def initialize_sample_data():
     tickers = [a.ticker for a in sample_assets]
     price_map = get_multiple_prices(tickers)
     
-    net_worth_data = calculate_net_worth(user, [sample_income], sample_assets, sample_debts, [], [], [])
+    net_worth_data = calculate_net_worth(user, [sample_income], sample_assets, sample_debts, [], [], [], price_map=price_map)
     net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in sample_assets]
     net_worth_data['incomes'] = [income_to_dict(sample_income)]
     net_worth_data['debts'] = [debt_to_dict(d) for d in sample_debts]
@@ -1739,8 +1739,8 @@ def update_portfolio():
         }), 409
 
     price_map = get_multiple_prices([a.ticker for a in assets])
-    
-    net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
+
+    net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs, price_map=price_map)
     net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
     net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]
     net_worth_data['debts'] = [debt_to_dict(d) for d in debts]
@@ -2281,7 +2281,7 @@ def plaid_sync():
 
         price_map = get_multiple_prices([a.ticker for a in assets])
 
-        net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
+        net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs, price_map=price_map)
         net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
         net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]
         net_worth_data['debts'] = [debt_to_dict(d) for d in debts]
@@ -2405,7 +2405,7 @@ def set_access_token():
         
         price_map = get_multiple_prices([a.ticker for a in assets])
         
-        net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
+        net_worth_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs, price_map=price_map)
         net_worth_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
         net_worth_data['incomes'] = [income_to_dict(i) for i in incomes]
         net_worth_data['debts'] = [debt_to_dict(d) for d in debts]
@@ -2469,7 +2469,7 @@ def ask_advisor():
     
     # 2. Prepare financial data and PoP comparison
     price_map = get_multiple_prices([a.ticker for a in assets])
-    financial_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs)
+    financial_data = calculate_net_worth(user, incomes, assets, debts, retirement_accounts, insurances, paystubs, price_map=price_map)
     financial_data['assets'] = [asset_to_dict(a, price_map) for a in assets]
     financial_data['debts'] = [debt_to_dict(d) for d in debts]
     financial_data['transactions'] = [transaction_to_dict(t) for t in transactions]
