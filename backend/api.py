@@ -43,6 +43,43 @@ STRIPE_PRICE_ID = os.getenv('STRIPE_PRICE_ID', '').strip()
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '').strip()
 APP_URL = "https://personal-finance-app-18cbc.web.app"
 
+def _alert(message, exc=None, level="error", **context):
+    """Surface a production anomaly to error monitoring AND the logs.
+
+    Routes through Sentry when SENTRY_DSN is configured (sentry_sdk is only in
+    sys.modules after main._init_sentry() actually initialized it, so this is a
+    clean no-op until then). The point: trust-critical failures — a dashboard
+    that can't price a user's holdings, a swallowed 500 — should page us, not
+    die silently in a log nobody reads. NEVER raises; monitoring must never be
+    able to break a request.
+    """
+    try:
+        full = f"{message} | {context}" if context else message
+        (logging.error if level == "error" else logging.warning)(full)
+        import sys
+        if 'sentry_sdk' in sys.modules:
+            sentry_sdk = sys.modules['sentry_sdk']
+            if context:
+                try:
+                    with sentry_sdk.push_scope() as scope:
+                        for k, v in context.items():
+                            scope.set_tag(k, str(v)[:200])
+                        if exc is not None:
+                            sentry_sdk.capture_exception(exc)
+                        else:
+                            sentry_sdk.capture_message(message, level=level)
+                    return
+                except Exception:
+                    pass
+            if exc is not None:
+                sentry_sdk.capture_exception(exc)
+            else:
+                sentry_sdk.capture_message(message, level=level)
+    except Exception:
+        # Absolute backstop — alerting failures are never allowed to surface.
+        pass
+
+
 def _validate_file_magic(file_bytes: bytes, ext: str) -> bool:
     """Return True if file_bytes header matches the expected type for ext."""
     signatures = {
@@ -730,6 +767,19 @@ def create_portal_session():
 
 @app.route('/api/health')
 def health_check():
+    # Default: cheap liveness ({status:ok}) so existing uptime pings are unchanged.
+    # ?deep=1 also verifies Firestore connectivity — a real readiness signal an
+    # uptime monitor can alarm on. Leaks no secrets or internals.
+    if request.args.get('deep') == '1':
+        try:
+            db = get_db()
+            if not db:
+                return jsonify({'status': 'degraded', 'firestore': 'unavailable'}), 503
+            # Cheap round-trip: read at most one doc from a tiny well-known collection.
+            list(db.collection('whitelist').limit(1).get())
+            return jsonify({'status': 'ok', 'firestore': 'ok'})
+        except Exception as e:
+            return jsonify({'status': 'degraded', 'firestore': 'error', 'detail': type(e).__name__}), 503
     return jsonify({'status': 'ok'})
 
 @app.route('/api/config/categories', methods=['GET'])
@@ -854,7 +904,8 @@ def get_net_worth():
                 if _db:
                     _db.collection('users').document(request.uid).set({'is_subscribed': True}, merge=True)
         except Exception as _pe:
-            logging.error(f"Premium check failed for {request.uid} (defaulting to is_subscribed={_is_subscribed}): {_pe}")
+            _alert(f"Premium check failed (defaulting to is_subscribed={_is_subscribed})",
+                   exc=_pe, uid=request.uid)
         net_worth_data['is_authorized'] = is_premium
         net_worth_data['is_subscribed'] = is_premium
         net_worth_data['ignored_subscription_merchants'] = getattr(user, 'ignored_subscription_merchants', [])
@@ -913,10 +964,23 @@ def get_net_worth():
             except Exception as _se:
                 logging.warning(f"Snapshot on dashboard load failed for {request.uid}: {_se}")
 
+        # Production tripwire: a signed-in user WITH holdings whose total market
+        # value computed to 0 means pricing fell through entirely — the exact
+        # symptom of the dashboard-timeout/$0 bug. Alert loudly so a regression
+        # pages us before users see a blank net worth. (Best-effort; the value
+        # is still returned — we never withhold the user's dashboard over this.)
+        try:
+            _mv = net_worth_data.get('total_assets_market_value', 0) or 0
+            if request.uid != 'guest' and len(assets) > 0 and _mv == 0:
+                _alert('dashboard_zero_value_with_assets', level='error',
+                       uid=request.uid, asset_count=len(assets))
+        except Exception:
+            pass
+
         return jsonify(net_worth_data)
     except Exception as e:
         import traceback
-        logging.error(f"DASHBOARD ERROR: {str(e)}")
+        _alert(f"DASHBOARD ERROR: {e}", exc=e, uid=getattr(request, 'uid', '?'))
         logging.error(traceback.format_exc())
         return jsonify({'error': 'Internal server error'}), 500
 
