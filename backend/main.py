@@ -60,6 +60,11 @@ def _init_sentry():
     region="us-west2",
     memory=1024,
     timeout_sec=300,
+    # Keep ONE instance always warm. Cold starts add 5–15s to the first request
+    # after idle, which directly wastes paid-ad clicks (a slow first paint tanks
+    # conversion). Trade-off: one always-allocated instance bills ~$15–25/mo even
+    # at zero traffic. To disable, remove this line and redeploy.
+    min_instances=1,
     secrets=_SECRETS
 )
 def api_func(req: https_fn.Request) -> https_fn.Response:
