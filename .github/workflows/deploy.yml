@@ -102,5 +102,8 @@ jobs:
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/gcp_key.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp_key.json
-          npx firebase-tools@latest deploy --only hosting,functions --project personal-finance-app-18cbc
+          # --force is required for non-interactive CI: it bypasses the prompt the
+          # CLI raises when a change increases the minimum bill (e.g. min_instances)
+          # and confirms removal of any deleted functions. Our function set is stable.
+          npx firebase-tools@latest deploy --only hosting,functions --project personal-finance-app-18cbc --force
         working-directory: .
