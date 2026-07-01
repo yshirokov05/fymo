@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, RefreshCw, AlertCircle, Pencil, Check, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+/**
+ * Margin loans / settlement balances are debts but NOT credit cards. The backend
+ * tags them with a `margin*`-prefixed plaid_account_id (margin_, margin_bal_,
+ * margin_calc_); the Dashboard's synthetic ones carry an `isMargin` flag. Either
+ * signal means: don't offer the "What is this card?" AI summary or a card rename.
+ */
+const isMarginDebt = (debt) =>
+    debt.isMargin === true ||
+    (typeof debt.plaid_account_id === 'string' && debt.plaid_account_id.startsWith('margin'));
 
 /**
  * DebtTable — card-based layout for the user's outstanding debts.
@@ -41,15 +51,35 @@ const Stat = ({ label, value, accent = 'text-gray-800 dark:text-slate-100' }) =>
     </div>
 );
 
-const DebtCard = ({ debt }) => {
+const DebtCard = ({ debt, onRename }) => {
     const { currentUser, isGuest, promptSignIn } = useAuth();
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [cardLabel, setCardLabel] = useState('');   // user-typed exact card name
     const [showLabelInput, setShowLabelInput] = useState(false);
+    const [editingName, setEditingName] = useState(false);
+    const [nameDraft, setNameDraft] = useState(debt.name || '');
 
+    const isMargin = isMarginDebt(debt);
+    // Revolving = the balance revolves (card OR margin) — drives payoff/progress display.
     const isRevolving = debt.debt_type === 'REVOLVING';
+    // Card = a real credit card (revolving AND not a margin/settlement balance) —
+    // the only kind that gets the "What is this card?" AI summary.
+    const isCard = isRevolving && !isMargin;
+    // Rename is only meaningful for persisted (non-margin) debts, for signed-in users.
+    // Plaid often reports only the rewards program ("Ultimate Rewards") rather than
+    // the actual card product, so let the user set the real name — it persists and
+    // survives Plaid re-sync (manual-name preservation in plaid_service).
+    const canRename = !isMargin && !isGuest && typeof onRename === 'function';
+
+    const submitRename = () => {
+        const trimmed = nameDraft.trim();
+        if (trimmed && trimmed !== debt.name) {
+            onRename(debt, trimmed);
+        }
+        setEditingName(false);
+    };
 
     // Payoff projection (loans only — credit cards have no fixed payoff curve)
     let payoffMonths = null;
@@ -70,7 +100,7 @@ const DebtCard = ({ debt }) => {
     // Progress for non-revolving loans
     const initial = debt.initial_amount || 0;
     const paid = debt.amount_paid || 0;
-    const showProgress = !isRevolving && initial > 0 && !debt.isMargin;
+    const showProgress = !isRevolving && initial > 0 && !isMargin;
     const paidPct = showProgress ? Math.min(100, Math.max(0, (paid / initial) * 100)) : 0;
 
     // Resolve the most-informative name to display in the small subtitle.
@@ -118,9 +148,54 @@ const DebtCard = ({ debt }) => {
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-4">
                 <div className="min-w-0 flex-1">
-                    <div className="font-black text-gray-900 dark:text-slate-100 text-base leading-tight">
-                        {debt.name}
-                    </div>
+                    {editingName ? (
+                        <div className="flex items-center gap-1.5">
+                            <input
+                                type="text"
+                                autoFocus
+                                value={nameDraft}
+                                onChange={e => setNameDraft(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') submitRename();
+                                    if (e.key === 'Escape') { setNameDraft(debt.name || ''); setEditingName(false); }
+                                }}
+                                placeholder="e.g. Chase Sapphire Reserve"
+                                className="min-w-0 flex-1 px-2 py-1 text-sm font-bold border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={submitRename}
+                                title="Save name"
+                                className="shrink-0 text-green-600 dark:text-green-400 hover:text-green-700"
+                            >
+                                <Check size={16} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setNameDraft(debt.name || ''); setEditingName(false); }}
+                                title="Cancel"
+                                className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 group/name">
+                            <span className="font-black text-gray-900 dark:text-slate-100 text-base leading-tight">
+                                {debt.name}
+                            </span>
+                            {canRename && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setNameDraft(debt.name || ''); setEditingName(true); }}
+                                    title="Rename card"
+                                    className="shrink-0 text-gray-300 dark:text-slate-600 hover:text-blue-600 dark:hover:text-blue-400 opacity-0 group-hover/name:opacity-100 focus:opacity-100 transition-opacity"
+                                >
+                                    <Pencil size={13} />
+                                </button>
+                            )}
+                        </div>
+                    )}
                     {subtitle && (
                         <div className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-slate-500 mt-1 break-words">
                             {subtitle}
@@ -175,8 +250,8 @@ const DebtCard = ({ debt }) => {
                 </div>
             )}
 
-            {/* AI No-BS card summary — credit cards only */}
-            {isRevolving && (
+            {/* AI No-BS card summary — real credit cards only (never margin/settlement) */}
+            {isCard && (
                 <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700/60">
                     {!summary && !error && (
                         isGuest ? (
@@ -278,7 +353,7 @@ const DebtCard = ({ debt }) => {
     );
 };
 
-const DebtTable = ({ debts = [] }) => {
+const DebtTable = ({ debts = [], onRename }) => {
     if (debts.length === 0) {
         return (
             <div className="text-center py-12 text-gray-400 dark:text-slate-500 text-sm">
@@ -297,7 +372,7 @@ const DebtTable = ({ debts = [] }) => {
             {/* Card grid — stacks on mobile, 2-col at lg+ */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {debts.map((debt) => (
-                    <DebtCard key={debt.plaid_account_id || debt.name} debt={debt} />
+                    <DebtCard key={debt.plaid_account_id || debt.name} debt={debt} onRename={onRename} />
                 ))}
             </div>
 

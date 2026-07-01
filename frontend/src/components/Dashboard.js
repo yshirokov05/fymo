@@ -95,7 +95,7 @@ const fmtCompact = (n) => {
     return `$${n.toFixed(0)}`;
 };
 
-const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, portfolioHistory = [], capabilities = null, onOpenEdit = null, onOpenLink = null, accountApy = {}, onEstimateApy = null, onSaveApy = null }) => {
+const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], incomes = [], paystubs = [], hideSummary = false, hideAssetSections = false, showDebtAllocation = false, isGuest = false, hasCompletedOnboarding = true, onUpdateCostBasis, investmentHistory = null, portfolioHistory = [], capabilities = null, onOpenEdit = null, onOpenLink = null, accountApy = {}, onEstimateApy = null, onSaveApy = null, onRenameDebt = null }) => {
     // Capabilities fallback: if not passed (legacy usage), infer from data we have.
     // Lets us use Dashboard in embedded contexts (Investments tab, Debts tab) without piping.
     const caps = capabilities || {
@@ -1271,7 +1271,7 @@ const Dashboard = ({ netWorth, assets, debts, taxLiability, transactions = [], i
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card title="Debt Details" icon={<ArrowDownCircle className="text-red-500" />}>
                         <div className="overflow-x-auto">
-                            <DebtTable debts={allDebts} />
+                            <DebtTable debts={allDebts} onRename={onRenameDebt} />
                         </div>
                     </Card>
 
