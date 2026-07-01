@@ -418,6 +418,33 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
     }
   };
 
+  // ── Debt rename: persist a user-set card name ──
+  // Plaid often returns only the rewards program ("Ultimate Rewards") instead of
+  // the real card product, so let the user rename it. Persists via /api/portfolio;
+  // plaid_service preserves the manual name across future syncs. Optimistic with
+  // rollback on failure.
+  const handleRenameDebt = async (debt, newName) => {
+    const trimmed = (newName || '').trim();
+    if (!trimmed) return;
+    const matches = (d) => debt.plaid_account_id
+        ? d.plaid_account_id === debt.plaid_account_id
+        : (d.name === debt.name && d.official_name === debt.official_name);
+    const prevDebts = debts;
+    const updated = (debts || []).map(d => matches(d) ? { ...d, name: trimmed } : d);
+    setDebts(updated);  // optimistic — no full-page spinner
+    try {
+        const headers = isGuest || !currentUser
+            ? {}
+            : { headers: { Authorization: `Bearer ${await currentUser.getIdToken()}` } };
+        const response = await axios.put('/api/portfolio', { debts: updated }, headers);
+        if (response.data?.debts) setDebts(response.data.debts);
+    } catch (err) {
+        setDebts(prevDebts);  // roll back
+        const msg = err.response?.data?.error || 'Failed to rename debt';
+        showToast(msg, 'error');
+    }
+  };
+
   // ── HYSA APY: AI estimate + persist (Plaid can't provide deposit APY) ──
   const handleEstimateApy = async ({ name, institution }) => {
     const headers = isGuest || !currentUser
@@ -820,6 +847,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                     capabilities={capabilities}
                     onOpenEdit={openEditModal}
                     onOpenLink={() => setActiveView('settings')}
+                    onRenameDebt={handleRenameDebt}
                 />
             </div>
         );
@@ -911,7 +939,7 @@ function MainContent({ isGuest, onResetGuest, showOnboarding, setShowOnboarding 
                    </div>
                    
                    {debts.length > 0 ? (
-                       <Dashboard debts={debts} assets={assets} netWorth={0} hideSummary hideAssetSections={true} showDebtAllocation={true} />
+                       <Dashboard debts={debts} assets={assets} netWorth={0} hideSummary hideAssetSections={true} showDebtAllocation={true} isGuest={isGuest} onRenameDebt={handleRenameDebt} />
                    ) : (
                        <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                            <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
